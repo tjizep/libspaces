@@ -1,4 +1,4 @@
-require "spaces"
+require "libspaces"
 local u = 1e6
 local s = spaces.open();
 if s.data == nil then

@@ -1,5 +1,4 @@
-require "spaces"
---_G.type = require('mtype.pure').type
+require "libspaces"
 local _ = require ("moses")
 local inspect = require('inspect')
 

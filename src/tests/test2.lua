@@ -1,4 +1,4 @@
-require "spaces"
+require "libspaces"
 local s = spaces.open();
 
 s[1] = 0

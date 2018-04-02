@@ -1,0 +1,3 @@
+LUA_CPATH=~/torch/bin/?.so;./?.so;;
+LUA_DEV=~/torch
+LUA_PATH=~/torch/lua/?;~/torch/lua/?.lua;~/torch/lua/?/init.lua;;
