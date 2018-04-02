@@ -1,0 +1,720 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\storage">
+      <UniqueIdentifier>{2dd190ca-3037-40a4-ae43-e730eee4b773}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\storage\spaces">
+      <UniqueIdentifier>{9237f2ce-4cca-4c49-aad2-b00e668e928a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\storage">
+      <UniqueIdentifier>{3bf088ac-34ef-48ad-81d9-bd21b0abf459}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\storage\spaces">
+      <UniqueIdentifier>{9a4f5410-806a-4e6c-925f-e8e69245920c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\lua">
+      <UniqueIdentifier>{2ca10a7b-aa4d-489d-9975-64de0dcfd854}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\poco">
+      <UniqueIdentifier>{953e1a88-f6bd-4ba9-8f81-1ee01d394179}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\poco\Data">
+      <UniqueIdentifier>{5ca2051c-7e8c-4030-9eb7-8ebd3a272b07}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\poco\Data\SQLite">
+      <UniqueIdentifier>{e87f960e-75b9-42ac-9ae0-903e8d02a632}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\poco\Foundation">
+      <UniqueIdentifier>{3308a2ef-472c-461d-acb0-f8fd5522e78c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\repo">
+      <UniqueIdentifier>{b97dc615-f26a-49d6-b8bb-0127b02461ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\stx">
+      <UniqueIdentifier>{7c8de582-04f5-4fec-b314-65239668aac0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\helper\lua_xt.h">
+      <Filter>Header Files\lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\storage\spaces\data_type.h">
+      <Filter>Header Files\storage\spaces</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\storage\spaces\space_lua.h">
+      <Filter>Header Files\storage\spaces</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\storage\spaces\key.h">
+      <Filter>Header Files\storage\spaces</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\storage\spaces\spaces_dep.h">
+      <Filter>Header Files\storage\spaces</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\storage\basic_storage.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\storage\leb128.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\storage\pool.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\storage\types.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\storage\spaces\dbms.h">
+      <Filter>Header Files\storage\spaces</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\btree.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\btree_map.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\btree_multimap.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\btree_multiset.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\stx\btree_set.h">
+      <Filter>Header Files\stx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\repo\rabbit\rabbit_map.h">
+      <Filter>Source Files\repo</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="spaces_lua.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\storage\spaces\spaces.cpp">
+      <Filter>Source Files\storage\spaces</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\abstracted_storage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractBinder.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractBinding.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractExtraction.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractExtractor.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractPreparation.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\AbstractPrepare.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\BLOB.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\BLOBStream.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\Connector.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\DataException.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\Limit.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\MetaColumn.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\PooledSessionHolder.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\PooledSessionImpl.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\Range.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\RecordSet.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\Session.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\SessionFactory.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\SessionImpl.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\SessionPool.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\Statement.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\StatementCreator.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\src\StatementImpl.cpp">
+      <Filter>Source Files\poco\Data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\Binder.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\Extractor.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\sqlite3.c">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\SQLiteException.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\SQLiteStatementImpl.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\Utility.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\AbstractObserver.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ActiveDispatcher.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\adler32.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ArchiveStrategy.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Ascii.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ASCIIEncoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\AsyncChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\AtomicCounter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Base64Decoder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Base64Encoder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\BinaryReader.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\BinaryWriter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Bugcheck.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ByteOrder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Channel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Checksum.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\compress.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Condition.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Configurable.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ConsoleChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\CountingStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\crc32.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DateTime.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DateTimeFormat.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DateTimeFormatter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DateTimeParser.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Debugger.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\deflate.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DeflatingStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DigestEngine.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DigestStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DirectoryIterator.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DirectoryWatcher.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DynamicAny.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\DynamicAnyHolder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Environment.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ErrorHandler.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Event.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\EventArgs.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\EventLogChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Exception.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\File.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\FileChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\FileStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\FileStreamFactory.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Format.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Formatter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\FormattingChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Glob.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Hash.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\HashStatistic.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\HexBinaryDecoder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\HexBinaryEncoder.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\infback.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\inffast.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\inflate.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\InflatingStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\inftrees.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Latin1Encoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Latin9Encoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LineEndingConverter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LocalDateTime.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LogFile.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Logger.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LoggingFactory.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LoggingRegistry.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\LogStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Manifest.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\MD4Engine.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\MD5Engine.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\MemoryPool.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\MemoryStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Message.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Mutex.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NamedEvent.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NamedMutex.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NestedDiagnosticContext.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Notification.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NotificationCenter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NotificationQueue.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NullChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NullStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NumberFormatter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\NumberParser.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Path.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\PatternFormatter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_chartables.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_compile.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_exec.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_fullinfo.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_globals.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_maketables.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_newline.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_ord2utf8.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_study.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_tables.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_try_flipped.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_ucd.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_valid_utf8.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\pcre_xclass.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Pipe.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\PipeImpl.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\PipeStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\PriorityNotificationQueue.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Process.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\PurgeStrategy.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Random.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\RandomStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\RefCountedObject.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\RegularExpression.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\RotateStrategy.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Runnable.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\RWLock.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Semaphore.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SHA1Engine.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SharedLibrary.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SharedMemory.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SignalHandler.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SimpleFileChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SplitterChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Stopwatch.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\StreamChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\StreamConverter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\StreamCopier.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\StreamTokenizer.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\String.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\StringTokenizer.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\SynchronizedObject.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Task.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TaskManager.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TaskNotification.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TeeStream.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TemporaryFile.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TextBufferIterator.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TextConverter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TextEncoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TextIterator.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Thread.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ThreadLocal.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ThreadPool.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\ThreadTarget.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\TimedNotificationQueue.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Timer.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Timespan.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Timestamp.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Timezone.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Token.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\trees.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Unicode.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UnicodeConverter.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\URI.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\URIStreamFactory.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\URIStreamOpener.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UTF8Encoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UTF8String.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UTF16Encoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UUID.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\UUIDGenerator.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Void.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\Windows1252Encoding.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\WindowsConsoleChannel.cpp">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Foundation\src\zutil.c">
+      <Filter>Source Files\poco\Foundation</Filter>
+    </ClCompile>
+    <ClCompile Include="..\repo\fse\fse.c">
+      <Filter>Source Files\repo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\repo\fse\zlibh.c">
+      <Filter>Source Files\repo</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\journal.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\transactional_storage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\SQLiteSessionImpl.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\poco-1.4.6p1-all\Data\SQLite\src\SQLiteConnector.cpp">
+      <Filter>Source Files\poco\Data\SQLite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\repo\lz4-r101\lz4.c">
+      <Filter>Source Files\repo</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.lua" />
+  </ItemGroup>
+</Project>
