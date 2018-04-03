@@ -4,6 +4,11 @@
 #include <storage/spaces/key.h>
 #include <stx/btree_set.h>
 #include <abstracted_storage.h>
+namespace stx {
+    namespace storage {
+        extern long long total_use;
+    }
+}
 namespace spaces{
 	class dbms {
 	public:
@@ -14,7 +19,8 @@ namespace spaces{
 		_Set set;
 	public:
 		dbms(const std::string &name) : storage(name), set(storage) {
-			storage.begin(true);			
+			storage.begin(true);
+			allocation_pool.set_max_pool_size(1024*1024*1024*6ull);
 		}
 		~dbms() {
 			
@@ -33,6 +39,9 @@ namespace spaces{
 				stored::abstracted_tx_begin(false, false, storage, set);
 			}
 				
+		}
+		void check_resources(){
+
 		}
 		void commit() {
 			set.flush_buffers();

@@ -1,13 +1,16 @@
 #include "Poco/Mutex.h"
 #include "system_timers.h"
 #include <stx/storage/types.h>
-
+#include <iostream>
+#include <stx/storage/pool.h>
 
 typedef Poco::ScopedLockWithUnlock<Poco::Mutex> syncronized;
 static Poco::Mutex& get_stats_lock(){
 	static Poco::Mutex _c_lock;
 	return _c_lock;
 }
+extern stx::storage::allocation::pool allocation_pool;
+extern bool stx::memory_low_state;
 namespace stx{
 namespace storage{
 	class low_resource_timer{
@@ -47,11 +50,21 @@ namespace storage{
 			void run(){
 				stopped = false;
 				started = true;
-
+				Poco::Thread::sleep(5000);
 				timer_val = os::millis();
 				try{
 					while(is_started()){
-						Poco::Thread::sleep(50);
+						Poco::Thread::sleep(1500);
+
+                        if(allocation_pool.is_near_depleted()){
+                            if(!::stx::memory_low_state){
+								//std::cout << " resources: " << ((double)allocation_pool.get_total_allocated()/(1024.0*1024.0)) << std::endl;
+                                //std::cout << "switching to low state" << std::endl;
+                            }
+                            ::stx::memory_low_state = true;
+                        }else{
+                            ::stx::memory_low_state = false;
+                        }
 						timer_val = os::millis();
 					}
 				}catch(Poco::Exception &){
@@ -68,8 +81,9 @@ namespace storage{
 		Poco::Thread timer_thread;
 		timer_worker worker;
 	public:
-		low_resource_timer() : timer_thread("ts:timer_thread"){
-			try{
+		low_resource_timer() : timer_thread("spaces:timer_thread"){
+		    std::cout << " starting resource thread " << std::endl;
+            try{
 				timer_thread.start(worker);
 				//worker.wait_start();
 			}catch(Poco::Exception &ex){

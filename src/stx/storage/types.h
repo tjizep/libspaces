@@ -92,6 +92,7 @@ namespace stx{
 			typedef Poco::UUID version_type;
 
 	};
+	extern bool memory_low_state;
 };
 namespace std {
     template <>

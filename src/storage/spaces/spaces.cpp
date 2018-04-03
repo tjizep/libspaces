@@ -40,9 +40,10 @@ void add_btree_totl_used(ptrdiff_t added) {
 void remove_btree_totl_used(ptrdiff_t added) {
 
 }
+
 bool register_connector() {
+
 	Poco::Data::SQLite::Connector::registerConnector();
 	return true;
 }
 static bool registered = register_connector();
-

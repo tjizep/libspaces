@@ -1,33 +1,32 @@
 require "libspaces"
-local u = 1e6
+local u = 1e8
 local s = spaces.open();
 if s.data == nil then
 	s.data = "beans"
 end
-local k = s.data
-if not k == nil then
+local data = s.data
+if not data == nil then
 	print("ERROR: find non existent key")
 end
-local t = os.clock()
-s.data = {}
-k = s.data
-print("current object count",#k)
-if #k == 0 then
-	k[1] = 1
-	k[2] = 2
-	k[3] = 3
-	k[4] = 4
-	print("current object count",#k)
 
-	k.l1 = 1
-	k.l2 = 2
-	k.l3 = 3
-	k.l4 = 4
-	print("current object count",#k)
-	
-	for k,v in pairs(k) do
-		print("(k,v) ",k,v)
-	end
+local charset = {}  do -- [0-9a-zA-Z]
+	for c = 48, 57  do table.insert(charset, string.char(c)) end
+	for c = 65, 90  do table.insert(charset, string.char(c)) end
+	for c = 97, 122 do table.insert(charset, string.char(c)) end
+end
+math.randomseed(78976)
+local function randomString(length)
+	if not length or length <= 0 then return '' end
+	return randomString(length - 1) .. charset[math.random(1, #charset)]
+end
+
+
+local t = os.clock()
+local td = os.clock()
+s.data = {}
+data = s.data
+print("current object count",#data)
+if #data == 0 then
 	print("start st write",t)
 
 	local lt = {}
@@ -35,45 +34,32 @@ if #k == 0 then
 	local tl = 0
 	spaces.begin()	
 	for i = 1,u do
-		local ss = ""..i --
+		local ss = randomString(8) --td = os.clock()
 		tl = tl + i*2 -- checksum
-		k[ss] = i*2;
+		data[ss] = i*2;
+		if (i % (u/50)) == 0 then
+			print("continue st write",i,os.clock()-td)
+			td = os.clock()
+		end
 	end	
 	print("end st write",os.clock()-t,tl)
 
 end
 
 t = os.clock()
-print("start st read",t)
-local t2 = 0
-for i = 1,u do
-	local ss = ""..i --
-	if  k[ss] == nil then
-		print("key error")
-	end
-	--t2 = t2 + k[ss] -- checksum
-end
-if not t1 == t2 then
-	print("checksum does not match")
-end
-print("end st read",os.clock()-t)
-t = os.clock()
 print("start st iterate",t)
 local cnt = 0
 local ops = 0;
 local opst = 0;
-for k,v in pairs(k) do
-	local lv = v
-	cnt = cnt + v
-	opst = opst + (lv + ((lv *10)/ 10) ) - (lv - ((lv *10)/ 10) ) - lv
-	ops = ops + (v + ((v *10)/ 10) ) - (v - ((v *10)/ 10) ) - v
-end
-if not (cnt == ops and opst == ops) then
-	print("ERROR end st iterate",os.clock()-t,cnt, ops, opst)
-else
-	print("end st iterate",os.clock()-t,cnt, ops, opst)
-end
+for k,v in pairs(data) do
 
+	local dv = data[k]
+	if  dv == nil then
+		print("key error")
+	end
+
+end
+print("end st read/iterate",os.clock()-t)
 --s.data = nil --delete everything added
 spaces.commit()
 --[[]]

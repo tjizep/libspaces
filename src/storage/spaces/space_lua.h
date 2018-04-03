@@ -42,6 +42,9 @@ namespace spaces{
 			return d.get_set();
 			//return s;
 		}
+		void check(){
+		    d.check_resources();
+		}
 		void begin() {
 			d.begin();
 		}
@@ -57,6 +60,9 @@ namespace spaces{
 
 		spaces::_MSet &get_set() {
 			return s;
+		}
+		void check(){
+
 		}
 		void begin() {
 			
@@ -144,7 +150,7 @@ namespace spaces{
 		}else{			
 			r = err_checkudata<_SessionType>(L, "", -1);
 		}
-		
+		r->check();
 		return r;
 	}
 	
@@ -163,6 +169,9 @@ namespace spaces{
 		}
 		void set_state(lua_State *L) {
 			this->L = L;
+		}
+		void check(){
+		    session.check();
 		}
 		void begin() {
 			session.begin();
