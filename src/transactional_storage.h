@@ -1630,9 +1630,6 @@ namespace storage{
 			allocated_version = version_type();
 			if(busy){
 				if(nullptr != result){
-					if(result->block.size() == 1 && currently_active == 1 && result->block[0] == 9){
-						inf_print("debug please");
-					}
 					up_use(reflect_block_use(result)); /// update changes made to last allocation
 				}
 
@@ -2561,7 +2558,7 @@ namespace storage{
 			if(!initial->is_end(content) && content.size() > 0){
 				names.resize(content.size());
 				memcpy(&names[0], &content[0], names.size());
-				printf("found initial versions %s\n",names.c_str());
+				inf_print("found initial versions %s\n",names.c_str());
 			}
 
 			initial->complete();

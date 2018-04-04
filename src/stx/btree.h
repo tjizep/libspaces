@@ -834,7 +834,7 @@ namespace stx
                         l->preceding.unload(true, false);
                     }
                     if (l->get_next().is_loaded()) {
-                        surface_node * n = const_cast<surface_node*>(l->get_next().rget());
+                        surface_node * n = const_cast<typename btree::surface_node*>(l->get_next().rget());
                         n->preceding.unload(true, false);
                         n->unload_next();
                     }
@@ -885,10 +885,10 @@ namespace stx
 
         public:
             const typename btree::surface_node* rget_surface() const {
-                return reinterpret_cast<const surface_node*>(rget());
+                return reinterpret_cast<const typename btree::surface_node*>(rget());
             }
             typename btree::surface_node* rget_surface() {
-                return reinterpret_cast<surface_node*>(rget());
+                return reinterpret_cast<typename btree::surface_node*>(rget());
             }
 
 

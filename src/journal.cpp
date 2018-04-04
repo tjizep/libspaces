@@ -181,8 +181,8 @@ public:
 			command = entry.command;			
 			address = entry.address ;	
 			buffer.resize(entry.buffer_size);
-			name.resize(entry.name_size+1);			
-			reader.readRaw( &name[0], entry.name_size ); 
+			name.resize(entry.name_size);
+			reader.readRaw( &name[0], entry.name_size ); /// NOTE: this was changed on linux
 			if(entry.buffer_size)
 				reader.readRaw( (char*)buffer.data(), entry.buffer_size ); //
 

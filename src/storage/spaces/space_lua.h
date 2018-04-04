@@ -30,7 +30,7 @@ namespace spaces{
 	typedef _SSet::iterator iterator;
 	typedef std::set<key> _MSet;
 	
-	extern ui8 id;
+
 	struct lua_db_session {
 		typedef spaces::dbms::_Set _Set;		
 		//spaces::_SSet s;
@@ -41,6 +41,9 @@ namespace spaces{
 		spaces::_SSet &get_set() {
 			return d.get_set();
 			//return s;
+		}
+		nst::u64 gen_id(){
+		    return d.gen_id();
 		}
 		void check(){
 		    d.check_resources();
@@ -55,12 +58,16 @@ namespace spaces{
 	struct lua_mem_session {
 		spaces::_MSet s;
 		typedef spaces::_MSet _Set;
-		lua_mem_session() {
+		nst::u64 id;
+		lua_mem_session() : id(1) {
 		}
 
 		spaces::_MSet &get_set() {
 			return s;
 		}
+        nst::u64 gen_id(){
+            return id++;
+        }
 		void check(){
 
 		}
@@ -82,11 +89,7 @@ namespace spaces{
 		}
 	};
 	
-	
-	
-	static ui8 make_id() {
-		return ++id;
-	}
+
 	static int luaopen_plib_any(lua_State *L, const luaL_Reg *m,
 					 const char *object_name, 
 					 const luaL_Reg *f,
@@ -286,21 +289,21 @@ namespace spaces{
 			}
 		}
 
-		void resolve_id(spaces::key* p) {
-			if (p->get_identity() == 0) {
+		void resolve_id(spaces::key* p, bool override = false) {
+			if (override || p->get_identity() == 0) {
 				auto& s = session.get_set();
 				auto i = s.lower_bound(*p);
-				if (i != s.end() && i->found(*p)) {
+				if (i != s.end()) {
 					*p = (*i);
 				}
-				if (p->get_identity() == 0) {
-					p->set_identity(spaces::make_id()); /// were gonna be a parent now so we will need an actual identity
+				if (override || p->get_identity() == 0) {
+					p->set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity
 					insert_or_replace(*p);
 				}
 			}
 		}
-		void resolve_id(spaces::key& p) {
-			resolve_id(&p);
+		void resolve_id(spaces::key& p, bool override = false) {
+			resolve_id(&p,override);
 		}
 		
 		spaces::key * get_space_key(int at = 1) {
@@ -448,7 +451,7 @@ namespace spaces{
 			int lt = lua_type(L, at);
 			switch (lt) {
 			case LUA_TTABLE: {
-				resolve_id(d); /// assign an identity to p (its leaves will need it)
+				resolve_id(d,true); /// assign an identity to p (its leaves will need it)
 				lua_pushnil(L);
 				/// will push the name and value of the current item (as returned by closure) 
 				/// on the stack

@@ -1,5 +1,5 @@
 require "libspaces"
-local u = 1e8
+local u = 1e3
 local s = spaces.open();
 if s.data == nil then
 	s.data = "beans"
@@ -23,7 +23,9 @@ end
 
 local t = os.clock()
 local td = os.clock()
-s.data = {}
+if s.data == nil then
+	s.data = {}
+end
 data = s.data
 print("current object count",#data)
 if #data == 0 then
@@ -37,7 +39,7 @@ if #data == 0 then
 		local ss = randomString(8) --td = os.clock()
 		tl = tl + i*2 -- checksum
 		data[ss] = i*2;
-		if (i % (u/50)) == 0 then
+		if (i % (u/10)) == 0 then
 			print("continue st write",i,os.clock()-td)
 			td = os.clock()
 		end
@@ -53,10 +55,10 @@ local ops = 0;
 local opst = 0;
 for k,v in pairs(data) do
 
-	local dv = data[k]
-	if  dv == nil then
-		print("key error")
-	end
+	--local dv = data[k]
+	--if  dv == nil then
+	--	print("key error")
+	--end
 
 end
 print("end st read/iterate",os.clock()-t)

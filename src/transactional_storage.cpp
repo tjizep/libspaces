@@ -82,7 +82,7 @@ namespace storage{
 		timer_worker worker;
 	public:
 		low_resource_timer() : timer_thread("spaces:timer_thread"){
-		    std::cout << " starting resource thread " << std::endl;
+		    inf_print(" starting resource thread ");
             try{
 				timer_thread.start(worker);
 				//worker.wait_start();

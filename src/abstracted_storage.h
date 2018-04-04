@@ -1,9 +1,5 @@
 /*****************************************************************************
 
-Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
-Copyright (c) 2008, 2009 Google Inc.
-Copyright (c) 2009, Percona Inc.
-Copyright (c) 2012, Facebook Inc.
 Copyright (c) 2013, Christiaan Pretorius
 
 Portions of this file contain modifications contributed and copyrighted by
@@ -200,6 +196,19 @@ namespace stored{
 			get_transaction().complete();
 			return !ba.empty();
 		}
+		bool get_boot_value(NS_STORAGE::u64 &r, NS_STORAGE::stream_address boot){
+			r = 0;
+			const NS_STORAGE::buffer_type &ba = get_transaction().allocate(boot, NS_STORAGE::read); /// read it
+			if(!ba.empty()){
+				/// the b+tree/x map needs loading
+				NS_STORAGE::buffer_type::const_iterator reader = ba.begin();
+
+				r = NS_STORAGE::leb128::read_unsigned64(reader,ba.end());
+				//printf("[BOOT VAL] %s [%lld] version %lld\n",get_name().c_str(), r, get_transaction().get_allocated_version());
+			}
+			get_transaction().complete();
+			return !ba.empty();
+		}
 		bool get_boot_value(NS_STORAGE::buffer_type& buffer, NS_STORAGE::stream_address boot){
 			const NS_STORAGE::buffer_type &ba = get_transaction().allocate(boot, NS_STORAGE::read); /// read it
 			buffer = ba;
@@ -223,6 +232,15 @@ namespace stored{
 			NS_STORAGE::buffer_type::iterator writer = buffer.begin();
 
 			NS_STORAGE::leb128::write_signed(writer, r);
+			get_transaction().complete();
+		}
+		void set_boot_value(NS_STORAGE::u64 r, NS_STORAGE::stream_address boot){
+
+			NS_STORAGE::buffer_type &buffer = get_transaction().allocate(boot, NS_STORAGE::create); /// write it
+			buffer.resize(NS_STORAGE::leb128::unsigned_size(r));
+			NS_STORAGE::buffer_type::iterator writer = buffer.begin();
+
+			NS_STORAGE::leb128::write_unsigned(writer, r);
 			get_transaction().complete();
 		}
 		void set_boot_value(const NS_STORAGE::buffer_type& buffer, NS_STORAGE::stream_address boot){
@@ -427,6 +445,6 @@ namespace stored{
 	/// definitions for registry functions
 	typedef rabbit::unordered_map<std::string, _Allocations*> _AlocationsMap;
 
-	extern _Allocations* _get_abstracted_storage(std::string name);
+	extern _Allocations* _get_abstracted_storage(const std::string& name);
 };
 #endif

@@ -2,11 +2,13 @@
 
 
 static Poco::Mutex m;
+static stored::_AlocationsMap instances;
 namespace nst = ::stx::storage;
 namespace stored{
 
-	static _AlocationsMap instances;
-	_Allocations* _get_abstracted_storage(std::string name){
+
+	_Allocations* _get_abstracted_storage(const std::string& name){
+
 		_Allocations* r = NULL;
 		r = instances[name];
 		if(r == NULL){
@@ -46,20 +48,22 @@ namespace stored{
 		return false;
 	}
 	_Allocations* get_abstracted_storage(std::string name){
-		_Allocations* r = NULL;
+		_Allocations* r = nullptr;
 		{
+
 			nst::synchronized ll(m);
-			if(instances.empty())
+			if (instances.empty())
 				nst::journal::get_instance().recover();
 			r = instances[name];
-			if(r == NULL){
-				r = new _Allocations( std::make_shared<_BaseAllocator>( stx::storage::default_name_factory(name.c_str())) );
+			if (r == NULL) {
+				r = new _Allocations(
+						std::make_shared<_BaseAllocator>(stx::storage::default_name_factory(name.c_str())));
 				///r->set_readahead(true);
 				instances[name] = r;
 			}
 			r->set_recovery(false);
+			r->engage();
 		}
-		r->engage();
 		return r;
 	}
 	void reduce_aged(){

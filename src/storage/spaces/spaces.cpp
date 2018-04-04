@@ -26,7 +26,6 @@ nst::u64  _reported_memory_size() {
 nst::u64 calc_total_use() {
 	return 0;
 }
-ui8 spaces::id = 0;
 /// accessors for journal stats
 void set_store_journal_size(nst::u64 ns) {
 	store_journal_size = ns;
