@@ -18,8 +18,8 @@ namespace spaces{
 		typedef stx::btree_set< key, stored::abstracted_storage, std::less<key>> _Set; 
 	private:
 		_Set set;
-		nst::u64  id;
-		static const nst::u64 ID_ADDRESS = 16;
+		nst::i64  id;
+		static const nst::stream_address ID_ADDRESS = 8;
 	public:
 		dbms(const std::string &name) : storage(name), set(storage), id(1) {
 			storage.begin(true);
@@ -55,8 +55,9 @@ namespace spaces{
 
 		}
 		void commit() {
-			set.flush_buffers();
+
 			if (this->storage.is_transacted()){
+				set.flush_buffers();
 				storage.set_boot_value(id, ID_ADDRESS);
 				this->storage.commit();
 				nst::journal::get_instance().synch();

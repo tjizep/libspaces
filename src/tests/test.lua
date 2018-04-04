@@ -1,9 +1,7 @@
 require "libspaces"
-local u = 1e3
+local u = 1e6
 local s = spaces.open();
-if s.data == nil then
-	s.data = "beans"
-end
+
 local data = s.data
 if not data == nil then
 	print("ERROR: find non existent key")
@@ -21,22 +19,31 @@ local function randomString(length)
 end
 
 
-local t = os.clock()
-local td = os.clock()
 if s.data == nil then
-	s.data = {}
+
 end
+s.data = {}
 data = s.data
 print("current object count",#data)
 if #data == 0 then
-	print("start st write",t)
+
 
 	local lt = {}
 	
 	local tl = 0
-	spaces.begin()	
+	spaces.begin()
+	local tdata = {}
+	local t = os.clock()
+	print("start st generating",t)
+	for ri = 1,u do
+		tdata[ri] = randomString(8)
+	end
+	print("complete st generating",os.clock() - t)
+	t = os.clock()
+	local td = os.clock()
+	print("start st write",t)
 	for i = 1,u do
-		local ss = randomString(8) --td = os.clock()
+		local ss = tdata[i] -- ""..i  randomString(8) --td = os.clock()
 		tl = tl + i*2 -- checksum
 		data[ss] = i*2;
 		if (i % (u/10)) == 0 then
@@ -54,14 +61,14 @@ local cnt = 0
 local ops = 0;
 local opst = 0;
 for k,v in pairs(data) do
-
+	cnt = cnt + 1
 	--local dv = data[k]
 	--if  dv == nil then
 	--	print("key error")
 	--end
 
 end
-print("end st read/iterate",os.clock()-t)
+print("end st read/iterate",os.clock()-t,cnt)
 --s.data = nil --delete everything added
 spaces.commit()
 --[[]]
