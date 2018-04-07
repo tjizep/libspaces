@@ -23,14 +23,16 @@ local function generate()
 	print("start st generating",t)
 	local ls = 0
 	for ri = 1,u do
-		local s = randomString(24);
+		local s = randomString(16);
 		ls = ls + #s
 		tdata[ri] = s
 	end
 	print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
 	return tdata
 end
+spaces.begin()
 local s = spaces.open(); -- starts a transaction automatically
+
 if s == nil then
 	s = {} -- nb. initialize the root space if its not initialized
 end

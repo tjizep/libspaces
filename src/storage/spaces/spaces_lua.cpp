@@ -177,6 +177,8 @@ static f8 to_number(lua_State *L, i4 at) {
 	return r;
 }
 static int spaces_add(lua_State *L) {
+
+
 	lua_pushnumber(L, to_number(L, 1) + to_number(L, 2));	
 	return 1;
 }
@@ -332,7 +334,7 @@ static int spaces_call(lua_State *L) {
 				lua_pushcclosure(L, spaces_call_environment, 1);
 				lua_setfield(L, meta, "__index"); // leaves the intended meta table	i.e. meta[__index] = function
 				lua_setmetatable(L, env); // only the environment table should be left after this
-				lua_setfenv(L, funct); // only the function is left
+				lua_setfenv(L, funct); // only t6he function is left
 				lua_settable(L, LUA_GLOBALSINDEX);
 				lua_pushlstring(L, identity.p(), identity.size());
 				lua_gettable(L, LUA_GLOBALSINDEX);

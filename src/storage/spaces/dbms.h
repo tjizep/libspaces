@@ -11,6 +11,7 @@ namespace stx {
     }
 }
 namespace spaces{
+    extern Poco::FastMutex writer_lock;
 	class dbms {
 	public:
 
@@ -22,12 +23,9 @@ namespace spaces{
 		static const nst::stream_address ID_ADDRESS = 8;
 	public:
 		dbms(const std::string &name) : storage(name), set(storage), id(1) {
-			storage.begin(true);
-			if(!storage.get_boot_value(id,ID_ADDRESS)){
-				id = 1;
-			}
 
 			allocation_pool.set_max_pool_size(1024*1024*1024*6ull);
+            storage.rollback();
 		}
 		~dbms() {
 			
@@ -45,11 +43,15 @@ namespace spaces{
 		    return id++;
 		}
 		void begin() {
-			if (!this->storage.is_transacted()) {				
+			if (!this->storage.is_transacted()) {
+
+			    writer_lock.lock();
+
 				stored::abstracted_tx_begin(false, false, storage, set);
-                storage.get_boot_value(id,ID_ADDRESS);
+                if(!storage.get_boot_value(id,ID_ADDRESS)){
+                    id = 1;
+                }
 			}
-				
 		}
 		void check_resources(){
 
@@ -61,10 +63,9 @@ namespace spaces{
 				storage.set_boot_value(id, ID_ADDRESS);
 				this->storage.commit();
 				nst::journal::get_instance().synch();
+                writer_lock.unlock();
 			}
 
-
-			this->storage.begin(true);
 		}
 	};
 }

@@ -2,6 +2,7 @@ package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../sr
 package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
 
 require "spaces"
+spaces.begin()
 --local _ = require ("moses")
 local inspect = require('inspect')
 
