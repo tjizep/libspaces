@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1.0)
 project(spaces)
 
 set (CMAKE_CXX_STANDARD 11)
+
 #set(LUAJIT_PATH ${LUAJIT_PATH_TMP} CACHE PATH "Path to torch or luajit")
 set(LUAJIT_PATH "~/torch/install" CACHE PATH "Path to torch or luajit")
 #set(LUAJIT_PATH_TMP)
@@ -67,7 +68,7 @@ file(GLOB POCO_FOUNDATION
 "src/poco-1.4.6p1-all/Foundation/src/*.c")
 
 file(GLOB_RECURSE POCO_FOUNDATION_H
-"src/poco-1.4.6p1-all/Foundation/include/*.h")
+"src/poco-1.4.6p1-all/Foundagproftion/include/*.h")
 
 file(GLOB POCO_DATA 
 "src/poco-1.4.6p1-all/Data/src/*.cpp"

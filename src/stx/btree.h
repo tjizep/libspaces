@@ -226,15 +226,15 @@ namespace stx
         inline size_t encoded_values_size(const _AnyValue*, nst::u16) const {
             return 0;
         }
-        int encoded_size(const _KeyType*, nst::u16) {
+        nst::i32 encoded_size(const _KeyType*, nst::u16) {
             return 0;
         }
         /// interpolation functions can be an something like linear interpolation
-        inline bool can(const _KeyType &, const _KeyType &, int) const {
+        inline bool can(const _KeyType &, const _KeyType &, nst::i32) const {
             return false;
         }
 
-        unsigned int interpolate(const _KeyType &k, const _KeyType &first, const _KeyType &last, int size) const {
+        nst::i32 interpolate(const _KeyType &k, const _KeyType &first, const _KeyType &last, nst::i32  size) const {
             return 0;
         }
     };
@@ -286,21 +286,21 @@ namespace stx
 
         /// Number of slots in each surface of the tree. Estimated so that each node
         /// has a size of about btree_traits::bytes_per_page bytes.
-        static const int    surfaces = btree_traits::keys_per_page; //max_const( 8l, btree_traits::bytes_per_page / (sizeof(key_proxy)) );
+        static const nst::i32    surfaces = btree_traits::keys_per_page; //max_const( 8l, btree_traits::bytes_per_page / (sizeof(key_proxy)) );
 
         /// Number of cached keys
-        static const int	caches = btree_traits::caches_per_page;
+        static const nst::i32	caches = btree_traits::caches_per_page;
 
         /// Number of slots in each interior node of the tree. Estimated so that each node
         /// has a size of about btree_traits::bytes_per_page bytes.
-        static const int    interiorslots = btree_traits::keys_per_page; //max_const( 8l, btree_traits::bytes_per_page / (sizeof(key_proxy) + sizeof(void*)) );
+        static const nst::i32    interiorslots = btree_traits::keys_per_page; //max_const( 8l, btree_traits::bytes_per_page / (sizeof(key_proxy) + sizeof(void*)) );
 
         ///
         /// the max scan value for the hybrid lower bound that allows bigger pages
-        static const int    max_scan = btree_traits::max_scan;
+        static const nst::i32    max_scan = btree_traits::max_scan;
 
         /// Number of cached keys
-        static const int	max_release = btree_traits::max_release;
+        static const nst::i32	max_release = btree_traits::max_release;
 
     };
 
@@ -332,22 +332,22 @@ namespace stx
 
         /// Base B+ tree parameter: The number of cached key/data slots in each surface
 
-        static const int	caches = btree_traits::caches_per_page;
+        static const nst::i32	caches = btree_traits::caches_per_page;
 
         /// Number of slots in each surface of the tree. A page has a size of about btree_traits::bytes_per_page bytes.
 
-        static const int    surfaces = btree_traits::keys_per_page;//max_const( 8l, (btree_traits::bytes_per_page) / (sizeof(key_proxy) + sizeof(data_proxy)) ); //
+        static const nst::i32    surfaces = btree_traits::keys_per_page;//max_const( 8l, (btree_traits::bytes_per_page) / (sizeof(key_proxy) + sizeof(data_proxy)) ); //
 
         /// Number of slots in each interior node of the tree. a Page has a size of about btree_traits::bytes_per_page bytes.
 
-        static const int    interiorslots = btree_traits::keys_per_page;//max_const( 8l,  (btree_traits::bytes_per_page*btree_traits::interior_mul) / (sizeof(key_proxy) + sizeof(void*)) );//
+        static const nst::i32    interiorslots = btree_traits::keys_per_page;//max_const( 8l,  (btree_traits::bytes_per_page*btree_traits::interior_mul) / (sizeof(key_proxy) + sizeof(void*)) );//
         ///
         /// the max scan value for the hybrid lower bound that allows bigger pages
-        static const int    max_scan = btree_traits::max_scan;
+        static const nst::i32    max_scan = btree_traits::max_scan;
 
         ///
         /// the max page releases during aggressive cleanup
-        static const int    max_release = btree_traits::max_release;
+        static const nst::i32    max_release = btree_traits::max_release;
 
     };
 
@@ -513,7 +513,7 @@ namespace stx
         static const bool                   debug = traits::debug;
 
         /// parameter to control aggressive page release for the improvement of memory use
-        static const int					max_release = traits::max_release;
+        static const nst::i32					max_release = traits::max_release;
         /// forward decl.
 
         class tree_stats;
@@ -1012,10 +1012,6 @@ namespace stx
                         err_print("invalid address");
                     }
                 }
-
-                ///if((size_t)(this) < 60000ll){
-                //// ::MessageBox(NULL,"Debug","Null error",MB_OK);
-                ///}
             }
             /// determines if the page should be loaded loads it and change state to loaded.
             /// The initial state can be any state
@@ -1471,17 +1467,17 @@ namespace stx
             template<typename key_compare, typename key_interpolator, typename node_type >
             inline int find_lower(key_compare key_less, const key_interpolator &interp, const node_type* node, const key_type& key) const {
                 check_node();
-                i4 o = get_occupants();
+                int o = get_occupants();
                 if (o == 0)
                     return o;
                 /// optimization specifically for 'spaces' because of hierarchical ordering
-                if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
-                    return last_found;
-                }
+                //if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
+                //    return last_found;
+                //}
 
-                ui4 l = 0, h = o;
+                int l = 0, h = o;
 
-                i4 m;
+                int m;
                 while (l < h) {
                     m = (l + h) >> 1;
                     if (key_lessequal(key_less, key, node->get_key(m))) {
@@ -1491,19 +1487,19 @@ namespace stx
                         l = m + 1;
                     }
                 }
-                this->last_found = (storage::u16)l;
+                //this->last_found = (storage::u16)l;
                 return l;
             }
 
             /// simple search type lower bound template function
             template<typename key_compare, typename node_type>
-            inline unsigned int min_find_lower(key_compare key_less, const node_type* node, int o, const key_type& key) const {
+            inline nst::i32 min_find_lower(key_compare key_less, const node_type* node, nst::i32 o, const key_type& key) const {
                 check_node();
                 if (o == 0) return 0;
-                register unsigned int l = 0, h = o;
+                nst::i32 l = 0, h = o;
                 /// truncated binary search
-                while (h - l > (unsigned int)traits::max_scan) { //		(l < h) {  //(h-l > traits::max_scan) { //
-                    int m = (l + h) >> 1;
+                while (h - l > (nst::i32)traits::max_scan) { //		(l < h) {  //(h-l > traits::max_scan) { //
+                    nst::i32 m = (l + h) >> 1;
                     if (key_lessequal(key_less, key, node->get_key(m))) {
                         h = m;
                     }

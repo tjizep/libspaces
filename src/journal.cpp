@@ -301,7 +301,12 @@ public:
 		if(backup_log){
 			nst::pool_string stamp = std::to_string((size_t)os::millis()).c_str();
 			nst::pool_string backup = journal_name + "_" +  stamp;
-			jf.renameTo(backup.c_str());
+			if(jf.getSize() > 10000){
+				jf.renameTo(backup.c_str());
+			}else{
+				jf.remove(false);
+			}
+
 		}else{
 			jf.remove();
 		}
