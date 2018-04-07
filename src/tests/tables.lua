@@ -1,9 +1,12 @@
-require "libspaces"
-local _ = require ("moses")
+package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../src/tests/?.lua;~/torch/lua/?/init.lua;;'
+package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
+
+require "spaces"
+--local _ = require ("moses")
 local inspect = require('inspect')
 
-local s = spaces.open();
-local t = 	{ 	name="test", 
+
+local t = 	{ 	name="test",
 				age=5.1234,
 				family=
 				{	brother={name="brother1",age=13.1},
@@ -15,6 +18,8 @@ local t = 	{ 	name="test",
 			}
 local t0 = { value="h4", position=1 }
 local a = {}
+local s = spaces.open();
+s = {}
 a[s] = 1
 
 s.data = t0
@@ -27,11 +32,8 @@ end
 for k,v in pairs(s.data) do
 	print(k,v)
 end
---print(inspect(s.data))
---print(s.data)
---print(s.data.value)
---print(s.data.position)
---print(t)
+print(inspect(s.data))
+
 
 local t1 = {}
 --t1[s.data] = 1
@@ -39,6 +41,6 @@ local t1 = {}
 
 --print(t1[s.data],t1[s],s.data.value,s.data.position)
 s.data = t
-print(inspect(s))
+print(inspect(s.data))
 s.data = nil
 print(inspect(s))

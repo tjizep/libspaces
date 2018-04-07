@@ -2,7 +2,7 @@
 #include <string>
 #include <iostream>
 #include <storage/spaces/key.h>
-#include <stx/btree_set.h>
+#include <stx/btree_map.h>
 #include <abstracted_storage.h>
 
 namespace stx {
@@ -15,7 +15,7 @@ namespace spaces{
 	public:
 
 		stored::abstracted_storage storage;
-		typedef stx::btree_set< key, stored::abstracted_storage, std::less<key>> _Set; 
+		typedef stx::btree_map< key, record, stored::abstracted_storage, std::less<key>> _Set;
 	private:
 		_Set set;
 		nst::i64  id;

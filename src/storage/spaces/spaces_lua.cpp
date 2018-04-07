@@ -18,7 +18,7 @@ static int l_open_space(lua_State *L) {
 
 	}
 	session_t * s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key*  r = s->open_space(0);	
+	spaces::space*  r = s->open_space(0);
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);
 	}
@@ -75,7 +75,7 @@ static int spaces_close(lua_State *L) {
 static int spaces_len(lua_State *L) {
 	int t = lua_gettop(L);
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key * p = s->get_space_key();
+	spaces::space * p = s->get_space();
 	lua_pushnumber(L, (lua_Number)s->len(p));
 	t = lua_gettop(L);
 	return 1;
@@ -83,24 +83,25 @@ static int spaces_len(lua_State *L) {
 
 static int spaces_less_equal(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key * l = s->get_space_key(1);
-	spaces::key * r = s->get_space_key(2);
-	lua_pushboolean(L, !(*r < *l));
+	spaces::space * l = s->get_space(1);
+	spaces::space * r = s->get_space(2);
+	lua_pushboolean(L, !(r->first < l->first));
 	return 1;
 
 }
 static int spaces_less_than(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key * l = s->get_space_key(1);
-	spaces::key * r = s->get_space_key(2);
-	lua_pushboolean(L, *l < *r);
+	spaces::space * l = s->get_space(1);
+	spaces::space * r = s->get_space(2);
+	lua_pushboolean(L, l->first < r->first);
 	return 1;
 }
 static int spaces_equal(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key * l = s->get_space_key(1);
-	spaces::key * r = s->get_space_key(2);
-	lua_pushboolean(L, !(*l != *r));
+	spaces::space * l = s->get_space(1);
+	spaces::space * r = s->get_space(2);
+	lua_pushboolean(L, !(r->first != l->first));
+
 	return 1;
 }
 
@@ -109,19 +110,20 @@ static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
 
-	spaces::key k;
-	int t = lua_gettop(L);
-	spaces::key* p = s->get_space_key(1);
-	t = lua_gettop(L);
+	spaces::space k;
+
+	spaces::space* p = s->get_space(1);
+
 	
 	s->resolve_id(p);
-	s->to_space_data( k.get_name(), 2);
+    k.first.set_context(p->second.get_identity());
+	s->to_space_data( k.first.get_name(), 2);
 	s->to_space(k, 3);
-	k.set_context(p->get_identity());
+
 
 	
 	s->insert_or_replace(k);
-	t = lua_gettop(L);
+
 	
 	return 0;
 }
@@ -129,21 +131,22 @@ static int spaces_newindex(lua_State *L) {
 static int spaces_index(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
 
-	spaces::key k;
-	spaces::key *r = nullptr;
-	spaces::key* p = s->get_space_key();
-	if (p->get_identity() != 0) {
+	spaces::space k;
+	spaces::space *r = nullptr;
+	spaces::space* p = s->get_space();
+	if (p->second.get_identity() != 0) {
 
-		s->to_space_data(k.get_name(), 2);
-		k.set_context(p->get_identity());
-		auto i = s->get_set().find(k);
+		s->to_space_data(k.first.get_name(), 2);
+		k.first.set_context(p->second.get_identity());
+		auto i = s->get_set().find(k.first);
 		if (i != s->get_set().end()) {
-			if (i->get_identity() != 0) {
-				r = s->open_space(i->get_identity());
-				*r = (*i);
+			if (i.data().get_identity() != 0) {
+				r = s->open_space(i.data().get_identity());
+				r->first = i.key();
+				r->second = i.data();
 			}
 			else {
-				s->push_data(i->get_value());
+				s->push_data(i.data().get_value());
 			}
 
 		}
@@ -166,9 +169,9 @@ static f8 to_number(lua_State *L, i4 at) {
 	}
 	else {
 		auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-		spaces::key* p = s->get_space_key(at);
+		spaces::space* p = s->get_space(at);
 		if (p) {
-			r = p->get_value().to_number();
+			r = p->second.get_value().to_number();
 		}
 	}
 	return r;
@@ -199,15 +202,15 @@ static int spaces_div(lua_State* L) {
 }
 static int spaces_tostring(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key* p = s->get_space_key(1);
-	if (p->get_identity() != 0) {
-		lua_pushfstring(L, "table: %p", p->get_identity());
+	spaces::space* p = s->get_space(1);
+	if (p->second.get_identity() != 0) {
+		lua_pushfstring(L, "table: %p", p->second.get_identity());
 		return 1;
 	}
 	umi l = 0;
 	std::string value;
 	if (p != nullptr) {
-		s->push_data(p->get_value());
+		s->push_data(p->second.get_value());
 		return 1;
 	}
 	return 0;
@@ -347,14 +350,14 @@ static int spaces_call(lua_State *L) {
 		luaL_error(L, "spaces:%s", all.getdescription().c_str());
 	}
 	return 0;
-}
+}s
 #endif
 static int l_pairs_iter(lua_State* L) { //i,k,v 
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
 	spaces::lua_iterator *i = s->get_iterator(lua_upvalueindex(1));
 	if (!i->end()) {		
 		
-		s->push_pair(*(i->i));
+		s->push_pair(i->i.key(),i->i.data());
 		i->next();
 		return 2;
 	}
@@ -363,10 +366,10 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 }
 static int spaces___pairs(lua_State* L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	spaces::key* p = s->get_space_key();// its at stack 1 because the function is called
+	spaces::space* p = s->get_space();// its at stack 1 because the function is called
 	spaces::key f,e ;
-	f.set_context(p->get_identity());
-	e.set_context(p->get_identity());
+	f.set_context(p->second.get_identity());
+	e.set_context(p->second.get_identity());
 	e.get_name().make_infinity();	
 	
 	// create the lua iterator
@@ -443,7 +446,7 @@ extern "C" int
 #ifdef _MSC_VER_
 __declspec(dllexport)
 #endif
-luaopen_libspaces(lua_State * L) {
+luaopen_spaces(lua_State * L) {
 	// provides pairs and ipairs metamethods (__ added)
 	/// lua_xt is required for 5.1 iterator compatibility
 	//lua_XT::luaopen_xt(L);

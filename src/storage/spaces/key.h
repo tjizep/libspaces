@@ -328,27 +328,19 @@ namespace spaces {
 	class key {
 	private:
 		ui8 context;
-		ui8 identity;
-		/// key section
 		data name;
-		// value section
-		data value;
 	
 	public:
 		static const bool use_encoding = true;
-		key(const key&r) {
+		key(const key&r) {ui8 identity;
 			*this = r;
 		}
 		key() {
 			context = 0;
-			identity = 0;
 		}
 		key& operator=(const key& r) {
 			name = r.name;
-			value = r.value;
 			context = r.context;			
-			identity = r.identity;
-
 			return *this;
 		}
 		~key() {
@@ -357,16 +349,13 @@ namespace spaces {
 		bool operator != (const key&r) const {
 			if (context != r.context) return true;
 			if (name != r.name) return true;
-			//if (identity != r.identity) return true;
 			return false;
 		}
 		bool operator < (const key&r) const {
 			if (context != r.context) return context < r.context;			
 			int l = name.compare(r.name);
 			if (l < 0) return true;
-			//if (l > 0) 
 			return false;
-			//return  identity < r.identity;			
 		}
 		bool found (const key&r) const {
 			if (context != r.context) return false;
@@ -379,24 +368,13 @@ namespace spaces {
 		void set_context(ui8 context) {
 			this->context = context;
 		}
-		ui8 get_identity() const {
-			return this->identity;
-		}
-		void set_identity(ui8 identity) {
-			this->identity = identity;
-		}
-		data& get_value() {
-			return value;
-		}
-		const data& get_value() const {
-			return value;
-		}
 		data& get_name() {
 			return name;
 		}
 		const data& get_name() const{
 			return name;
 		}
+
 	public:
 		/// persistence functions		
 		nst::buffer_type::const_iterator read(const nst::buffer_type& buffer, typename nst::buffer_type::const_iterator& r) {
@@ -405,23 +383,21 @@ namespace spaces {
 			if (reader != buffer.end()) {
 				if (use_encoding) {
 					this->context = nst::leb128::read_unsigned64(reader, buffer.end());
-					this->identity = nst::leb128::read_unsigned64(reader, buffer.end());
+
 				}
 				else {
 					reader = nst::primitive::read(this->context, reader);
-					reader = nst::primitive::read(this->identity, reader);
-				}				
+				}
 				reader = name.read(buffer, reader);
-				reader = value.read(buffer, reader);
 			}
 			return reader;
 		}
 		nst::u32 stored() const {
 			if (use_encoding) {
-				return nst::leb128::unsigned_size(this->identity) + nst::leb128::unsigned_size(this->context) + name.stored() + value.stored();
+				return nst::leb128::unsigned_size(this->context) + name.stored() ;
 			}
 			else {
-				return sizeof(this->identity) + sizeof(this->context) + name.stored() + value.stored();
+				return sizeof(this->context) + name.stored();
 			}
 			
 		}
@@ -429,16 +405,13 @@ namespace spaces {
 			nst::buffer_type::iterator writer = w;
 			if (use_encoding) {
 				writer = nst::leb128::write_unsigned(writer, this->context);
-				writer = nst::leb128::write_unsigned(writer, this->identity);
 			}
 			else {
 				writer = nst::primitive::store(writer, this->context);
-				writer = nst::primitive::store(writer, this->identity);
 			}
 			
 			
 			writer = name.store(writer);
-			writer = value.store(writer);
 			if (writer - w != stored()) {
 				ptrdiff_t diff = writer - w;
 				ptrdiff_t stred = stored();
@@ -448,4 +421,89 @@ namespace spaces {
 		}
 		
 	};
+	class record {
+	private:
+
+		ui8 identity;
+		// value section
+		data value;
+
+	public:
+		static const bool use_encoding = true;
+		record(const record&r) {
+			*this = r;
+		}
+		record() {
+			identity = 0;
+		}
+		record& operator=(const record& r) {
+
+			value = r.value;
+			identity = r.identity;
+
+			return *this;
+		}
+		~record() {
+
+		}
+		ui8 get_identity() const {
+			return this->identity;
+		}
+		void set_identity(ui8 identity) {
+			this->identity = identity;
+		}
+
+		data& get_value() {
+			return value;
+		}
+		const data& get_value() const {
+			return value;
+		}
+
+	public:
+		/// persistence functions
+		nst::buffer_type::const_iterator read(const nst::buffer_type& buffer, typename nst::buffer_type::const_iterator& r) {
+			nst::buffer_type::const_iterator reader = r;
+
+			if (reader != buffer.end()) {
+				if (use_encoding) {
+					this->identity = nst::leb128::read_unsigned64(reader, buffer.end());
+				}
+				else {
+					reader = nst::primitive::read(this->identity, reader);
+				}
+
+				reader = value.read(buffer, reader);
+			}
+			return reader;
+		}
+		nst::u32 stored() const {
+			if (use_encoding) {
+				return nst::leb128::unsigned_size(this->identity) + value.stored() ;
+			}
+			else {
+				return sizeof(this->identity) + value.stored();
+			}
+
+		}
+		nst::buffer_type::iterator store(nst::buffer_type::iterator& w) const {
+
+			nst::buffer_type::iterator writer = w;
+			if (use_encoding) {
+				writer = nst::leb128::write_unsigned(writer, this->identity);
+			}
+			else {
+				writer = nst::primitive::store(writer, this->identity);
+			}
+			writer = value.store(writer);
+			if (writer - w != stored()) {
+				ptrdiff_t diff = writer - w;
+				ptrdiff_t stred = stored();
+				err_print("wrote wrong byte count");
+			}
+			return writer;
+		}
+
+	};
+	typedef std::pair<key, record> space;
 }

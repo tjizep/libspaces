@@ -1,13 +1,7 @@
-package.path = '~/torch/lua/?;~/torch/lua/?.lua;~/torch/lua/?/init.lua;;'
-package.cpath = '~/torch/bin/?.so;./?.so;;'
-require "libspaces"
+package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../src/tests/?.lua;~/torch/lua/?/init.lua;;'
+package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
+require "spaces"
 local u = 1e6
-local s = spaces.open();
-local tdata = {}
-local data = s.data
-if not data == nil then
-	print("ERROR: find non existent key")
-end
 
 local charset = {}  do -- [0-9a-zA-Z]
 	for c = 48, 57  do table.insert(charset, string.char(c)) end
@@ -23,46 +17,48 @@ local function randomNumber()
 
 	return math.random(1, 1e4)*1e4+math.random(1, 1e4)
 end
-
-local t = os.clock()
-print("start st generating",t)
-for ri = 1,u do
-	tdata[ri] = randomString(8)
+local function generate()
+	local t = os.clock()
+	local tdata = {}
+	print("start st generating",t)
+	local ls = 0
+	for ri = 1,u do
+		local s = randomString(24);
+		ls = ls + #s
+		tdata[ri] = s
+	end
+	print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
+	return tdata
 end
-print("complete st generating",os.clock() - t)
+local s = spaces.open(); -- starts a transaction automatically
+if s == nil then
+	s = {} -- nb. initialize the root space if its not initialized
+end
+local data = s.data
 
 if s.data == nil then
 	s.data = {}
 end
-
 data = s.data
-
 print("current object count",#data)
+
+local tdata = generate()
+
 if #data == 0 then
 
-
-	local lt = {}
-	
 	local tl = 0
 	spaces.begin()
-
 
 	t = os.clock()
 	local td = os.clock()
 	print("start st write",t)
 	for i = 1,u do
 		local ss = tdata[i]
-		tl = tl + i*2 -- checksum
 		data[ss] = i*2;
-		--[[
-		-- if (i % (u/10)) == 0 then
-
-			print("continue st write",i,os.clock()-td)
-			td = os.clock()
-		end
-		]]
-	end	
-	print("end st write",os.clock()-t,tl)
+	end
+	local dt = os.clock()-t;
+	local ops = math.floor(u/dt)
+	print("end st random write",dt,ops.." keys/s")
 
 end
 
@@ -79,13 +75,22 @@ for _,v in ipairs(tdata) do
 	end
 
 end
-print("end st read",os.clock()-t,cnt)
+local dt = os.clock()-t;
+local ops = math.floor(cnt/dt)
+print("end st random read",dt,ops.." keys/s")
+
 cnt = 0
 t = os.clock()
+local last = ""
 for k,v in pairs(data) do
 	cnt = cnt + 1
+	if k < last then
+		print("order error")
+	end
+	last = k
 end
-print("end st iterate",os.clock()-t,cnt)
+dt = os.clock()-t
+print("end st iterate",dt,math.floor(cnt/dt).." keys/s")
 --s.data = nil --delete everything added
 spaces.commit()
 --[[]]

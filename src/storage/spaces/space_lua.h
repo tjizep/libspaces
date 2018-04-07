@@ -25,11 +25,11 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 #define SPACES_WRAP_KEY "__$"
 
 namespace spaces{
-	typedef rabbit::unordered_map<ptrdiff_t, spaces::key*> _LuaKeyMap;
+	typedef rabbit::unordered_map<ptrdiff_t, spaces::space*> _LuaKeyMap;
 	typedef spaces::dbms::_Set _SSet;
 	typedef _SSet::iterator iterator;
 	typedef std::set<key> _MSet;
-	
+
 
 	struct lua_db_session {
 		typedef spaces::dbms::_Set _Set;		
@@ -111,7 +111,7 @@ namespace spaces{
 		ss.insert(ss.end(), s,s+l);
 		return l;
 	}
-	static void * is_udata(lua_State *L, int ud, const char* tname) {
+	static void * is_udata(lua_State *L, int ud, const char* ) {
 		return lua_touserdata(L, ud);
 		//return luaL_checkudata(L, ud, tname);
 	}
@@ -142,7 +142,7 @@ namespace spaces{
 		if (lua_isnil(L, -1)) {
 			lua_pushlightuserdata(L, (void *)session_key);  // push address 
 			r = create_instance_from_nothing<_SessionType>(L);									
-			r->set_state(L);
+			r->set_state(L);typedef std::pair<key, record> space;
 			// set its metatable 
 			luaL_getmetatable(L, SPACES_SESSION_LUA_TYPE_NAME);
 			if (lua_isnil(L, -1)) {
@@ -195,14 +195,13 @@ namespace spaces{
 		typename _SessionType::_Set& get_set() {
 			return session.get_set();
 		}
-		nst::u64 len(const key* p) {
-			if (p->get_identity() > 0) {
+		nst::u64 len(const space* p) {
+			if (p->second.get_identity() > 0) {
 				spaces::key f, e;
-				f.set_context(p->get_identity());
-				e.set_context(p->get_identity());
+				f.set_context(p->second.get_identity());
+				e.set_context(p->second.get_identity());
 				e.get_name().make_infinity();
-				e.set_identity(std::numeric_limits<ui8>::max());
-				e.get_value().clear();
+				///.set_identity(std::numeric_limits<ui8>::max());
 				auto& s = get_set();
 				// create the lua iterator		
 				spaces::iterator fi = s.lower_bound(f);
@@ -221,8 +220,8 @@ namespace spaces{
 			return i;
 
 		}
-		spaces::key* create_key_from_nothing() {
-			return create_instance_from_nothing<spaces::key>(L);  /* new userdatum is already on the stack */
+		spaces::space* create_space_from_nothing() {
+			return create_instance_from_nothing<spaces::space>(L);  /* new userdatum is already on the stack */
 
 		}
 
@@ -282,36 +281,39 @@ namespace spaces{
 			return rv;
 		}
 
-		void insert_or_replace(spaces::key& p) {
-			auto inserted = session.get_set().insert(p);
-			if (!inserted.second) {
-				(*inserted.first) = p;
+		void insert_or_replace(spaces::key& k, spaces::record& v) {
+			session.get_set().insert(k,v);
+		}
+		void insert_or_replace(spaces::space& p) {
+			insert_or_replace(p.first,p.second);
+		}
+		void resolve_id(spaces::space* p, bool override = false) {
+			resolve_id(p->first, p->second,override);
+		}
+		void resolve_id(spaces::key& first, spaces::record& second, bool override = false) {
+			if (override || second.get_identity() == 0) {
+				auto& s = session.get_set();
+				auto i = s.find(first);
+				if (i != s.end()) {
+					second = i.data();
+				}
+				if (override || second.get_identity() == 0) {
+					second.set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity
+					insert_or_replace(first,second);
+				}
 			}
 		}
 
-		void resolve_id(spaces::key* p, bool override = false) {
-			if (override || p->get_identity() == 0) {
-				auto& s = session.get_set();
-				auto i = s.lower_bound(*p);
-				if (i != s.end()) {
-					*p = (*i);
-				}
-				if (override || p->get_identity() == 0) {
-					p->set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity
-					insert_or_replace(*p);
-				}
-			}
+		void resolve_id(spaces::space& p, bool override = false) {
+			resolve_id(&p);
 		}
-		void resolve_id(spaces::key& p, bool override = false) {
-			resolve_id(&p,override);
-		}
-		
-		spaces::key * get_space_key(int at = 1) {
+
+		spaces::space * get_space(int at = 1) {
 
 			if (lua_istable(L, at)) {
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
 
-				spaces::key * space_s = keys[pt];
+				spaces::space * space_s = keys[pt];
 				if (space_s == nullptr) {
 					luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
 				}
@@ -322,7 +324,7 @@ namespace spaces{
 			return nullptr;
 		}
 
-		spaces::key* open_space(ui8 id) {
+		spaces::space* open_space(ui8 id) {
 			i4 t = lua_gettop(L);
 			lua_getglobal(L, SPACES_G); // so that the table can be reused if another object with the same id is accessed
 			if (!lua_istable(L, -1) && lua_gettop(L) > t) {
@@ -338,7 +340,7 @@ namespace spaces{
 				lua_rawseti(L, -2, id + 1);
 				lua_pop(L, 1); // remove global table
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
-				spaces::key* r = new spaces::key(); // spaces::create_key_from_nothing(L);
+				spaces::space* r = new spaces::space(); // spaces::create_key_from_nothing(L);
 				keys[pt] = r;
 				// set its metatable 
 				luaL_getmetatable(L, SPACES_LUA_TYPE_NAME);
@@ -351,7 +353,7 @@ namespace spaces{
 			}
 			else {
 				lua_remove(L, -2);
-				spaces::key* r = get_space_key(-1);
+				spaces::space* r = get_space(-1);
 				return r;
 			}
 
@@ -417,6 +419,7 @@ namespace spaces{
 				break;
 			};
 		}
+
 		int push_data(const spaces::data& d) {
 			switch (d.get_type()) {
 			case data_type::numeric:
@@ -439,10 +442,14 @@ namespace spaces{
 			}
 			return 1;
 		}
+		int push_data(const spaces::record& d) {
+			return push_data(d.get_value());
+		}
 		void to_space
 		(
 			//, spaces::key& p // be might become a context so it will need an identity
-			spaces::key& d
+			    spaces::key& d
+            ,   spaces::record& r
 			, int _at = 2
 		) {
 			int at = _at;
@@ -451,27 +458,27 @@ namespace spaces{
 			int lt = lua_type(L, at);
 			switch (lt) {
 			case LUA_TTABLE: {
-				resolve_id(d,true); /// assign an identity to p (its leaves will need it)
+				resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
 				lua_pushnil(L);
 				/// will push the name and value of the current item (as returned by closure) 
 				/// on the stack
 				while (lua_next(L, at) != 0) {
-					spaces::key k;
-					k.set_context(d.get_identity()); //
-					to_space_data(k.get_name(), -2);	// just set the key part
-					to_space(k, -1); // d becomes a parent and will receive an id if -1 is another table
+					spaces::space s;
+					s.first.set_context(r.get_identity()); //
+					to_space_data(s.first.get_name(), -2);	// just set the key part
+					to_space(s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
 										/// add new key to table
-					insert_or_replace(k);
+					insert_or_replace(s);
 					lua_pop(L, 1);
 				}
 
 			}break;
 			case LUA_TUSERDATA: {
 				/// add the link here
-				spaces::key * l = err_checkudata<spaces::key>(L, SPACES_LUA_TYPE_NAME, at);
+				spaces::space * l = err_checkudata<spaces::space>(L, SPACES_LUA_TYPE_NAME, at);
 				if (l == nullptr) break;
-				if (l->get_identity()) {
-					d.set_identity(l->get_identity()); // a link has no identity of its own ???
+				if (l->second.get_identity()) {
+					r.set_identity(l->second.get_identity()); // a link has no identity of its own ???
 				}
 
 			}break;
@@ -484,7 +491,7 @@ namespace spaces{
 					lua_error(L);
 				}
 				lua_pop(L, 1);
-				d.get_value().set_function(dv);
+				r.get_value().set_function(dv);
 
 			}break;
 			case LUA_TNIL:
@@ -495,20 +502,31 @@ namespace spaces{
 				/// TODO: collect garbage anyone, its wednesday
 			}break;
 			default:
-				to_space_data(d.get_value(), at);
+				to_space_data(r.get_value(), at);
 				break;
 			};
 		}
-		int push_pair(const spaces::key& k) {
+		void to_space
+		(	spaces::space& d
+
+		, 	int _at = 2
+		) {
+			to_space(d.first,d.second,_at);
+		}
+		int push_pair(const spaces::key& k,const spaces::record& v) {
 			push_data(k.get_name());
-			if (k.get_identity() != 0) {
-				spaces::key * r = open_space(k.get_identity());
-				*r = k;
+			if (v.get_identity() != 0) {
+				spaces::space * r = open_space(v.get_identity());
+				r->first = k;
+				r->second = v;
 			}
 			else {
-				push_data(k.get_value());
+				push_data(v.get_value());
 			}
 			return 2;
+		}
+		int push_space(const spaces::space& s) {
+			return push_pair(s.first, s.second);
 		}
 	};
 	
@@ -1054,6 +1072,6 @@ namespace spaces{
 #ifdef _MSC_VER_
 extern "C" int __declspec(dllexport) luaopen_spaces(lua_State * L);
 #else
-extern "C" int luaopen_libspaces(lua_State * L);
+extern "C" int luaopen_spaces(lua_State * L);
 #endif
 //extern int r_initialize_spaceslib(lua_State *L,DSASession* session = NULL);

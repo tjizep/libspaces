@@ -2720,7 +2720,7 @@ namespace stx
             inline data_type& data()
             {
                 //return _data[current_slot];
-                return currnode->values()[current_slot];
+                return currnode->get_value(current_slot);
             }
 
             /// return true if the iterator is valid
