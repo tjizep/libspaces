@@ -2,7 +2,7 @@ package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../sr
 package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
 require "spaces"
 local u = 1e8
-local kl = 8
+local kl = 16
 local seed = 78976
 local charset = {}  do -- [0-9a-zA-Z]
 	for c = 48, 57  do table.insert(charset, string.char(c)) end
@@ -14,18 +14,21 @@ local function randomString(length)
 	if not length or length <= 0 then return '' end
 	return randomString(length - 1) .. charset[math.random(1, #charset)]
 end
-local function randomNumber()
 
-	return math.random(1, 1e4)*1e4+math.random(1, 1e4)
+local function randomNumber()
+	return math.random(1, 3e4)*math.random(1, 3e4)
 end
+
+local generator = randomNumber
+
 local function generate()
 	local t = os.clock()
 	local tdata = {}
 	print("start st generating",t)
 	local ls = 0
 	for ri = 1,u do
-		local s = randomString(kl);
-		ls = ls + #s
+		local s = generator() --randomString(kl);
+		ls = ls + 4
 		tdata[ri] = s
 	end
 	print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
@@ -45,7 +48,10 @@ end
 data = s.data
 print("current object count",#data)
 
-local tdata = nil --generate()
+local tdata = nil
+if u < 5e6 then
+	tdata = generate()
+end
 
 if #data == 0 then
 
@@ -59,7 +65,7 @@ if #data == 0 then
 		local ss = nil
 
 		if tdata == nil then
-			ss = randomString(kl)
+			ss = generator(kl)
 			if(i % (u/20)) == 0 then
 				print("wrote "..(u/20) .. " keys in ",os.clock()-td .. " tot. "..i,(u/20)/(os.clock()-td).." keys/s")
 				td=os.clock()
@@ -99,7 +105,7 @@ end
 
 cnt = 0
 t = os.clock()
-local last = ""
+local last = 0
 for k,v in pairs(data) do
 	cnt = cnt + 1
 	if k < last then

@@ -164,7 +164,9 @@ namespace spaces {
 		}
 		template<typename T>
 		T& cast_sequence(){
-			return *(T*)(sequence.writable());
+            sequence.resize(sizeof(T));
+
+            return *(T*)(sequence.writable());
 		}
 		template<typename T>
 		const T& cast_sequence() const {
@@ -208,7 +210,7 @@ namespace spaces {
 		data& operator=(const double& r) {
 			clear();
 			type = data_type::numeric;
-			get_integer() = r;
+			get_number() = r;
 			return *this;
 		}
 		data& operator=(const std::string& r) {
