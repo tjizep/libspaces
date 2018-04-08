@@ -29,22 +29,22 @@ namespace spaces {
 	private:
 		static const i4 SS = 256;
 		i4 l;
-		i1 sequence[sizeof(std::string)];
-		std::string & make_long() {
-			new (sequence) std::string();
+		i1 sequence[sizeof(std::vector<char>)];
+		std::vector<char> & make_long() {
+			new (sequence) std::vector<char>();
 			l = SS;
-			return (std::string&)sequence;
+			return (std::vector<char>&)sequence;
 		}
-		
-		std::string &str() {
-			return (std::string&)sequence;
+
+		std::vector<char>&str() {
+			return (std::vector<char>&)sequence;
 		}
-		const std::string &str() const {
-			return (std::string&)sequence;
+		const std::vector<char> &str() const {
+			return (std::vector<char>&)sequence;
 		}
 		void resize(i4 l, const char * data) {
 			if (l >= sizeof(sequence)) {
-				std::string &s = make_long();
+				std::vector<char> &s = make_long();
 				s.resize(l);
 				memcpy(&s[0], data, l);
 				return;
@@ -91,12 +91,16 @@ namespace spaces {
 				sequence;
 		}
 		const char *c_str() const {
-			return l == SS ? str().c_str() :
+			return l == SS ? str().data() :
 				sequence;
 		}
 		char *writable(){
 			return l == SS ? &str()[0] : 
 				sequence;
+		}
+		const char *readable() const {
+			return l == SS ? &str()[0] :
+				   sequence;
 		}
 		
 		i4 compare(const astring& right) const {
@@ -120,7 +124,7 @@ namespace spaces {
 		}
 		~astring() {
 			if (is_long()) {
-				//str().~std::basic_string();
+				//str().~std::vector<char>();
 			}
 		}
 		astring& operator=(const astring& right) {
@@ -142,49 +146,69 @@ namespace spaces {
 	class data {
 	private:
 		i4 type;
-		union
-		{
-			f8 d;
-			ui8 i;
-		} number;
 		astring sequence;
 	public:
-		data(const data&r) {
-			*this = r;
+		data(const data&r)
+		: 	sequence(r.sequence)
+		, 	type(r.type){
+
 		}
 		void clear() {
 			type = data_type::numeric;
-			number.d = 0.0f;
 			sequence.clear();
 		}
 		data() {
 			type = data_type::numeric;
-			number.d = 0.0f;
+
 			
 		}
+		template<typename T>
+		T& cast_sequence(){
+			return *(T*)(sequence.writable());
+		}
+		template<typename T>
+		const T& cast_sequence() const {
+			return *(T*)(sequence.readable());
+		}
 
+		double& get_double(){
+			return cast_sequence<double>();
+		}
+		double& get_number(){
+			return cast_sequence<double>();
+		}
+		i8& get_integer(){
+			return cast_sequence<i8>();
+		}
+		const double& get_double() const {
+			return cast_sequence<double>();
+		}
+		const double& get_number() const{
+			return cast_sequence<double>();;
+		}
+		const i8& get_integer() const{
+			return cast_sequence<i8>();
+		}
 		data& operator=(const data& r) {
 			type = r.type;
-			number.i = r.number.i;			
 			sequence = r.sequence;
 			return *this;
 		}
 		data& operator=(const ui8& r) {
 			clear();
 			type = data_type::numeric;
-			number.d = (f8)r;
 			return *this;
 		}
 		data& operator=(const bool& r) {
 			clear();
 			type = data_type::boolean;
-			number.d = r;
+			get_integer() = r;
 			return *this;
 		}
 		data& operator=(const double& r) {
 			clear();
 			type = data_type::numeric;
-			number.d = r;
+			get_integer() = r;
 			return *this;
 		}
 		data& operator=(const std::string& r) {
@@ -196,7 +220,7 @@ namespace spaces {
 		void make_infinity() {
 			clear();
 			type = data_type::infinity;
-			number.d = std::numeric_limits<f8>::infinity();
+			get_number() = std::numeric_limits<f8>::infinity();
 		}
 		void set_text(const i1* s, const size_t l) {
 			clear();
@@ -242,9 +266,9 @@ namespace spaces {
 			char* end;
 			switch (type) {
 			case data_type::numeric:
-				return number.d;
+				return get_number();
 			case data_type::boolean:
-				return number.d;
+				return get_number();
 			case data_type::text:
 				return std::strtod(this->sequence.c_str(), &end);
 			case data_type::function:				
@@ -255,25 +279,13 @@ namespace spaces {
 			}
 			return std::numeric_limits<f8>::quiet_NaN();
 		}
-		double get_number() {
-			return number.d;
-		}
-		const double get_number() const {
-			return number.d;
-		}
-		double get_integer() {
-			return (f8)number.i;
-		}
-		const double get_integer() const {
-			return (f8)number.i;
-		}
 		i4 get_type() const {
 			return this->type;
 		}
 		nst::u32 stored() const {
 			nst::i32 ts = sizeof(ui8);
 			nst::i32 ss = sequence.size() + sizeof(sequence.size());
-			nst::i32 ns = sizeof(number.i);
+			nst::i32 ns = sizeof(ui8);
 			return ts + (this->is_text() ? ss : ns);
 		};
 		
@@ -285,7 +297,7 @@ namespace spaces {
 				writer += sequence.size();
 			}
 			else {
-				writer = nst::primitive::store(writer, number.i);
+				writer = nst::primitive::store(writer, get_integer());
 			}
 			if (writer - w != stored()) {
 				ptrdiff_t diff = writer - w;
@@ -313,7 +325,7 @@ namespace spaces {
 				}
 				else {
 					diff = reader - r;
-					reader = nst::primitive::read(this->number.i, reader);					
+					reader = nst::primitive::read(this->get_integer(), reader);
 					diff = reader - r;
 				}
 			}
@@ -332,8 +344,8 @@ namespace spaces {
 	
 	public:
 		static const bool use_encoding = true;
-		key(const key&r) {ui8 identity;
-			*this = r;
+		key(const key&r) : context(r.context), name(r.name){
+
 		}
 		key() {
 			context = 0;

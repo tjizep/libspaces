@@ -23,7 +23,7 @@ namespace spaces{
 		static const nst::stream_address ID_ADDRESS = 8;
 	public:
 		dbms(const std::string &name) : storage(name), set(storage), id(1) {
-
+            
 			allocation_pool.set_max_pool_size(1024*1024*1024*6ull);
             storage.rollback();
 		}

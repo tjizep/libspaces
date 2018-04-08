@@ -8,10 +8,6 @@
 */
 /*****************************************************************************
 
-Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
-Copyright (c) 2008, 2009 Google Inc.
-Copyright (c) 2009, Percona Inc.
-Copyright (c) 2012, Facebook Inc.
 Copyright (C) 2008-2011 Timo Bingmann
 Copyright (c) 2013, Christiaan Pretorius
 
@@ -256,11 +252,9 @@ namespace stx
         {
             bytes_per_page = 4096, /// this isnt currently used but could be
             max_scan = 0,
-            interior_mul = 1,
-            keys_per_page = 192, ///192 is good for transactions, 384
+            keys_per_page = 128, ///192 is good for transactions, 384
             caches_per_page = 4,
-            max_release = 8,
-            version_reload
+            max_release = 8
         };
     };
 
@@ -1783,6 +1777,21 @@ namespace stx
 
             }
             /// accessor
+            void set_kv(i4 at, const key_type &k, const data_type &v){
+                auto &p = permutations[at];
+                if (p == surfaceslotmax) {
+                    if (allocated == surfaceslotmax) {
+                        err_print("cannot allocate any more keys");
+                    }
+                    p = allocated++;
+                    new (reinterpret_cast<key_type*>(_keys + p)) key_type(k);
+                    new (reinterpret_cast<data_type*>(_values + p)) data_type(v);
+
+                } else{
+                    (*reinterpret_cast<key_type*>(_keys + p)) = k;
+                    (*reinterpret_cast<data_type*>(_values + p)) = v;
+                }
+            }
 
             inline key_type &get_key(i4 at) {
                 init(at);
@@ -5456,8 +5465,7 @@ namespace stx
         for (unsigned int slot = mid; slot < surface->get_occupants(); ++slot)
         {
             unsigned int ni = slot - mid;
-            newsurface->get_key(ni) = surface->get_key(slot);
-            newsurface->get_value(ni) = surface->get_value(slot);
+            newsurface->set_kv(ni, surface->get_key(slot), surface->get_value(slot));
         }
         surface->set_occupants(mid);
         surface->set_next(newsurface);

@@ -23,7 +23,7 @@ local function generate()
 	print("start st generating",t)
 	local ls = 0
 	for ri = 1,u do
-		local s = randomString(16);
+		local s = randomString(8);
 		ls = ls + #s
 		tdata[ri] = s
 	end
