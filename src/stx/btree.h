@@ -249,8 +249,7 @@ namespace stx
     struct btree_traits
     {
         enum
-        {
-            bytes_per_page = 4096, /// this isnt currently used but could be
+        {   bytes_per_page = 4096, /// this isnt currently used but could be
             max_scan = 0,
             keys_per_page = 128, ///192 is good for transactions, 384
             caches_per_page = 4,
