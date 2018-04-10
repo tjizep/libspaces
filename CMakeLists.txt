@@ -1,67 +1,92 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces)
+project(spaces VERSION 0.0.1 )
 
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
+set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
+set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
+find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
 #set(LUAJIT_PATH ${LUAJIT_PATH_TMP} CACHE PATH "Path to torch or luajit")
 set(LUAJIT_PATH "~/torch/install" CACHE PATH "Path to torch or luajit")
 #set(LUAJIT_PATH_TMP)
 
-link_directories(${LUAJIT_PATH}/lib)
+link_directories(${LUAJIT_PATH}/lib ${RPC_LIB_PATH}/build)
 
 include_directories(
-src 
-"src/poco-1.4.6p1-all/Foundation/include" 
-"src/poco-1.4.6p1-all/Data/include" 
-"src/poco-1.4.6p1-all/Util/include" 
-"src/poco-1.4.6p1-all/Net/include" 
-"src/poco-1.4.6p1-all/Data/SQLite/include"
-"repo"
-"repo/zlib-1.2.8"
-"repo/fse"
-"repo/lz4-r101"
-${LUAJIT_PATH}/include)
+src/poco-1.4.6p1-all/Foundation/include
+src/poco-1.4.6p1-all/Data/include
+src/poco-1.4.6p1-all/Util/include
+src/poco-1.4.6p1-all/Net/include
+src/poco-1.4.6p1-all/Data/SQLite/include
+src/repo/rabbit/include
+src/repo/zlib-1.2.8
+src/repo/fse
+src/repo/lz4-r101
+${Boost_INCLUDE_DIRS}
+src/repo/rpclib/include
+src/repo/rpclib/dependencies/include
+${LUAJIT_PATH}/include
+src)
 
 file(GLOB TESTS 
 "src/tests/*.lua")
 
 file(GLOB SPACES 
 "src/*.cpp" 
-"src/storage/spaces/*.cpp")
+"src/storage/spaces/*.cpp"
+"src/storage/interface/*.cpp")
 
 file(GLOB SPACES_H
 "src/*.h" 
-"src/storage/spaces/*.h")
+"src/storage/spaces/*.h"
+"src/storage/interface/*.h")
 
 file(GLOB_RECURSE STX_H "src/stx/*.h")
 
-file(GLOB REPO 
-"repo/fse/fse.c"
-"repo/fse/zlibh.c"
-"repo/lz4-r101/lz4.c"
-"repo/zlib-1.2.8/adler32.c"
-"repo/zlib-1.2.8/compress.c"
-"repo/zlib-1.2.8/crc32.c"
-"repo/zlib-1.2.8/deflate.c"
-"repo/zlib-1.2.8/infback.c"
-"repo/zlib-1.2.8/inffast.c"
-"repo/zlib-1.2.8/inflate.c"
-"repo/zlib-1.2.8/inftrees.c"
-"repo/zlib-1.2.8/trees.c"
-"repo/zlib-1.2.8/uncompr.c"
-"repo/zlib-1.2.8/adler32.c"
-"repo/zlib-1.2.8/zutil.c"
+file(GLOB REPO
+src/repo/fse/fse.c
+src/repo/fse/zlibh.c
+src/repo/lz4-r101/lz4.c
+src/repo/zlib-1.2.8/adler32.c
+src/repo/zlib-1.2.8/compress.c
+src/repo/zlib-1.2.8/crc32.c
+src/repo/zlib-1.2.8/deflate.c
+src/repo/zlib-1.2.8/infback.c
+src/repo/zlib-1.2.8/inffast.c
+src/repo/zlib-1.2.8/inflate.c
+src/repo/zlib-1.2.8/inftrees.c
+src/repo/zlib-1.2.8/trees.c
+src/repo/zlib-1.2.8/uncompr.c
+src/repo/zlib-1.2.8/adler32.c
+src/repo/zlib-1.2.8/zutil.c
 )
 
-file(GLOB REPO_H 
-"repo/rabbit/*.h"
-"repo/zlib-1.2.8/crc32.h"
-"repo/zlib-1.2.8/inffast.h"
-"repo/zlib-1.2.8/inflate.h"
-"repo/zlib-1.2.8/inftrees.h"
-"repo/zlib-1.2.8/trees.h"
-"zconf.h"
-"repo/zlib-1.2.8/zlib.h")
+file(GLOB REPO_RPC_LIB
+src/repo/rpclib/lib/rpc/dispatcher.cc
+src/repo/rpclib/lib/rpc/server.cc
+src/repo/rpclib/lib/rpc/client.cc
+src/repo/rpclib/lib/rpc/this_handler.cc
+src/repo/rpclib/lib/rpc/this_session.cc
+src/repo/rpclib/lib/rpc/this_server.cc
+src/repo/rpclib/lib/rpc/rpc_error.cc
+src/repo/rpclib/lib/rpc/detail/server_session.cc
+src/repo/rpclib/lib/rpc/detail/response.cc
+src/repo/rpclib/lib/rpc/detail/client_error.cc
+src/repo/rpclib/lib/rpc/nonstd/optional.cc
+src/repo/rpclib/dependencies/src/format.cc
+src/repo/rpclib/dependencies/src/posix.cc
+)
+
+file(GLOB REPO_H
+"src/repo/rabbit/*.h"
+"src/repo/zlib-1.2.8/crc32.h"
+"src/repo/zlib-1.2.8/inffast.h"
+"src/repo/zlib-1.2.8/inflate.h"
+"src/repo/zlib-1.2.8/inftrees.h"
+"src/repo/zlib-1.2.8/trees.h"
+"src/repo/zlib-1.2.8/zconf.h"
+"src/repo/zlib-1.2.8/zlib.h")
 
 file(GLOB POCO_FOUNDATION 
 "src/poco-1.4.6p1-all/Foundation/src/*.cpp" 
@@ -86,13 +111,14 @@ file(GLOB_RECURSE POCO_DATA_SQLITE_H
 
 file(GLOB LUAJIT ${LUAJIT_PATH}/include/*.h)
 if (WIN32)
-    add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC)
+    add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack)
 else()
-    add_definitions(-DPOCO_STATIC)
+    add_definitions(-DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 endif ()
 
 
-add_library(spaces SHARED 
+add_library(spaces SHARED
+${REPO_RPC_LIB}
 ${POCO_FOUNDATION} 
 ${POCO_FOUNDATION_H}
 ${POCO_DATA}
@@ -103,8 +129,9 @@ ${REPO}
 ${REPO_H}
 ${STX_H}
 ${SPACES} 
-${SPACES_H} )
-target_link_libraries(spaces PRIVATE luajit)
+${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
+#LINK_LIBRARIES( src/repo/rpclib/build/librpc.a )
+target_link_libraries(spaces PRIVATE luajit ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})
 source_group("Spaces/headers" FILES ${SPACES_H})
