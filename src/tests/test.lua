@@ -1,8 +1,8 @@
 package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../src/tests/?.lua;~/torch/lua/?/init.lua;;'
 package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
 require "spaces"
-local u = 1e8
-local kl = 16
+local u = 1e6
+local kl = 8
 local seed = 78976
 local charset = {}  do -- [0-9a-zA-Z]
 	for c = 48, 57  do table.insert(charset, string.char(c)) end
@@ -19,68 +19,74 @@ local function randomNumber()
 	return math.random(1, 3e4)*math.random(1, 3e4)
 end
 
-local generator = randomNumber
+local generator = randomString
 
-local function generate()
-	local t = os.clock()
+local function generate(n)
+	--local t = os.clock()
 	local tdata = {}
-	print("start st generating",t)
+	--print("start st generating",t)
 	local ls = 0
-	for ri = 1,u do
-		local s = generator() --randomString(kl);
-		ls = ls + 4
+	for ri = 1,n do
+		local s = generator(kl)
+		ls = ls + #s
 		tdata[ri] = s
 	end
-	print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
+	--print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
 	return tdata
 end
+spaces.setMaxMb(1000)
 spaces.begin()
 local s = spaces.open(); -- starts a transaction automatically
 
 if s == nil then
+	print("intializing root")
 	s = {} -- nb. initialize the root space if its not initialized
 end
 local data = s.data
-
-if s.data == nil then
+print("data: ", data)
+if data == nil then
 	s.data = {}
+	data = s.data
 end
-data = s.data
+if data == nil then
+	exit(1)
+end
+print("data: ", data)
 print("current object count",#data)
 
-local tdata = nil
-if u < 5e6 then
-	tdata = generate()
-end
+local tdata = {}
 
 if #data == 0 then
 
 
 	spaces.begin()
-
-	t = os.clock()
+	local PERIOD = 2e6
+	local t = os.clock()
 	local td = os.clock()
 	print("start st write",t)
+	local ustart = 0
 	for i = 1,u do
-		local ss = nil
 
-		if tdata == nil then
-			ss = generator(kl)
-			if(i % (u/20)) == 0 then
-				print("wrote "..(u/20) .. " keys in ",os.clock()-td .. " tot. "..i,(u/20)/(os.clock()-td).." keys/s")
-				td=os.clock()
-			end
-
-		else
-			ss = tdata[i]
+		if tdata[i-ustart] == nil then
+			local gt = os.clock()
+			tdata = generate(1e6)
+			ustart = i - 1
+			gt = (os.clock() - gt)
+			td = td + gt
+			t = t + gt
 		end
-
+		if(i % (2e6)) == 0 then
+			print("wrote "..(PERIOD) .. " keys in ",os.clock()-td .. " tot. "..i,(PERIOD)/(os.clock()-td).." keys/s")
+			td=os.clock()
+		end
+		local ss = tdata[i-ustart]
 		data[ss] = i*2;
 	end
 	local dt = os.clock()-t;
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s")
-
+else
+	tdata = generate(1e6)
 end
 
 math.randomseed(seed)
@@ -105,7 +111,7 @@ end
 
 cnt = 0
 t = os.clock()
-local last = 0
+local last = ""
 for k,v in pairs(data) do
 	cnt = cnt + 1
 	if k < last then

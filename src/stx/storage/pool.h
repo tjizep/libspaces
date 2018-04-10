@@ -11,11 +11,11 @@
 #include <Poco/TaskManager.h>
 #include <Poco/Task.h>
 #include <Poco/Timestamp.h>
-#include "NotificationQueueWorker.h"
+#include "storage/transactions/NotificationQueueWorker.h"
 #include <stx/storage/types.h>
 #include <vector>
 #include <rabbit/unordered_map>
-#include <system_timers.h>
+#include <storage/transactions/system_timers.h>
 
 #include <typeinfo>
 #include <unordered_map>
@@ -622,7 +622,10 @@ namespace stx{
 
 				/// returns true if the pool is nearing depletion
 				bool is_near_depleted() const {
-					return ( shared->allocated >= 0.95*shared->max_pool_size ) ;
+					return is_near_factor(0.95);
+				}
+				bool is_near_factor(double factor) const {
+					return ( shared->allocated >= factor*shared->max_pool_size ) ;
 				}
 				u64 get_max_pool_size() const {
 					return shared->max_pool_size;
@@ -732,6 +735,9 @@ namespace stx{
 				/// returns true if the pool is nearing depletion
 				bool is_near_depleted() const {
 					return get_pool().is_near_depleted();
+				}
+				bool is_near_factor(double factor) const {
+					return get_pool().is_near_factor(factor);
 				}
 				bool check(const void * data, size_t requested) const{
 					return true;

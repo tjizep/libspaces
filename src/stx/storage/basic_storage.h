@@ -22,9 +22,9 @@ extern stx::storage::allocation::pool buffer_allocation_pool;
 extern "C"{
 	#include "zlib.h"
 };
-#include <fse/fse.h>
-#include <fse/zlibh.h>
-#include "system_timers.h"
+#include <fse.h>
+#include <zlibh.h>
+#include "storage/transactions/system_timers.h"
 
 
 namespace stx{

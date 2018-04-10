@@ -1,7 +1,8 @@
-#include <storage/spaces/space_lua.h>
+#include <storage/interface/space_lua.h>
 #include <stx/storage/basic_storage.h>
-#include <transactional_storage.h>
+#include <storage/transactions/transactional_storage.h>
 #include <string>
+
 
 namespace nst = stx::storage;
 nst::allocation::pool allocation_pool(2 * 1024ll * 1024ll * 1024ll);
@@ -43,6 +44,7 @@ void remove_btree_totl_used(ptrdiff_t added) {
 bool register_connector() {
 
 	Poco::Data::SQLite::Connector::registerConnector();
+
 	return true;
 }
 static bool registered = register_connector();

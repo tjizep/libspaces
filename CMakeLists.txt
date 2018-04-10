@@ -35,12 +35,16 @@ file(GLOB TESTS
 file(GLOB SPACES 
 "src/*.cpp" 
 "src/storage/spaces/*.cpp"
-"src/storage/interface/*.cpp")
+"src/storage/interface/*.cpp"
+"src/storage/network/*.cpp"
+"src/storage/transactions/*.cpp")
 
 file(GLOB SPACES_H
 "src/*.h" 
 "src/storage/spaces/*.h"
-"src/storage/interface/*.h")
+"src/storage/interface/*.h"
+"src/storage/network/*.h"
+"src/storage/transactions/*.h")
 
 file(GLOB_RECURSE STX_H "src/stx/*.h")
 

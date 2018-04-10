@@ -1,3 +1,0 @@
-/// defines a set
-#pragma once
-#include <rabbit/rabbit_set.h>

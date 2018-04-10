@@ -3,7 +3,8 @@
 #include <iostream>
 #include <storage/spaces/key.h>
 #include <stx/btree_map.h>
-#include <abstracted_storage.h>
+#include <storage/transactions/abstracted_storage.h>
+#define STORAGE_NAME "spaces.data"
 
 namespace stx {
     namespace storage {
@@ -35,6 +36,9 @@ namespace spaces{
 		}
 		const std::string& get_name(){
 			return storage.get_name();
+		}
+		void set_max_memory_mb(const ui8& mm){
+			allocation_pool.set_max_pool_size(1024*1024*mm);
 		}
 		_Set& get_set() {
 			return set;

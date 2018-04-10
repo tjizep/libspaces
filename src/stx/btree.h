@@ -11,19 +11,6 @@
 Copyright (C) 2008-2011 Timo Bingmann
 Copyright (c) 2013, Christiaan Pretorius
 
-Portions of this file contain modifications contributed and copyrighted by
-Google, Inc. Those modifications are gratefully acknowledged and are described
-briefly in the InnoDB documentation. The contributions by Google are
-incorporated with their permission, and subject to the conditions contained in
-the file COPYING.Google.
-
-Portions of this file contain modifications contributed and copyrighted
-by Percona Inc.. Those modifications are
-gratefully acknowledged and are described briefly in the InnoDB
-documentation. The contributions by Percona Inc. are incorporated with
-their permission, and subject to the conditions contained in the file
-COPYING.Percona.
-
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
 Foundation; version 2 of the License.
@@ -83,7 +70,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <stx/storage/pool.h>
 #include <rabbit/unordered_map>
 
-#include "NotificationQueueWorker.h"
+#include "storage/transactions/NotificationQueueWorker.h"
 // *** Debugging Macros
 
 #ifdef BTREE_DEBUG
@@ -114,9 +101,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 // * define an os related realtime clock
 
 #define OS_CLOCK Poco::Timestamp().epochMicroseconds
-
-/// define the memory allocation strategy
-#define AGGRESSIVE_MEM false
 
 /// Compiler options for optimization
 #ifdef _MSC_VER

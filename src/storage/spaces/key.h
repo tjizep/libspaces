@@ -124,7 +124,8 @@ namespace spaces {
 		}
 		~astring() {
 			if (is_long()) {
-				//str().~std::vector<char>();
+			    typedef std::vector<char> vchar;
+				str().~vchar();
 			}
 		}
 		astring& operator=(const astring& right) {
