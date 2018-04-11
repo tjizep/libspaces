@@ -3,13 +3,13 @@ package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
 require "spaces"
 local u = 1e6
 local kl = 8
-local seed = 78976
+
 local charset = {}  do -- [0-9a-zA-Z]
 	for c = 48, 57  do table.insert(charset, string.char(c)) end
 	for c = 65, 90  do table.insert(charset, string.char(c)) end
 	for c = 97, 122 do table.insert(charset, string.char(c)) end
 end
-math.randomseed(seed)
+
 local function randomString(length)
 	if not length or length <= 0 then return '' end
 	return randomString(length - 1) .. charset[math.random(1, #charset)]
@@ -22,6 +22,8 @@ end
 local generator = randomString
 
 local function generate(n)
+	local seed = 78976
+	math.randomseed(seed) -- reseed to standard value for repeatable tests
 	--local t = os.clock()
 	local tdata = {}
 	--print("start st generating",t)
@@ -35,7 +37,7 @@ local function generate(n)
 	return tdata
 end
 spaces.setMaxMb(1000)
-spaces.begin()
+spaces.beginRead()
 local s = spaces.open(); -- starts a transaction automatically
 
 if s == nil then
@@ -56,10 +58,10 @@ print("current object count",#data)
 
 local tdata = {}
 
-if #data == 0 then
-
+if #data == 0 or #data < u then
 
 	spaces.begin()
+
 	local PERIOD = 2e6
 	local t = os.clock()
 	local td = os.clock()
@@ -69,13 +71,13 @@ if #data == 0 then
 
 		if tdata[i-ustart] == nil then
 			local gt = os.clock()
-			tdata = generate(1e6)
+			tdata = generate(math.min(u,1e6))
 			ustart = i - 1
 			gt = (os.clock() - gt)
 			td = td + gt
 			t = t + gt
 		end
-		if(i % (2e6)) == 0 then
+		if (i % PERIOD) == 0 then
 			print("wrote "..(PERIOD) .. " keys in ",os.clock()-td .. " tot. "..i,(PERIOD)/(os.clock()-td).." keys/s")
 			td=os.clock()
 		end
@@ -85,22 +87,27 @@ if #data == 0 then
 	local dt = os.clock()-t;
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s")
+	spaces.commit()
+
 else
-	tdata = generate(1e6)
+	tdata = generate(math.min(u,1e6))
 end
 
-math.randomseed(seed)
+spaces.beginRead()
+
 print("start st read")
 local cnt = 0
 t = os.clock()
 td = t
 if tdata ~= nil then
-	for _,v in ipairs(tdata) do
+	for k,v in ipairs(tdata) do
 		cnt = cnt + 1
 		local dv = data[v]
 
 		if  dv == nil then
-			print("key error")
+			print("broken keys ",k,v)
+			error("key error",k,v)
+
 		end
 
 	end
@@ -115,12 +122,12 @@ local last = ""
 for k,v in pairs(data) do
 	cnt = cnt + 1
 	if k < last then
-		print("order error")
+		error("order error")
 	end
 	last = k
 end
 dt = os.clock()-t
 print("end st iterate",dt,math.floor(cnt/dt).." keys/s")
 --s.data = nil --delete everything added
-spaces.commit()
+
 --[[]]

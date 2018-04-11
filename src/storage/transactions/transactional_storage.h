@@ -1515,10 +1515,10 @@ namespace storage{
 				}
 				if(_session!=nullptr){
 					if (!transient){
-						printf(" discarding storage %s\n",name.c_str());
+						inf_print(" discarding storage %s",name.c_str());
 						rollback();
 					}else
-						printf(" discarding transient %s\n",name.c_str());
+						inf_print(" discarding transient %s",name.c_str());
 					insert_stmt = nullptr;
 					get_stmt = nullptr;
 					exists_stmt = nullptr;

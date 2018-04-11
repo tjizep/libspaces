@@ -12,18 +12,23 @@ namespace stx {
     }
 }
 namespace spaces{
-    extern Poco::FastMutex writer_lock;
+
 	class dbms {
 	public:
 
 		stored::abstracted_storage storage;
-		typedef stx::btree_map< key, record, stored::abstracted_storage, std::less<key>> _Set;
+		typedef stx::btree_map<key, record, stored::abstracted_storage, std::less<key>> _Set;
 	private:
+		Poco::FastMutex writer_lock;
 		_Set set;
-		nst::i64  id;
+		nst::i64 id;
+		bool is_reader;
 		static const nst::stream_address ID_ADDRESS = 8;
 	public:
-		dbms(const std::string &name) : storage(name), set(storage), id(1) {
+		bool reader() const {
+			return  this->is_reader;
+		}
+		dbms(const std::string &name,bool is_reader) : storage(name), set(storage), id(1) {
             
 			allocation_pool.set_max_pool_size(1024*1024*1024*10ull);
             storage.rollback();
@@ -37,9 +42,7 @@ namespace spaces{
 		const std::string& get_name(){
 			return storage.get_name();
 		}
-		void set_max_memory_mb(const ui8& mm){
-			allocation_pool.set_max_pool_size(1024*1024*mm);
-		}
+
 		_Set& get_set() {
 			return set;
 		}
@@ -51,12 +54,13 @@ namespace spaces{
 
 			    writer_lock.lock();
 
-				stored::abstracted_tx_begin(false, false, storage, set);
+				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
                     id = 1;
                 }
 			}
 		}
+
 		void check_resources(){
 
 		}
@@ -64,12 +68,27 @@ namespace spaces{
 
 			if (this->storage.is_transacted()){
 				set.flush_buffers();
-				storage.set_boot_value(id, ID_ADDRESS);
-				this->storage.commit();
-				nst::journal::get_instance().synch();
+
+				try{
+					if(this->is_reader){
+						this->storage.rollback();
+					}else{
+						storage.set_boot_value(id, ID_ADDRESS);
+						this->storage.commit();
+						nst::journal::get_instance().synch();
+					}
+				}catch (...){
+					err_print("error during commit");
+				}
+
+
                 writer_lock.unlock();
 			}
 
 		}
 	};
+	extern std::shared_ptr<dbms> get_writer();
+	static std::shared_ptr<dbms> create_reader(){
+		return std::make_shared<dbms>(STORAGE_NAME,true);
+	}
 }

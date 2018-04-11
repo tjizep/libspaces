@@ -19,12 +19,28 @@ static int l_open_space(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 
 	}
-	session_t * s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+	session_t * s = spaces::create_session<session_t>(L, SPACES_SESSION_KEY,false);
 	spaces::space*  r = s->open_space(0);
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);
 	}
 	return 1;
+}
+static int l_read(lua_State *L) {
+	if (lua_isstring(L, 1)) {
+
+	}
+	spaces::create_session<session_t>(L, SPACES_SESSION_KEY,true);
+
+	return 0;
+}
+static int l_write(lua_State *L) {
+	if (lua_isstring(L, 1)) {
+
+	}
+	spaces::create_session<session_t>(L, SPACES_SESSION_KEY,false);
+
+	return 0;
 }
 
 static int l_from_space(lua_State *L) {
@@ -32,7 +48,11 @@ static int l_from_space(lua_State *L) {
 }
 
 static int l_begin_space(lua_State *L) {
-	spaces::get_session<session_t>(L, SPACES_SESSION_KEY)->begin();
+	spaces::create_session<session_t>(L, SPACES_SESSION_KEY,false)->begin();
+	return 0;
+}
+static int l_begin_reader_space(lua_State *L) {
+	spaces::create_session<session_t>(L, SPACES_SESSION_KEY,true)->begin();
 	return 0;
 }
 
@@ -54,7 +74,7 @@ static int l_configure_space(lua_State *L) {
 	return 0;
 }
 static int l_setmaxmb_space(lua_State *L) {
-    spaces::get_session<session_t>(L, SPACES_SESSION_KEY)->set_max_memory_mb(lua_tonumber(L,1));
+	allocation_pool.set_max_pool_size(1024*1024*lua_tonumber(L,1));
     return 0;
 }
 static int l_replicate_space(lua_State *L) {
@@ -65,8 +85,12 @@ static int l_replicate_space(lua_State *L) {
 static const struct luaL_Reg spaces_f[] = {
 	{ "configure", l_configure_space },
 	{ "open", l_open_space },
+	{ "read", l_read },
+	{ "write", l_write },
 	{ "from", l_from_space },
 	{ "begin", l_begin_space },
+	{ "beginRead", l_begin_reader_space },
+
 	{ "commit", l_commit_space },
 	{ "rollback", l_rollback_space },
     { "setMaxMb", l_setmaxmb_space },
@@ -186,9 +210,7 @@ static f8 to_number(lua_State *L, i4 at) {
 	return r;
 }
 static int spaces_add(lua_State *L) {
-
-
-	lua_pushnumber(L, to_number(L, 1) + to_number(L, 2));	
+	lua_pushnumber(L, to_number(L, 1) + to_number(L, 2));
 	return 1;
 }
 static int spaces_sub(lua_State *L) {
@@ -196,11 +218,11 @@ static int spaces_sub(lua_State *L) {
 	return 1;
 }
 static int spaces_neg(lua_State* L) {
-	lua_pushnumber(L, -to_number(L, 1));	
+	lua_pushnumber(L, -to_number(L, 1));
 	return 1;
 }
 static int spaces_mul(lua_State* L) {
-	lua_pushnumber(L, to_number(L, 1)*to_number(L, 2));	
+	lua_pushnumber(L, to_number(L, 1)*to_number(L, 2));
 	return 1;
 }
 static int spaces_pow(lua_State* L) {
@@ -208,7 +230,7 @@ static int spaces_pow(lua_State* L) {
 	return 1;
 }
 static int spaces_div(lua_State* L) {
-	lua_pushnumber(L, to_number(L, 1) / to_number(L, 2));	
+	lua_pushnumber(L, to_number(L, 1) / to_number(L, 2));
 	return 1;
 }
 static int spaces_tostring(lua_State *L) {

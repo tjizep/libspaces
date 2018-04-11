@@ -16,7 +16,7 @@ namespace spaces{
         nst::buffer_type buffer;
         MSGPACK_DEFINE_ARRAY(address,buffer);
     };
-    dbms db(STORAGE_NAME);
+
     void store_data(const storage_message& msg){
 
     }

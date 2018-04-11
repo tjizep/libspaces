@@ -34,35 +34,50 @@ namespace spaces{
 	struct lua_db_session {
 		typedef spaces::dbms::_Set _Set;		
 		//spaces::_SSet s;
-		spaces::dbms d;
-		lua_db_session() : d("spaces.data") {
+		std::shared_ptr<spaces::dbms> d;
+		bool is_reader;
+		lua_db_session(bool is_reader = false) : is_reader(is_reader){
+			this->create();
+
 		}
-		
+		~lua_db_session(){
+
+		}
+		void create(){
+			if(is_reader){
+				d =spaces::create_reader();
+			}else{
+				d = spaces::get_writer();
+			}
+		}
 		spaces::_SSet &get_set() {
-			return d.get_set();
-			//return s;
+			return d->get_set();
 		}
 		nst::u64 gen_id(){
-		    return d.gen_id();
+		    return d->gen_id();
 		}
 		void check(){
-		    d.check_resources();
+		    d->check_resources();
+		}
+		void set_mode(bool reader){
+			if(reader != d->reader()){
+				d = nullptr;
+				create();
+			}
 		}
 		void begin() {
-			d.begin();
+			d->begin();
 		}
 		void commit() {
-			d.commit();
+			d->commit();
 		}
-        void set_max_memory_mb(const ui8& mm){
-            d.set_max_memory_mb(mm);
-        }
+
 	};
 	struct lua_mem_session {
 		spaces::_MSet s;
 		typedef spaces::_MSet _Set;
 		nst::u64 id;
-		lua_mem_session() : id(1) {
+		lua_mem_session(bool) : id(1) {
 		}
 
 		spaces::_MSet &get_set() {
@@ -71,6 +86,9 @@ namespace spaces{
         nst::u64 gen_id(){
             return id++;
         }
+		void set_mode(bool) {
+
+		}
 		void check(){
 
 		}
@@ -79,9 +97,7 @@ namespace spaces{
 		}
 		void commit() {			
 		}
-        void set_max_memory_mb(const ui8& mm){
 
-        }
 	};
 
 	struct lua_iterator {
@@ -139,16 +155,24 @@ namespace spaces{
 		return k;  /* new userdatum is already on the stack */
 
 	}
+	template<typename _sT, typename _pT>
+	static _sT* create_instance_from_nothing(lua_State *L, _pT param) {
+		size_t nbytes = sizeof(_sT);
+		_sT *k = (_sT *)lua_newuserdata(L, nbytes);
+		new (k) _sT(param);
+		return k;  /* new userdatum is already on the stack */
+
+	}
 	template<typename _SessionType>
-	static _SessionType* get_session(lua_State *L, ptrdiff_t session_key) {
+	static _SessionType* create_session(lua_State *L, ptrdiff_t session_key, bool is_reader) {
 		_SessionType* r = nullptr;
 		lua_pushlightuserdata(L, (void *)session_key);  // push address 
 		lua_gettable(L, LUA_GLOBALSINDEX);  // retrieve value 
 		
 		if (lua_isnil(L, -1)) {
 			lua_pushlightuserdata(L, (void *)session_key);  // push address 
-			r = create_instance_from_nothing<_SessionType>(L);									
-			r->set_state(L);typedef std::pair<key, record> space;
+			r = create_instance_from_nothing<_SessionType,bool>(L,is_reader);
+			r->set_state(L);
 			// set its metatable 
 			luaL_getmetatable(L, SPACES_SESSION_LUA_TYPE_NAME);
 			if (lua_isnil(L, -1)) {
@@ -157,6 +181,21 @@ namespace spaces{
 			lua_setmetatable(L, -2);
 			lua_settable(L, LUA_GLOBALSINDEX);/// put it in globals
 		}else{			
+			r = err_checkudata<_SessionType>(L, "", -1);
+		}
+		r->check();
+		r->set_mode(is_reader);
+		return r;
+	}
+	template<typename _SessionType>
+	static _SessionType* get_session(lua_State *L, ptrdiff_t session_key) {
+		_SessionType* r = nullptr;
+		lua_pushlightuserdata(L, (void *)session_key);  // push address
+		lua_gettable(L, LUA_GLOBALSINDEX);  // retrieve value
+
+		if (lua_isnil(L, -1)) {
+			luaL_error(L,"session not created: use .read() or .write()");
+		}else{
 			r = err_checkudata<_SessionType>(L, "", -1);
 		}
 		r->check();
@@ -173,7 +212,7 @@ namespace spaces{
 		_SessionType session;
 		lua_State *L;
 	public:
-		lua_session() : L(nullptr) {
+		lua_session(bool reader) : L(nullptr),session(reader) {
 
 		}
         ~lua_session() {
@@ -186,6 +225,9 @@ namespace spaces{
 		}
 		void set_state(lua_State *L) {
 			this->L = L;
+		}
+		void set_mode(bool readr){
+			session.set_mode(readr);
 		}
 		void check(){
 		    session.check();
