@@ -60,6 +60,11 @@ namespace spaces{
                 }
 			}
 		}
+		void rollback(){
+            if (this->storage.is_transacted()) {
+                this->storage.rollback();
+            }
+		}
 
 		void check_resources(){
 

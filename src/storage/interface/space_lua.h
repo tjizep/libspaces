@@ -60,10 +60,12 @@ namespace spaces{
 		    d->check_resources();
 		}
 		void set_mode(bool reader){
-			if(reader != d->reader()){
-				d = nullptr;
-				create();
-			}
+		    if(is_reader != reader){
+		        if(d!= nullptr) d->rollback();
+                d = nullptr;
+                is_reader = reader;
+                create();
+		    }
 		}
 		void begin() {
 			d->begin();
