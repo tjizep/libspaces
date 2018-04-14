@@ -142,7 +142,8 @@ static int spaces_equal(lua_State *L) {
 static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-
+    s->set_mode(false); /// must write
+    s->begin(); /// will start the writing transaction
 	spaces::space k;
 
 	spaces::space* p = s->get_space(1);
@@ -163,7 +164,7 @@ static int spaces_newindex(lua_State *L) {
 
 static int spaces_index(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-
+    s->begin(); /// use whatever mode is set
 	spaces::space k;
 	spaces::space *r = nullptr;
 	spaces::space* p = s->get_space();
@@ -387,6 +388,7 @@ static int spaces_call(lua_State *L) {
 #endif
 static int l_pairs_iter(lua_State* L) { //i,k,v 
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+
 	spaces::lua_iterator *i = s->get_iterator(lua_upvalueindex(1));
 	if (!i->end()) {		
 		
@@ -399,6 +401,7 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 }
 static int spaces___pairs(lua_State* L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+	s->begin(); /// will start a transaction
 	spaces::space* p = s->get_space();// its at stack 1 because the function is called
 	spaces::key f,e ;
 	f.set_context(p->second.get_identity());

@@ -37,7 +37,6 @@ local function generate(n)
 	return tdata
 end
 spaces.setMaxMb(1000)
-spaces.beginRead()
 local s = spaces.open(); -- starts a transaction automatically
 
 if s == nil then
@@ -60,7 +59,6 @@ local tdata = {}
 
 if #data == 0 or #data < u then
 
-	spaces.begin()
 
 	local PERIOD = 2e6
 	local t = os.clock()
@@ -92,8 +90,6 @@ if #data == 0 or #data < u then
 else
 	tdata = generate(math.min(u,1e6))
 end
-
-spaces.beginRead()
 
 print("start st read")
 local cnt = 0

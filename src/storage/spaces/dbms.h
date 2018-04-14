@@ -19,7 +19,7 @@ namespace spaces{
 		stored::abstracted_storage storage;
 		typedef stx::btree_map<key, record, stored::abstracted_storage, std::less<key>> _Set;
 	private:
-		Poco::FastMutex writer_lock;
+		Poco::FastMutex lock;
 		_Set set;
 		nst::i64 id;
 		bool is_reader;
@@ -52,7 +52,7 @@ namespace spaces{
 		void begin() {
 			if (!this->storage.is_transacted()) {
 
-			    writer_lock.lock();
+			    lock.lock();
 
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
@@ -87,7 +87,7 @@ namespace spaces{
 				}
 
 
-                writer_lock.unlock();
+                lock.unlock();
 			}
 
 		}
