@@ -15,6 +15,26 @@ extern "C" {
 
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::lua_session<spaces::lua_db_session> session_t;
+static int l_serve_space(lua_State *L) {
+    spaces::block_replication_server server(spaces::DEFAULT_PORT);
+	server.run();
+    return  0;
+}
+static int l_replicate_space(lua_State *L) {
+    try{
+        if (lua_isstring(L, 1)) {
+            const char * ip = lua_tostring(L,1);
+
+            stored::abstracted_storage storage(STORAGE_NAME);
+            storage.replicate(ip);
+
+        }
+    }catch(std::exception& e){
+        luaL_error(L,"could not connect: %s",e.what());
+    }
+    return 0;
+}
+
 static int l_open_space(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 
@@ -77,13 +97,11 @@ static int l_setmaxmb_space(lua_State *L) {
 	allocation_pool.set_max_pool_size(1024*1024*lua_tonumber(L,1));
     return 0;
 }
-static int l_replicate_space(lua_State *L) {
 
-    return 0;
-}
 
 static const struct luaL_Reg spaces_f[] = {
 	{ "configure", l_configure_space },
+    { "serve", l_serve_space},
 	{ "open", l_open_space },
 	{ "read", l_read },
 	{ "write", l_write },

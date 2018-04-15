@@ -1,8 +1,10 @@
-package.path = '~/torch/lua/?;~/torch/lua/?.lua;./?;./?.lua;../src/tests/?;../src/tests/?.lua;~/torch/lua/?/init.lua;;'
-package.cpath = '~/torch/bin/?.so;~/torch/bin/lib?.so;./lib?.so;;'
+require "packages"
 require "spaces"
-local u = 1e6
+
+local u = 1e1
 local kl = 8
+local seed = 78976
+math.randomseed(seed) -- reseed to standard value for repeatable tests
 
 local charset = {}  do -- [0-9a-zA-Z]
 	for c = 48, 57  do table.insert(charset, string.char(c)) end
@@ -22,8 +24,6 @@ end
 local generator = randomString
 
 local function generate(n)
-	local seed = 78976
-	math.randomseed(seed) -- reseed to standard value for repeatable tests
 	--local t = os.clock()
 	local tdata = {}
 	--print("start st generating",t)
@@ -37,6 +37,7 @@ local function generate(n)
 	return tdata
 end
 spaces.setMaxMb(1000)
+
 local s = spaces.open(); -- starts a transaction automatically
 
 if s == nil then
@@ -58,7 +59,6 @@ print("current object count",#data)
 local tdata = {}
 
 if #data == 0 or #data < u then
-
 
 	local PERIOD = 2e6
 	local t = os.clock()
@@ -87,10 +87,11 @@ if #data == 0 or #data < u then
 	print("end st random write",dt,ops.." keys/s")
 	spaces.commit()
 
+
 else
 	tdata = generate(math.min(u,1e6))
 end
-
+spaces.read()
 print("start st read")
 local cnt = 0
 t = os.clock()

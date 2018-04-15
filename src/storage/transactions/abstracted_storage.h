@@ -136,7 +136,12 @@ namespace stored{
 				printf("error closing transaction\n");
 			}
 		}
-
+		void replicate(const std::string& address){
+			get_allocations().replicate(address);
+		}
+		nst::u64 get_max_block_address() const {
+			return get_allocations().get_max_block_address();
+		}
 		nst::u64 get_storage_size() {
 			return get_allocations().get_storage_size();
 		}
@@ -374,20 +379,9 @@ namespace stored{
 			reader = value.read(buffer, reader);
 		}
 
-		/// lock if its a writer
-
-		void lock(){
-			if(!this->is_readonly()){
-				get_allocations().write_lock();
-			}
-		}
-
-		/// unlock if its a writer
-
-		void unlock(){
-			if(!this->is_readonly()){
-				get_allocations().write_unlock();
-			}
+		/// returns true if a block with given address exists
+		bool contains(nst::stream_address which) {
+			return get_allocations().contains(which);
 		}
 
 	};

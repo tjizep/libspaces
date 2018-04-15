@@ -27,7 +27,11 @@ namespace spaces{
 		bool reader() const {
 			return  this->is_reader;
 		}
-		dbms(const std::string& name,bool is_reader) : storage(name), set(storage), id(1) {
+		dbms(const std::string& name,bool is_reader)
+        :   storage(name)
+        ,   set(storage)
+        ,   id(1)
+        ,   is_reader(is_reader) {
             
 			allocation_pool.set_max_pool_size(1024*1024*1024*10ull);
             storage.rollback();
@@ -52,7 +56,7 @@ namespace spaces{
 		void begin() {
 			if (!this->storage.is_transacted()) {
 
-			    storage.lock();
+
 
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
