@@ -225,6 +225,7 @@ namespace stored{
 			rollback();
 			get_allocations();
 			(*this).writer = writer;
+			if(writer) get_allocations().write_lock();
 			get_transaction(writer);
 			order = get_allocations().get_order();
 
@@ -267,6 +268,7 @@ namespace stored{
 				if((*this).writer){
 					r = get_allocations().merge(_transaction);
 					(*this).order = get_allocations().get_order();
+					get_allocations().write_unlock();
 				}else{
 					r = get_allocations().commit(_transaction);
 					_transaction = NULL;
@@ -292,6 +294,7 @@ namespace stored{
 			if(_transaction != NULL){
 				get_allocations().discard(_transaction);
 				_transaction = NULL;
+				if((*this).writer) get_allocations().write_unlock();
 				(*this).writer = false;
 				(*this).order = 0;
 			}
@@ -369,6 +372,22 @@ namespace stored{
 		template<typename _Stored>
 		void retrieve(const nst::buffer_type& buffer, typename nst::buffer_type::const_iterator& reader, _Stored &value) const {
 			reader = value.read(buffer, reader);
+		}
+
+		/// lock if its a writer
+
+		void lock(){
+			if(!this->is_readonly()){
+				get_allocations().write_lock();
+			}
+		}
+
+		/// unlock if its a writer
+
+		void unlock(){
+			if(!this->is_readonly()){
+				get_allocations().write_unlock();
+			}
 		}
 
 	};

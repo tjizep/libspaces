@@ -4,16 +4,31 @@
 
 #ifndef SPACES_REPLICATION_H
 #define SPACES_REPLICATION_H
-#include <storage/spaces/dbms.h>
+#include <storage/transactions/abstracted_storage.h>
 namespace nst = stx::storage;
 namespace spaces{
-    class replication_server{
+    class block_replication_server{
     private:
         nst::u16 port;
     public:
-        replication_server(nst::u16 port);
+        block_replication_server(nst::u16 port);
         void run();
-        ~replication_server();
+        ~block_replication_server();
+    };
+    class block_replication_client{
+    public:
+        block_replication_client();
+        bool is_open() const ;
+        void begin(bool is_read);
+        void commit();
+        void rollback();
+        void open(bool is_new,const std::string& name);
+        void store(nst::u64 address, const nst::buffer_type& data);
+        bool get(nst::version_type& version, nst::buffer_type& data, nst::u64 address);
+        bool contains(nst::u64 address) const;
+        void close();
+        nst::u64 max_block_address();
+        ~block_replication_client();
     };
 }
 

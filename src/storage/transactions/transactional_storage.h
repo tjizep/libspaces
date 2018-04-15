@@ -57,9 +57,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "Poco/BinaryReader.h"
 #include "Poco/File.h"
 #include "Poco/ThreadLocal.h"
+#define _LEGO_
 #ifdef _LEGO_
-#include "rednode.h"
+//#include "rednode.h"
+#include <storage/network/replication.h>
 #endif
+
 #include <stx/storage/pool.h>
 #include <Poco/UUIDGenerator.h>
 namespace nst = stx::storage;
@@ -281,6 +284,7 @@ namespace storage{
 	//using Poco::Data::Session;
 	//using Poco::Data::Statement;
 	typedef Poco::ScopedLockWithUnlock<Poco::Mutex> syncronized;
+	typedef Poco::ScopedLockWithUnlock<Poco::FastMutex> _syncronized;
 	/// a file io exception
 	class FileIOException : public std::exception{
 	public:
@@ -520,7 +524,10 @@ namespace storage{
 		//cassandras<block_type> lego;
 		//sixsided::transacted_blocks<block_type>
 		//red::client_allocator_proxy lego;
+		spaces::block_replication_client repl;
+									///	The block replication client
 #endif
+
 									/// file blocks
 
 		_Descriptors recycled;		/// recycled blocks
@@ -621,7 +628,7 @@ namespace storage{
 				, into(exists_count)
 				, bind(selector_address);
 #ifdef _LEGO_
-			if(!lego.is_open()){
+			if(repl.is_open()){
 #endif
 				max_address = 0;
 
@@ -643,14 +650,14 @@ namespace storage{
 			if(true){
 				if(get_version() == version_type() 
 #ifdef _LEGO_
-					&& !lego.is_open()
+					&& !repl.is_open()
 #endif
 					){
 					max_address = 0;
 #ifdef _LEGO_
-					lego.open(is_new,name.c_str());
+					repl.open(is_new,name.c_str());
 					
-					max_address = std::max<address_type>(max_address, lego.max_block_address());
+					max_address = std::max<address_type>(max_address, repl.max_block_address());
 #endif
 
 					
@@ -667,7 +674,7 @@ namespace storage{
 				Poco::File df ( path.c_str());
 				file_size = df.getSize();
 #ifdef _LEGO_
-				if(lego.is_open()){
+				if(repl.is_open()){
 
 				}
 #endif
@@ -680,9 +687,9 @@ namespace storage{
 			current_size = block.size()*sizeof(typename block_type::value_type);
 
 #ifdef _LEGO_
-			if(lego.is_open()){
+			if(repl.is_open()){
 				if(!block.empty()){
-					lego.store(w, block);
+					repl.store(w, block);
 					return;
 				}
 				return;
@@ -703,7 +710,7 @@ namespace storage{
 				current_size = block.size();
 				encoded_block.clear();
 #ifdef _LEGO_
-				if(!lego.is_open())
+				if(!repl.is_open())
 #endif
 					encoded_block.assignRaw((const char *)&block[0], (size_t)current_size);
 			}
@@ -722,8 +729,8 @@ namespace storage{
 			selector_address = w;
 			exists_count = 0;
 #ifdef _LEGO_
-			if(lego.is_open()){
-				return lego.contains(w);
+			if(repl.is_open()){
+				return repl.contains(w);
 			}
 #endif
 			exists_stmt->execute();
@@ -738,9 +745,9 @@ namespace storage{
 			///read_ahead(w+1, std::min<address_type>(w+8,next)); /// read 8 addresses at a time
 			current_block.clear();
 #ifdef _LEGO_
-			if(lego.is_open()){
+			if(repl.is_open()){
 				version_type version;
-				if( lego.get(w,version,current_block) ){
+				if( repl.get(version,current_block,w) ){
 					update_versions(w) = version;
 					current_size = current_block.size();
 					current_address = w;
@@ -1542,8 +1549,8 @@ namespace storage{
 				allocations.clear();
 				versions.clear();
 #ifdef _LEGO_				
-				if(lego.is_open())
-					lego.close();
+				if(repl.is_open())
+					repl.close();
 #endif
 			}
 		}
@@ -1663,8 +1670,8 @@ namespace storage{
 		/// NL
 		bool is_local() const {
 #ifdef _LEGO_
-			return !lego.is_open();
-#elseif
+			return !repl.is_open();
+#else
 			return true;
 #endif
 		}
@@ -1694,7 +1701,7 @@ namespace storage{
 				get_session() << "PRAGMA shrink_memory;", now;
 				get_session() << "begin transaction;", now;
 #ifdef _LEGO_
-				if(lego.is_open()) lego.begin(true);
+				if(repl.is_open()) repl.begin(true);
 #endif
 				transacted = true;
 			}
@@ -1706,7 +1713,7 @@ namespace storage{
 			if(transacted){
 				get_session() << "commit;", now;
 #ifdef _LEGO_
-				if(lego.is_open()) lego.commit();
+				if(repl.is_open()) repl.commit();
 #endif
 			}
 
@@ -1765,7 +1772,7 @@ namespace storage{
 				if(transacted){
 					get_session() << "rollback;", now;
 #ifdef _LEGO_
-					if(lego.is_open()) lego.rollback();
+					if(repl.is_open()) repl.rollback();
 #endif
 				}
 				get_session() << "PRAGMA shrink_memory;", now;
@@ -1796,6 +1803,7 @@ namespace storage{
 			transacted = false;
 
 		}
+
 		void reduce(){
 			if(transient) return;
 			if(version != version_type()) return;
@@ -1817,8 +1825,8 @@ namespace storage{
 		}
 	};
 
-	typedef std::shared_ptr<Poco::Mutex> mutex_ptr;
-	typedef Poco::Mutex * mutex_ref;
+	typedef std::shared_ptr<Poco::FastMutex> mutex_ptr;
+	typedef Poco::FastMutex * mutex_ref;
 
 	/// this defines a storage which is based on a previous version
 	/// if the based member is nullptr then the version based storage
@@ -1951,13 +1959,13 @@ namespace storage{
 
 		/// sets the previous version of this version
 		void set_previous(version_based_allocator_ptr based){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			(*this).based = based;
 		}
 
 		/// return the previous version of this version if there is one
 		version_based_allocator_ptr get_previous(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			return (*this).based;
 		}
 
@@ -1989,13 +1997,13 @@ namespace storage{
 
 		/// notify the addition of a new reader
 		void add_reader(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			(*this).readers++;
 		}
 
 		/// notify the release of an existing reader
 		void remove_reader(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if((*this).readers == 0){
 				throw InvalidReaderCount();
 			}
@@ -2068,7 +2076,7 @@ namespace storage{
 		/// determine if the input is actually one of the base version end states
 
 		bool is_end(const block_type &r) const {
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			const version_based_allocator * b  =this;
 			while(b!=nullptr){
 				if(b->get_allocator().is_end(r)){
@@ -2176,45 +2184,46 @@ namespace storage{
 			}
 			(*lock).unlock();
 		}
+
 		void begin(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				allocations->begin();
 		}
 		/// special case only called by mvcc_coordinator
 		void begin_new(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				allocations->begin_new();
 		}
 
 		void commit(){
 
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				allocations->commit();
 		}
 		void flush(){
 
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				allocations->flush();
 		}
 
 		/// write the allocated data to the global journal
 		void journal(const pool_string &name){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				allocations->journal(name);
 		}
 		/// return the last address allocated during the lifetime of this version
 		address_type last() const {
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			return allocations->last();
 		}
 
 		bool modified() const {
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(allocations!=nullptr)
 				return allocations->modified();
 			return false;
@@ -2379,6 +2388,8 @@ namespace storage{
 
 		version_storage_type* writing_transaction;
 											/// the single writing transaction
+		Poco::FastMutex w_lock;				/// the write lock for single writing transaction
+
 	private:
 		void save_recovery_info(){
 			if(storages.size() > 1){
@@ -2411,7 +2422,7 @@ namespace storage{
 		/// i.e. storages.size()==1
 		void merge_down()
 		{
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 
 			/// changing the transactional state during a journal synch cannot be recovered
 			if(journal_synching) return;
@@ -2540,7 +2551,7 @@ namespace storage{
 		//,	next_version(1)
 		,	last_address ( initial->last() )
 		,	initial(initial)
-		,   lock(std::make_shared<Poco::Mutex>())
+		,   lock(std::make_shared<Poco::FastMutex>())
 		,	recovery(false)
 		,	journal_synching(false)
 		,	timer(get_lr_timer())
@@ -2599,6 +2610,14 @@ namespace storage{
 
 			initial->release();
 		}
+		/// write lock
+		void write_lock(){
+			w_lock.lock();
+		}
+		/// write lock
+		void write_unlock(){
+			w_lock.unlock();
+		}
 		/// set the timer value to current
 		void touch(){
 			this->initial->touch();
@@ -2614,13 +2633,13 @@ namespace storage{
 
 		/// set read cache to desired state
 		void set_read_cache(bool is_read_cache){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			initial->set_read_cache(is_read_cache);
 		}
 
 		/// load all loads the complete storage into memory
 		void load_all(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			initial->load_all();
 		}
 
@@ -2632,7 +2651,7 @@ namespace storage{
 		/// engages the instance - its resources may not be released if references > 0
 
 		void engage(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			if(references==0)
 				initial->engage();
 			++references;
@@ -2641,7 +2660,7 @@ namespace storage{
 		/// releases a reference to this coordinatron
 
 		void release(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			--references;
 			/// TODO: if references == 0 the handles held to resources
 			///	need to let go so that maintenance can happen (i.e. drop table)
@@ -2657,14 +2676,14 @@ namespace storage{
 		/// check if idle for maintenance
 
 		bool is_idle(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			return ( 0 == references && 0 == active_transactions );
 		}
 
 		/// reduces use
 
 		void reduce(){
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 
 			for(typename storage_container::iterator c = storages.begin(); c != storages.end(); ++c)
 			{
@@ -2681,7 +2700,7 @@ namespace storage{
 		/// template<typename _VersionRequests>
 		nst::u64 get_greater_version_diff(_VersionRequests& request){
 			nst::u64 responses = 0;
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			for(typename storage_container::iterator c = storages.begin(); c != storages.end(); ++c)
 			{
 				responses += (*c)->get_greater_version_diff(request);
@@ -2699,7 +2718,7 @@ namespace storage{
 			}
 
 
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			touch();
 			/// TODODONE: reuse an existing unmerged transaction - possibly share unmerged transactions
 			/// TODODONE: lazy create unmerged transactions only when a write occurs
@@ -2764,7 +2783,7 @@ namespace storage{
 		}
 
 		u32 transactions_away() const {
-			syncronized _sync(*lock);
+			_syncronized _sync(*lock);
 			return active_transactions;
 		}
 
@@ -2781,7 +2800,7 @@ namespace storage{
 				throw InvalidTransactionType();
 			}
 			{
-				syncronized _sync(*lock);
+				_syncronized _sync(*lock);
 				touch();
 				if(active_transactions == 0){
 					discard(transaction);
@@ -2858,7 +2877,7 @@ namespace storage{
 			if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
 			{
-				syncronized _sync(*lock);
+				_syncronized _sync(*lock);
 				touch();
 				if(active_transactions == 0){
 					discard(transaction);
@@ -2921,7 +2940,7 @@ namespace storage{
 
 
 			{
-				synchronized _sync(*lock);
+				_syncronized _sync(*lock);
 				if(active_transactions==0){
 					err_print("cannot rollback: no active transactions away");
 				}
@@ -2976,7 +2995,7 @@ namespace storage{
 		virtual void journal_commit() {
 
 
-			synchronized _sync(*lock);
+			_syncronized _sync(*lock);
 
 			touch();
 			for(typename storage_container::iterator c = storages.begin(); c != storages.end(); ++c)
@@ -2990,17 +3009,17 @@ namespace storage{
 
 		}
 		virtual bool make_singular()  {
-			synchronized _sync(*lock);
+			_syncronized _sync(*lock);
 			merge_down();
 
 			return ((*this).storages.size() == 1);
 		}
 		virtual void journal_synch_start(){
-			synchronized _sync(*lock);
+			_syncronized _sync(*lock);
 			journal_synching = true;
 		}
 		virtual void journal_synch_end(){
-			synchronized _sync(*lock);
+			_syncronized _sync(*lock);
 			journal_synching = false;
 			this->reduce();
 		}

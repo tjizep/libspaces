@@ -20,12 +20,12 @@ namespace spaces{
     void store_data(const storage_message& msg){
 
     }
-    replication_server::replication_server(nst::u16 port) : port(port){
+    block_replication_server::block_replication_server(nst::u16 port) : port(port){
 
     }
-    void replication_server::run(){
+    void block_replication_server::run(){
         rpc::server srv(this->port); // listen on TCP port
-        srv.bind("store", [](storage_message const& c) {
+        srv.bind("is_open", []() {
 
             return "ok";
 
@@ -54,7 +54,38 @@ namespace spaces{
 
         });
     }
-    replication_server::~replication_server(){
+    block_replication_server::~block_replication_server(){
+
+    }
+
+    block_replication_client::block_replication_client(){
+
+    }
+    bool block_replication_client::is_open() const {
+        return false;
+    }
+    void block_replication_client::begin(bool is_read){
+
+    }
+    void block_replication_client::commit(){
+
+    }
+    void block_replication_client::rollback(){
+
+    }
+    void block_replication_client::open(bool is_new,const std::string& name){
+
+    }
+    void block_replication_client::store(nst::u64 address, const nst::buffer_type& data){
+
+    }
+    bool block_replication_client::get(nst::version_type& version, nst::buffer_type& data, nst::u64 address){
+
+    }
+    nst::u64 max_block_address(){
+        return  0;
+    }
+    block_replication_client::~block_replication_client(){
 
     }
 }
