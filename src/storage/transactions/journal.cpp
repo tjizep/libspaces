@@ -60,8 +60,8 @@ private:
 public:
 	static const std::ios_base::openmode o_mode = std::ios::binary|std::ios::app;
 	journal_state()
-	:	journal_name("store-journal.dat")
-	,	compact_name("store-compact-journal.dat")
+	:	journal_name(nst::data_directory + "/store-journal.dat")
+	,	compact_name(nst::data_directory + "/store-compact-journal.dat")
 	,	journal_ostr(journal_name.c_str(), o_mode)
 	,	compacted_ostr(compact_name.c_str(), o_mode)
 	,	writer(journal_ostr)
@@ -273,7 +273,7 @@ public:
 			exit(-1);
 		}
 		
-		for(_PendingTransactions::iterator p = pending.begin(); p != pending.end(); ++p){
+		for(auto p = pending.begin(); p != pending.end(); ++p){
 			std::string storage_name = (*p).first;
 			stored::_Transaction* transaction = pending[storage_name];
 			stored::_Allocations* allocations = stored::_get_abstracted_storage(storage_name);
@@ -377,8 +377,11 @@ public:
 };
 
 journal_state& js(){
-	static journal_state r;
-	return r;
+	static journal_state *r = nullptr;
+	if(r == nullptr){
+		r = new journal_state();
+	}
+	return *r;
 }
 
 namespace stx{

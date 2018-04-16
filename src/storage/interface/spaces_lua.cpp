@@ -13,20 +13,47 @@ extern "C" {
 
 #include <storage/network/replication.h>
 
+#include <storage/transactions/abstracted_storage.h>
+
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::lua_session<spaces::lua_db_session> session_t;
 static int l_serve_space(lua_State *L) {
-    spaces::block_replication_server server(spaces::DEFAULT_PORT);
+    nst::u32 port = spaces::DEFAULT_PORT;
+    if(lua_isnumber(L,1)){
+        port = lua_tointeger(L,1);
+    }
+    spaces::block_replication_server server(port);
 	server.run();
+
     return  0;
+}
+static int l_leech_space(lua_State *L) {
+    try{
+        if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
+            const char * ip = lua_tostring(L,1);
+
+            nst::replication_configuration rconf;
+            rconf.replication = nst::replication_configuration::repl_leech;
+            rconf.rpc_address = ip;
+            rconf.rpc_port = lua_tointeger(L,2);
+            stored::add_repl_config(STORAGE_NAME, rconf);
+
+        }
+    }catch(std::exception& e){
+        luaL_error(L,"could not connect: %s",e.what());
+    }
+    return 0;
 }
 static int l_replicate_space(lua_State *L) {
     try{
-        if (lua_isstring(L, 1)) {
+        if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
             const char * ip = lua_tostring(L,1);
 
-            stored::abstracted_storage storage(STORAGE_NAME);
-            storage.replicate(ip);
+            nst::replication_configuration rconf;
+            rconf.replication = nst::replication_configuration::repl_backup;
+            rconf.rpc_address = ip;
+            rconf.rpc_port = lua_tointeger(L,2);
+            stored::add_repl_config(STORAGE_NAME, rconf);
 
         }
     }catch(std::exception& e){
@@ -91,6 +118,9 @@ static int l_space_debug(lua_State* L) {
 }
 
 static int l_configure_space(lua_State *L) {
+	if (lua_isstring(L, 1)) {
+		nst::data_directory = lua_tostring(L,1);
+	}
 	return 0;
 }
 static int l_setmaxmb_space(lua_State *L) {
@@ -100,7 +130,7 @@ static int l_setmaxmb_space(lua_State *L) {
 
 
 static const struct luaL_Reg spaces_f[] = {
-	{ "configure", l_configure_space },
+	{ "data", l_configure_space },
     { "serve", l_serve_space},
 	{ "open", l_open_space },
 	{ "read", l_read },
@@ -113,7 +143,7 @@ static const struct luaL_Reg spaces_f[] = {
 	{ "rollback", l_rollback_space },
     { "setMaxMb", l_setmaxmb_space },
     { "replicate", l_replicate_space },
-
+    { "leech", l_leech_space },
 	{ NULL, NULL } /* sentinel */
 };
 

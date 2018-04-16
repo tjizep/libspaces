@@ -1,7 +1,8 @@
 require "packages"
 require "spaces"
-
-local u = 1e1
+--spaces.replicate("127.0.0.1")
+spaces.data("test")
+local u = 1e6
 local kl = 8
 local seed = 78976
 math.randomseed(seed) -- reseed to standard value for repeatable tests

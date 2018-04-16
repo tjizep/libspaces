@@ -21,6 +21,8 @@ ptrdiff_t btree_totl_used = 0;
 ptrdiff_t btree_totl_instances = 0;
 bool stx::memory_low_state = false;
 bool stx::memory_mark_state = false;
+std::string data_directory;
+
 nst::u64  _reported_memory_size() {
 	return 0;
 }

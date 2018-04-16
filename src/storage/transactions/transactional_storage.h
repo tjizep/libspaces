@@ -81,7 +81,8 @@ extern nst::u64 max_mem_use;
 /// TODODONE: unmerged version recovery
 /// TODODONE: version storage naming
 /// TODODONE: merge versions on commit or if there are too many versions
-namespace ns_umap = rabbit; //rabbit;
+/// TODO: configure block storage replication,seeding and leeching
+namespace ns_umap = rabbit; //std;
 namespace storage_workers{
 	typedef asynchronous::QueueManager<asynchronous::AbstractWorker> _WorkerManager;
 
@@ -98,11 +99,10 @@ namespace stx{
 namespace storage{
 	extern u64 get_lr_timer();
 	typedef std::string pool_string; //<char, std::char_traits<char>, sta::buffer_pool_alloc_tracker<char> >
-
 	extern Poco::UInt64 ptime;
 	extern Poco::UInt64 last_flush_time;		/// last time it released memory to disk
-	extern Poco::Mutex& get_single_writer_lock();
-	extern long long col_use;
+	extern std::string data_directory;			/// the data directory that can be configured
+	extern std::string remote;
 	/// defines a concurrently accessable transactional storage providing ACID properties
 	/// This class should be extended to provide encoding services for a b-tree or other
 	/// storage oriented data structures
@@ -131,42 +131,22 @@ namespace storage{
 			return (*this).name;
 		}
 	};
-	/// defines a storage class based on sqlite for implementing virtual allocation
-	/// the default allocation traits
+	/// defines replication configuration
+	struct replication_configuration{
+		enum{
+			repl_off,
+			repl_leech,
+			repl_backup
 
-	template<typename _AddressType>
-	struct address_policy{// the default policy for any address
-		static const int size = sizeof(_AddressType);
-		/// how many elements in the tuple that is required to store an address
-		static const int cardinality = 1;
+		};
+		replication_configuration(): replication(repl_off),rpc_port(0){
 
-		/// are there any conversions required like to string etc.
-
+		}
+		nst::i32 replication;
+		nst::u32 rpc_port;
+		std::string rpc_address; // v4 or v6
 	};
-
-	template<>
-	struct address_policy<unsigned long long>{// the default 64-bit integer address policy
-		static const int size = 8;
-		static const int cardinality = 1;
-	};
-
-	template<>
-	struct address_policy<std::vector<unsigned long long>>{// the default address tuple policy
-		static const int size = 8;
-		static const int cardinality = 8; //going to store eight integers per vector
-
-	};
-
-	template<>
-	struct address_policy<unsigned long>{// the default 32-bit integer address policy
-		static const int size = 4;
-		static const int cardinality = 1;
-
-	};
-	template<typename _AddressType>
-	struct memmory_allocation_policy{
-	};
-
+	/// defines an interface for a journal participant
 	class journal_participant
 	{
 	public:
@@ -218,59 +198,6 @@ namespace storage{
 		void log(const pool_string &name, const pool_string& jtype, stream_address sa);
 	};
 
-	template <typename _AddressType, typename _BlockType = std::vector<u8>>
-	class memory_allocator{
-	public:
-		typedef _AddressType address_type;
-		typedef _BlockType block_type;
-		typedef block_type * block_reference;
-		typedef address_policy<address_type> allocation_policy;
-		typedef memmory_allocation_policy<address_type> memmory_policy;
-
-		block_type empty_block;
-	private:
-
-		typedef ns_umap::unordered_map<address_type, block_reference, rabbit::rabbit_hash<address_type>, std::equal_to<address_type>, sta::buffer_pool_alloc_tracker<address_type> > _Allocations;
-		_Allocations allocations;
-		address_type next;
-	public:
-		memory_allocator() : next(32){
-		}
-		~memory_allocator(){
-		}
-
-		/// returns the block defining the end - callers of allocate should check if this condition is reached
-
-		const block_type& end() const {
-			return empty_block;
-		}
-
-		/// returns true if this block is the end of storage condition
-
-		bool is_end(const block_type& b) const {
-			return (&b == &(*this).end());
-		}
-
-		/// allocate a new or existing buffer, new denoted by which == 0 else an existing
-		/// buffer with the specfied stream address is returned - if the non nil address
-		/// does not exist the end is returned
-
-		block_type& allocate(address_type &which, storage_action ){
-			block_reference result = NULL;
-			if(which){
-				result = allocations[which];
-				if(!result){
-					result = &empty_block;
-				}
-			}else{
-				which = ++next;
-				result = new block_type ;
-				allocations[which] = result;
-			}
-			return *result;
-		}
-
-	};
 
 
 	template<typename _AddressType>
@@ -363,6 +290,9 @@ namespace storage{
 		JOURNAL_TEMP_INFO
 	};
 
+	/// defines a storage class based on sqlite for implementing virtual allocation
+	/// the default allocation traits
+
 	template <typename _AddressType, typename _BlockType>
 	class sqlite_allocator {
 	public:
@@ -374,14 +304,6 @@ namespace storage{
 		typedef block_type * block_reference;
 
 		typedef std::shared_ptr<block_type> shared_block_reference;
-
-		/// allocation policy for the kind of addresses (vector or scalar) which will be used to address allocations
-
-		typedef address_policy<address_type> allocation_policy;
-
-		/// defines how sqlite will be used as an allocator i.e. block sizes etc.
-
-		typedef sqlite_allocation_policy<address_type> sqlite_policy;
 
 		/// SQL address vector
 
@@ -426,7 +348,7 @@ namespace storage{
 			}
 			void set_storage_action(storage_action action){
 				if(mod != read) return;
-				/// don't overide create actions - for replication
+				/// don't override create actions - for replication
 				if(mod != create)
 					mod = action;
 			}
@@ -537,6 +459,9 @@ namespace storage{
 
 		nst::u64 timer;				/// timer - time when last allocation took place
 
+		replication_configuration repl_config;
+									/// configuration of lego
+
 		ptrdiff_t get_block_use(const block_descriptor& v){
 			return v.block.capacity() + sizeof(block_type)+32; /// the 32 is for the increase in the allocations table
 		}
@@ -559,7 +484,7 @@ namespace storage{
 
 		static pool_string get_storage_path(){
 
-			return ""; //".\\";
+			return data_directory + "/"; //".\\";
 		}
 
 		/// does this table exist in storage
@@ -654,9 +579,13 @@ namespace storage{
 					){
 					max_address = 0;
 #ifdef _LEGO_
-					repl.open(is_new,name.c_str());
-					
-					max_address = std::max<address_type>(max_address, repl.max_block_address());
+					if(repl_config.rpc_port)
+					{
+						repl.set_address(remote);
+						repl.open(is_new,name.c_str());
+						max_address = std::max<address_type>(max_address, repl.max_block_address());
+					}
+
 #endif
 
 					
@@ -689,12 +618,16 @@ namespace storage{
 			current_size = block.size()*sizeof(typename block_type::value_type);
 
 #ifdef _LEGO_
-			if(repl.is_open()){
-				if(!block.empty()){
-					repl.store(w, block);
-					return;
+			if (repl.is_open()) {
+				if (repl_config.replication == replication_configuration::repl_backup) {
+
+					if (!block.empty()) {
+						repl.store(w, block);
+					}
+
+				} else if (repl_config.replication == replication_configuration::repl_leech) {
+
 				}
-				return;
 			}
 #endif
 			current_address = w;
@@ -709,9 +642,10 @@ namespace storage{
 				current_size = block.size();
 				encoded_block.clear();
 #ifdef _LEGO_
-				if(!repl.is_open())
+				/// TODO: why is this here
+				//if(!repl.is_open())
 #endif
-					encoded_block.assignRaw((const char *)&block[0], (size_t)current_size);
+				encoded_block.assignRaw((const char *)&block[0], (size_t)current_size);
 			}
 
 			insert_stmt->execute();
@@ -729,7 +663,10 @@ namespace storage{
 			exists_count = 0;
 #ifdef _LEGO_
 			if(repl.is_open()){
-				return repl.contains(w);
+				if(repl_config.replication == replication_configuration::repl_leech){
+					if(repl.contains(w)) return true;
+				}
+
 			}
 #endif
 			exists_stmt->execute();
@@ -743,18 +680,7 @@ namespace storage{
 			get_session();
 			///read_ahead(w+1, std::min<address_type>(w+8,next)); /// read 8 addresses at a time
 			current_block.clear();
-#ifdef _LEGO_
-			if(repl.is_open()){
-				version_type version;
-				if( repl.get(version,current_block,w) ){
-					update_versions(w) = version;
-					current_size = current_block.size();
-					current_address = w;
-					return true;
-				}
-				return false;
-			}
-#endif
+
 			selector_address = w;
 			///queue_block_read(w);
 			get_stmt->execute();
@@ -768,7 +694,26 @@ namespace storage{
 				
 			}
 
-			return (current_address == selector_address); /// returns true if a record was retrieved
+			if (current_address != selector_address){
+#ifdef _LEGO_
+				if(repl_config.replication == replication_configuration::repl_leech) {
+					if (repl.is_open()) {
+						version_type version;
+						if (repl.get(version, current_block, w)) {
+							update_versions(w) = version;
+							current_size = current_block.size();
+							current_address = w;
+							return true;
+						}
+
+					}
+				}
+
+#endif
+				return false;
+			}else{
+				return true;
+			}; /// returns true if a record was retrieved
 
 		}
 
@@ -1263,7 +1208,7 @@ namespace storage{
 				ts = os::millis();
 			}
 
-			inf_print("readahead %s complete %.4g s", get_name().c_str(),(double)(os::millis()-tst)/1000.0);
+			inf_print("readahead %s complete %.4g s", get_name().c_str(),(double)(os::millis()-ts)/1000.0);
 		}
 
 		/// move all data to dest wether it exists or not
@@ -1391,7 +1336,9 @@ namespace storage{
 		template<typename _NameFactory >
 		sqlite_allocator
 		(	_NameFactory namer			/// storage name
-		,	bool is_new = false			/// basically a temporary transaction3
+		,	const replication_configuration &repl_config
+										/// replication configuration
+		,	bool is_new = false			/// basically a temporary transaction
 		,	address_type ma = 32		/// minimum address
 		)
 		:	transient(false)			/// the path should contain the trailing delimeter
@@ -1416,6 +1363,7 @@ namespace storage{
 		,	file_size(0)				/// no file size initialy
 		,	timer(get_lr_timer())
 					/// if true the data files are deleted on destruction
+		,	repl_config(repl_config)	/// replication configuration
 
 		{
 
@@ -1684,14 +1632,6 @@ namespace storage{
 			discard();
 		}
 
-		/// connect to a remote server for bidirectional replication
-		/// any dependants should probably rollback any state held
-		void replicate(const std::string& address){
-			this->close();
-#ifdef _LEGO_
-			this->repl.set_address(address);
-#endif
-		}
 		/// engages an instance reference
 		void engage(){
 			syncronized ul(lock);
@@ -1726,7 +1666,10 @@ namespace storage{
 			if(transacted){
 				get_session() << "commit;", now;
 #ifdef _LEGO_
-				if(repl.is_open()) repl.commit();
+				if(repl_config.replication == replication_configuration::repl_backup){
+					if(repl.is_open()) repl.commit();
+				}
+
 #endif
 			}
 
@@ -2593,7 +2536,7 @@ namespace storage{
 				}else {
 					Poco::StringTokenizer tokens(names.c_str(), ",");
 					for(Poco::StringTokenizer::Iterator t = tokens.begin(); t != tokens.end(); ++t){
-						storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(default_name_factory((*t).c_str()));
+						storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(default_name_factory((*t).c_str()),replication_configuration());
 						last_address = std::max<stream_address>(last_address, allocator->last() );
 						version_storage_type_ptr b = std::make_shared< version_storage_type>(last_address, ++order, create_version(), (*this).lock);
 						allocator->set_allocation_start(last_address);
@@ -2623,9 +2566,7 @@ namespace storage{
 
 			initial->release();
 		}
-		void replicate(const std::string &address){
-			initial->replicate(address);
-		}
+
 		/// return the max block address allocated
 		nst::u64 get_max_block_address() const {
 			return this->last_address;
@@ -2754,7 +2695,7 @@ namespace storage{
 			version_storage_type_ptr b = nullptr;
 			if(writer || recycler.empty()){
 				b = std::make_shared< version_storage_type>(last_address, order, create_version(), (*this).lock);
-				storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(version_namer(b->get_version(),initial->get_name()),true);
+				storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(version_namer(b->get_version(),initial->get_name()),replication_configuration(),true);
 				allocator->set_allocation_start(last_address);
 				b->set_allocator(allocator);
 			}else {

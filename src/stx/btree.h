@@ -2111,15 +2111,12 @@ namespace stx
 
 
         typedef rabbit::unordered_map<stream_address, node*> _AddressedNodes;
-        //typedef std::unordered_map<stream_address, node*> _AddressedNodes;
+        //typedef std::unordered_map<stream_address, node*> _AddressedNodes; /// TODO: the memory used by these is not counted
 
 
 
         typedef std::pair<stream_address, ::stx::storage::version_type> _AddressPair;
-        //typedef std::map<_AddressPair, node*, ::std::less<_AddressPair>> _AddressedVersionNodes; /// , ::sta::tracker<_AddressPair, ::sta::bt_counter>
         typedef std::pair<stream_address, node*> _AllocatedNode;
-        //typedef std::pair<stream_address, surface_node*> _AllocatedSurfaceNode;
-        //typedef std::vector< _AllocatedSurfaceNode > _AllocatedSurfaceNodes; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
         typedef std::vector< _AllocatedNode> _AllocatedNodes; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
 
 
@@ -4437,56 +4434,26 @@ namespace stx
 
             }
 
-            ///
 
-            void local_surface_free() {
-
-                _NodePair node_pairs[max_release];
-                size_t nodes = std::min<size_t>(max_release, stats.leaves);
-                size_t p = 0;
-                for (auto n = nodes_loaded.begin(); n != nodes_loaded.end(); ++n) {
-                    if ((*n).second->issurfacenode() && (*n).second->refs == 0) {
-                        node_pairs[p++] = (*n);
-                        if (p == nodes) break;
-                    }
-                }
-                for (size_t r = 0; r < p; ++r) {
-                    this->free_surface_node(node_pairs[r].second, node_pairs[r].first);
-                }
-
-            }
             void local_free() {
 
-                typedef std::pair<stream_address, node*> _NodePair;
-                if (nodes_loaded.size() < 256) {
-                    _NodePair node_pairs[256];
-                    size_t nodes = nodes_loaded.size();
-                    size_t p = 0;
-                    for (auto n = nodes_loaded.begin(); n != nodes_loaded.end(); ++n) {
-                        node_pairs[p++] = (*n);
-                    }
-                    for (size_t r = 0; r < nodes; ++r) {
-                        this->free_node(node_pairs[r].second, node_pairs[r].first);
-                    }
-                }
-                else {
-                    _AddressedNodes todo = nodes_loaded;
-                    for (auto n = todo.begin(); n != todo.end(); ++n) {
+                for (auto n = nodes_loaded.begin(); n != nodes_loaded.end(); ++n) {
+                    if((*n).second != NULL_REF) {
                         this->free_node((*n).second, (*n).first);
-
                     }
-                }
 
+                }
 
             }
 
             void local_reduce_free() {
 
-                auto todo = surfaces_loaded;
 
-                for (auto n = todo.begin(); n != todo.end(); ++n) {
-                    this->free_node((*n).second, (*n).first);
 
+                for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
+                    if((*n).second != NULL_REF) {
+                        this->free_node((*n).second, (*n).first);
+                    }
                 }
 
             }
@@ -4497,27 +4464,17 @@ namespace stx
                 local_free();
                 /// printf("There are %ld orphans in an instance of %s\n",(long int)nodes_loaded.size(),get_storage()->get_name().c_str());
                 for (auto n = nodes_loaded.begin(); n != nodes_loaded.end(); ++n) {
-                    BTREE_ASSERT((*n).second == NULL_REF);
-                    BTREE_ASSERT((*n).second->refs == 0);
-                    if ((*n).second->refs == 0) {
-                        err_print("A node is still registered and has no references");
-                    }
-                    else {
-                        orphan_node((*n).second); /// some iterators probably has this node
+                    if((*n).second != NULL_REF) {
+                        if ((*n).second->refs == 0 && !((*n).second->is_orphaned())) {
+                            this->free_node((*n).second, (*n).first);
+                        } else {
+                            orphan_node((*n).second); /// some iterators probably has this node
+                        }
                     }
                 }
 
             }
-            void local_clear_and_orphan_remaining() {
 
-                orphan_remaining();
-                nodes_loaded.clear();
-                interiors_loaded.clear();
-                surfaces_loaded.clear();
-                modified.clear();
-
-
-            }
             /// Frees all key/data pairs and all nodes of the tree
             void clear()
             {

@@ -117,6 +117,9 @@ namespace storage{
 		static Poco::Mutex swl;
 		return swl;
 	}
+	std::string data_directory = ".";
+
+	std::string remote = "";
 
 	long long total_use = 0;
 

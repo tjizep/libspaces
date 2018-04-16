@@ -3,16 +3,21 @@
 
 static Poco::Mutex m;
 static stored::_AlocationsMap instances;
+static stored::_ReplicationConfigurations replications;
 namespace nst = ::stx::storage;
 namespace stored{
-
-
+    void add_repl_config(const std::string& name, const NS_STORAGE::replication_configuration & repl_conf){
+        replications[name] = repl_conf;
+    }
+    const nst::replication_configuration& get_repl_conf (const std::string& name){
+        return replications[name];
+    }
 	_Allocations* _get_abstracted_storage(const std::string& name){
 
 		_Allocations* r = NULL;
 		r = instances[name];
 		if(r == NULL){
-			r = new _Allocations( std::make_shared<_BaseAllocator>( stx::storage::default_name_factory(name.c_str())) );
+			r = new _Allocations( std::make_shared<_BaseAllocator>( stx::storage::default_name_factory(name.c_str()),get_repl_conf(name) ));
 			instances[name] = r;
 		}
 
@@ -57,7 +62,7 @@ namespace stored{
 			r = instances[name];
 			if (r == NULL) {
 				r = new _Allocations(
-						std::make_shared<_BaseAllocator>(stx::storage::default_name_factory(name.c_str())));
+						std::make_shared<_BaseAllocator>(stx::storage::default_name_factory(name.c_str()),get_repl_conf(name)));
 				///r->set_readahead(true);
 				instances[name] = r;
 			}
@@ -79,7 +84,7 @@ namespace stored{
 			//}
 		}
 		if(reduced)
-			inf_print("reduced %lld aged block storages",reduced);
+			inf_print("reduced %llu aged block storages",(nst::fi64)reduced);
 	}
 	void reduce_all(){
 

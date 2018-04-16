@@ -33,7 +33,7 @@ namespace nst = stx::storage;
 typedef std::set<std::string> _LockList;
 extern _LockList& get_locklist();
 namespace stored{
-	
+
 	typedef NS_STORAGE::sqlite_allocator<NS_STORAGE::stream_address, NS_STORAGE::buffer_type> _BaseAllocator;
 	typedef NS_STORAGE::mvcc_coordinator<_BaseAllocator> _Allocations;
 
@@ -72,7 +72,21 @@ namespace stored{
 		}
 		_Allocations& get_allocations(){
 			if(_allocations == NULL){
-				_allocations = get_abstracted_storage(   (*this).name  );
+				_allocations = get_abstracted_storage(   (*this).name  );/// defines replication configuration
+	struct replication_configuration{
+		enum{
+			repl_seed,
+			repl_leech,
+			repl_backup
+
+		};
+		replication_configuration(): replication(repl_seed),rpc_port(0){
+
+		}
+		nst::i32 replication;
+		nst::u32 rpc_port;
+		std::string rpc_address; // v4 or v6
+	};
 			}
 			return *_allocations;
 		}
@@ -136,10 +150,8 @@ namespace stored{
 				printf("error closing transaction\n");
 			}
 		}
-		void replicate(const std::string& address){
-			get_allocations().replicate(address);
-		}
-		nst::u64 get_max_block_address() const {
+
+		nst::u64 get_max_block_address() {
 			return get_allocations().get_max_block_address();
 		}
 		nst::u64 get_storage_size() {
@@ -424,7 +436,8 @@ namespace stored{
 	}
 	/// definitions for registry functions
 	typedef rabbit::unordered_map<std::string, _Allocations*> _AlocationsMap;
-
+	typedef rabbit::unordered_map<std::string, NS_STORAGE::replication_configuration> _ReplicationConfigurations;
+	extern void add_repl_config(const std::string& name, const NS_STORAGE::replication_configuration & repl_conf);
 	extern _Allocations* _get_abstracted_storage(const std::string& name);
 };
 #endif

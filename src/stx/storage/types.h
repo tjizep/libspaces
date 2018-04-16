@@ -66,11 +66,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <Poco/Types.h>
 #include <Poco/UUID.h>
 #include <stdio.h>
+
 /// files that use these macros need to include <iostream> or <stdio.h>
-#define dbg_print(x,...)          do {  } while(0) //if (true) printf("[TS DBG] " x "\n", __VA_ARGS__);
-#define wrn_print(x,...)          do {  } while(0) //if (true) printf("[TS WRN] " x "\n", __VA_ARGS__);
-#define err_print(x,...)          do {  } while(0) //if (true) printf("[TS ERR] " x "\n", __VA_ARGS__);
-#define inf_print(x,...)          do {  } while(0) //if (true) printf("[TS INF] " x "\n", __VA_ARGS__);
+
+#define dbg_print(x,...)          do {  if (true) (printf("[DBG] " x "\n", ##__VA_ARGS__)); } while(0)
+#define wrn_print(x,...)          do {  if (true) (printf("[WRN] " x "\n", ##__VA_ARGS__)); } while(0)
+#define err_print(x,...)          do {  if (true) (printf("[ERR] " x "\n", ##__VA_ARGS__)); } while(0)
+#define inf_print(x,...)          do {  if (true) (printf("[INF] " x "\n", ##__VA_ARGS__)); } while(0)
 namespace stx{
 	namespace storage{
 		/// unsigned integer primitive types
@@ -83,13 +85,14 @@ namespace stx{
 			typedef Poco::Int16 i16;
 			typedef Poco::Int32 i32;
 			typedef Poco::Int64 i64;
-			typedef long long int lld;
+			typedef long long int lld; /// cast for %lld
 			typedef double f64;
 		/// virtual allocator address type
 			typedef u64 stream_address ;
-			
-			/// the version type
+		/// the version type
 			typedef Poco::UUID version_type;
+		/// format spec casts
+			typedef long long unsigned int fi64; /// cast for %llu
 
 	};
 	extern bool memory_low_state;
