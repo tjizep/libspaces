@@ -222,10 +222,12 @@ static int spaces_index(lua_State *L) {
 		k.first.set_context(p->second.get_identity());
 		auto i = s->get_set().find(k.first);
 		if (i != s->get_set().end()) {
+
 			if (i.data().get_identity() != 0) {
 				r = s->open_space(i.data().get_identity());
 				r->first = i.key();
 				r->second = i.data();
+
 			}
 			else {
 				s->push_data(i.data().get_value());
@@ -539,7 +541,8 @@ luaopen_spaces(lua_State * L) {
 	spaces::luaopen_plib_any(L, spaces_session_m, SPACES_SESSION_LUA_TYPE_NAME, spaces_session_f, SPACES_SESSION_NAME);
 	//spaces::luaopen_plib_any(L, spaces_recursor_m, SPACES_LUA_RECUR_NAME, spaces_recursor_f, "_spaces_recursor");
 	lua_newtable(L);
+	lua_pushstring(L,"kv");
+	lua_setfield(L,-2,"__mode");
 	lua_setglobal(L, SPACES_G);
-	
 	return 1;
 }

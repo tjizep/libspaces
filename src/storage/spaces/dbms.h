@@ -38,9 +38,9 @@ namespace spaces{
 		}
 		~dbms() {
 			
-			inf_print("stopping dbms...%s", storage.get_name().c_str());		
+			dbg_print("stopping dbms...%s", storage.get_name().c_str());
 			storage.rollback();
-			inf_print("ok %s", storage.get_name().c_str());			
+			dbg_print("ok %s", storage.get_name().c_str());
 		}
 
 		const std::string& get_name(){
@@ -66,6 +66,7 @@ namespace spaces{
 		}
 		void rollback(){
             if (this->storage.is_transacted()) {
+				dbg_print("rollback  %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
                 this->storage.rollback();
             }
 		}
@@ -76,14 +77,19 @@ namespace spaces{
 		void commit() {
 
 			if (this->storage.is_transacted()){
+				dbg_print("commit flush %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
 				set.flush_buffers();
 
 				try{
 					if(this->is_reader){
+						dbg_print("commit readonly rollback %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
 						this->storage.rollback();
 					}else{
+						dbg_print("commit write save id [%lld] %s on %s",(nst::fi64)id,this->storage.get_version().toString().c_str(),storage.get_name().c_str());
 						storage.set_boot_value(id, ID_ADDRESS);
+						dbg_print("commit final %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
 						this->storage.commit();
+						dbg_print("commit synch. to io %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
 						nst::journal::get_instance().synch();
 					}
 				}catch (...){

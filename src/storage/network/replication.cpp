@@ -41,6 +41,17 @@ namespace spaces{
             storage->get_allocated_version().copyTo(&version[0]);
             storage->complete();
         });
+        srv.bind("is_latest", [&storage](std::string& version, nst::buffer_type& data, nst::u64 address) {
+            dbg_print("get(%lld)", (nst::fi64)address);
+            if(storage==nullptr) return false;
+            if(storage->is_transacted()) return false;
+            nst::u64 which = address;
+            nst::version_type latest;
+            latest.copyFrom(version.data());
+            return storage->is_latest(which,latest);
+
+
+        });
         srv.bind("store", [&storage](nst::u64 address, const nst::buffer_type& data) {
             dbg_print("store(%lld,%lld)", (nst::fi64)address, (nst::fi64)data.size() );
             if(storage==nullptr) return false;
@@ -155,13 +166,20 @@ namespace spaces{
         this->remote->call("store", address, data);
     }
     bool block_replication_client::get(nst::version_type& version, nst::buffer_type& data, nst::u64 address){
-        dbg_print("get(%s, %lld, [%lld])",version.toString() ,(nst::fi64)address, (nst::fi64)data.size());
+        dbg_print("get(%s, %lld, [%lld])",version.toString().c_str() ,(nst::fi64)address, (nst::fi64)data.size());
         if(this->remote == nullptr)
             return false;
         std::string version_data;
         version_data.resize(16);
         version.copyTo(&version_data[0]);
         return this->remote->call("get", version_data, data, address).as<bool>();
+    }
+    bool block_replication_client::is_latest(const nst::version_type& version, nst::u64 address){
+        dbg_print("is_latest(%s, %lld)",version.toString().c_str() ,(nst::fi64)address);
+        std::string version_data;
+        version_data.resize(16);
+        version.copyTo(&version_data[0]);
+        return this->remote->call("is_latest", version_data, address).as<bool>();
     }
     nst::u64 block_replication_client::max_block_address() const {
         dbg_print("max_block_address()");

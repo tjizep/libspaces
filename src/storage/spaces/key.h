@@ -17,6 +17,7 @@ namespace spaces {
 	struct data_type {
 		
 		enum {
+			none,
 			numeric,
 			boolean,
 			text, 
@@ -200,6 +201,7 @@ namespace spaces {
 		data& operator=(const ui8& r) {
 			clear();
 			type = data_type::numeric;
+			get_integer() = r;
 			return *this;
 		}
 		data& operator=(const bool& r) {
@@ -212,6 +214,10 @@ namespace spaces {
 			clear();
 			type = data_type::numeric;
 			get_number() = r;
+			double t = get_number();
+			if(t != r){
+				err_print("assignment failed");
+			}
 			return *this;
 		}
 		data& operator=(const std::string& r) {

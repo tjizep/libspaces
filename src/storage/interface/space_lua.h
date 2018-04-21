@@ -340,7 +340,7 @@ namespace spaces{
 		}
 
 		void insert_or_replace(spaces::key& k, spaces::record& v) {
-			session.get_set().insert(k,v);
+			session.get_set()[k] = v;
 		}
 		void insert_or_replace(spaces::space& p) {
 			insert_or_replace(p.first,p.second);

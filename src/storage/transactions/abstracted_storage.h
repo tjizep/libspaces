@@ -150,7 +150,9 @@ namespace stored{
 				printf("error closing transaction\n");
 			}
 		}
-
+        bool is_latest(nst::stream_address address,const nst::version_type& latest){
+		    return get_allocations().is_latest(address,latest);
+		}
 		nst::u64 get_max_block_address() {
 			return get_allocations().get_max_block_address();
 		}

@@ -69,7 +69,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 /// files that use these macros need to include <iostream> or <stdio.h>
 
-#define dbg_print(x,...)          do {  if (true) (printf("[DBG] " x "\n", ##__VA_ARGS__)); } while(0)
+#define dbg_print(x,...)          do {  if (false) (printf("[DBG] " x "\n", ##__VA_ARGS__)); } while(0)
 #define wrn_print(x,...)          do {  if (true) (printf("[WRN] " x "\n", ##__VA_ARGS__)); } while(0)
 #define err_print(x,...)          do {  if (true) (printf("[ERR] " x "\n", ##__VA_ARGS__)); } while(0)
 #define inf_print(x,...)          do {  if (true) (printf("[INF] " x "\n", ##__VA_ARGS__)); } while(0)

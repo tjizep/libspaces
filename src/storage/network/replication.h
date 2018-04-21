@@ -33,6 +33,7 @@ namespace spaces{
         void open(bool is_new,const std::string& name);
         void store(nst::u64 address, const nst::buffer_type& data);
         bool get(nst::version_type& version, nst::buffer_type& data, nst::u64 address);
+        bool is_latest(const nst::version_type& version, nst::u64 address);
         bool contains(nst::u64 address);
         void close();
         nst::u64 max_block_address() const;

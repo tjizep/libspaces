@@ -58,10 +58,10 @@ namespace storage{
 
                         if(allocation_pool.is_near_depleted()){
                             if(!::stx::memory_low_state){
-								//std::cout << " resources: " << ((double)allocation_pool.get_total_allocated()/(1024.0*1024.0)) << std::endl;
+								dbg_print(" resources: %.3f",((double)allocation_pool.get_total_allocated()/(1024.0*1024.0)));
                                 //std::cout << "switching to low state" << std::endl;
                             }
-							//std::cout << "switching to low state" << std::endl;
+
 							::stx::memory_low_state = true;
 							while(is_started() && allocation_pool.is_near_factor(0.75)) {
 								Poco::Thread::sleep(100);
@@ -73,9 +73,9 @@ namespace storage{
 						timer_val = os::millis();
 					}
 				}catch(Poco::Exception &){
-					inf_print("timer interrupted");
+					dbg_print("timer interrupted");
 				}
-				inf_print("timer is canceled");
+				dbg_print("timer is canceled");
 				stopped = true;
 			}
 			u64 get_timer() const {
@@ -87,7 +87,7 @@ namespace storage{
 		timer_worker worker;
 	public:
 		low_resource_timer() : timer_thread("spaces:timer_thread"){
-		    inf_print(" starting resource thread ");
+		    dbg_print(" starting resource thread ");
             try{
 				timer_thread.start(worker);
 				//worker.wait_start();

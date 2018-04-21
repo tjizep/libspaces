@@ -239,7 +239,7 @@ public:
 				if(record.command == nst::JOURNAL_COMMIT){
 					recovered = (double) reader.stream().tellg();
 					if(last_printed + 100*MB < recovered ){
-						inf_print("recovering %lld entries at pos %.4g MB", (long long)commands.size(), (double)(recovered/(double)MB) );
+						dbg_print("recovering %lld entries at pos %.4g MB", (long long)commands.size(), (double)(recovered/(double)MB) );
 						last_printed = recovered;
 					}
 					for(_Commands::iterator c = commands.begin(); c != commands.end(); ++c){
@@ -284,7 +284,7 @@ public:
 					allocations->commit(transaction);
 				}
 
-				inf_print("recovered %s", storage_name.c_str());
+				dbg_print("recovered %s", storage_name.c_str());
 			}
 			allocations->set_recovery(false);
 
@@ -299,8 +299,8 @@ public:
 		Poco::File jf(journal_name.c_str());
 		const bool backup_log = true;
 		if(backup_log){
-			nst::pool_string stamp = std::to_string((size_t)os::millis()).c_str();
-			nst::pool_string backup = journal_name + "_" +  stamp;
+			std::string stamp = std::to_string((size_t)os::millis()).c_str();
+			std::string backup = journal_name + "_" +  stamp;
 			if(jf.getSize() > 10000){
 				jf.renameTo(backup.c_str());
 			}else{
@@ -411,7 +411,7 @@ namespace storage{
 		return j;
 	}
 
-	void journal::log(const pool_string &name, const pool_string& jtype, stream_address sa){
+	void journal::log(const std::string &name, const std::string& jtype, stream_address sa){
 		log_journal(name.c_str(), jtype.c_str(), sa);
 	}
 	/// flush the write buffer
@@ -422,7 +422,7 @@ namespace storage{
 
 	/// adds a journal entry written to disk
 	
-	void journal::add_entry(Poco::UInt32 command, const pool_string &name, long long address, const buffer_type& buffer){
+	void journal::add_entry(Poco::UInt32 command, const std::string &name, long long address, const buffer_type& buffer){
 		js().add_entry(command, name.c_str(), address, buffer);
 	}
 

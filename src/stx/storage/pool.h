@@ -498,7 +498,7 @@ namespace stx{
 				{
 					//inner_pool::max_pool_size = max_pool_size;
 					this->id = ++(shared->instances);
-					inf_print("creating unlocked pool");
+					dbg_print("creating unlocked pool");
 					last_full_flush = clock;
 
 				}
