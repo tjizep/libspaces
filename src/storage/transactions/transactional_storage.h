@@ -2872,11 +2872,7 @@ namespace storage{
 				err_print("cannot commit: this is not a writing transaction");
 				throw InvalidTransactionType();
 			}
-			if(!commit_replicants()){
-				err_print("could not commit enough replicants reverse local transaction");
-				discard(transaction);
-				throw ReplicationFailure();
-			}
+
 			{
 				syncronized _sync(*lock);
 				touch();
@@ -2887,7 +2883,7 @@ namespace storage{
 
 					// return false;
 				}
-				//printf("[COMMIT MVCC] [%s] %lld at v. %lld\n", transaction->get_allocator().get_name().c_str(), (long long)transaction->get_allocator().get_version());
+				dbg_print("[COMMIT MVCC] [%s] %lld at v. %lld\n", transaction->get_allocator().get_name().c_str(), (long long)transaction->get_allocator().get_version());
 
 				if(writer && transaction->modified() && transaction->get_order() < order){
 					discard(transaction);
@@ -2896,24 +2892,28 @@ namespace storage{
 
 
 				}
-				--active_transactions;
-				if(writer)
-					--writing_transactions;
 				version_storage_type_ptr version = storage_versions.at(transaction->get_version());
-
 				if(version == nullptr){
 					throw InvalidVersion();
 				}
 				if(!commit_replicants()){
 					throw ReplicationFailure();
 				}
-
-
-				version->set_readonly();
+				/// TODO: add test journal entry to ensure persistence, MAYBE SOMETHING ELSE SHOULD BE DONE
+				if(!commit_replicants()){
+					err_print("could not commit enough replicants reverse local transaction");
+					discard(transaction);/// local state has not changed yet
+					throw ReplicationFailure();
+				}
 
 				if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
 
+				--active_transactions;
+				if(writer)
+					--writing_transactions;
+
+				version->set_readonly();
 
 				last_address = std::max<address_type>(last_address, version->last());
 
