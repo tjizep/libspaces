@@ -5,7 +5,10 @@
 #include <stx/btree_map.h>
 #include <storage/transactions/abstracted_storage.h>
 #define STORAGE_NAME "spaces.data"
-
+#ifdef __LOG_NAME__
+#undef __LOG_NAME__
+#endif
+#define __LOG_NAME__ "DBMS"
 namespace stx {
     namespace storage {
         extern long long total_use;
@@ -21,6 +24,7 @@ namespace spaces{
 	private:
 		_Set set;
 		nst::i64 id;
+		nst::i64 start_id;
 		bool is_reader;
 		static const nst::stream_address ID_ADDRESS = 8;
 	public:
@@ -32,8 +36,7 @@ namespace spaces{
         ,   set(storage)
         ,   id(1)
         ,   is_reader(is_reader) {
-            
-			allocation_pool.set_max_pool_size(1024*1024*1024*10ull);
+
             storage.rollback();
 		}
 		~dbms() {
@@ -55,13 +58,11 @@ namespace spaces{
 		}
 		void begin() {
 			if (!this->storage.is_transacted()) {
-
-
-
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
                     id = 1;
                 }
+				start_id = id;
 			}
 		}
 		void rollback(){
@@ -70,7 +71,9 @@ namespace spaces{
                 this->storage.rollback();
             }
 		}
-
+        void add_replicant(const std::string& address, nst::u16 port){
+		    storage.add_replicant(address,port);
+		}
 		void check_resources(){
 
 		}
@@ -82,14 +85,17 @@ namespace spaces{
 
 				try{
 					if(this->is_reader){
-						dbg_print("commit readonly rollback %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
+						dbg_print("commit readonly rollback %s on %s",nst::tostring(this->storage.get_version()),storage.get_name().c_str());
 						this->storage.rollback();
 					}else{
-						dbg_print("commit write save id [%lld] %s on %s",(nst::fi64)id,this->storage.get_version().toString().c_str(),storage.get_name().c_str());
-						storage.set_boot_value(id, ID_ADDRESS);
-						dbg_print("commit final %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
+						dbg_print("commit write save id [%lld] %s on %s",(nst::fi64)id,nst::tostring(storage.get_version()),storage.get_name().c_str());
+						if(start_id != id){
+							storage.set_boot_value(id, ID_ADDRESS);
+							start_id = id;
+						}
+						dbg_print("commit final %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
 						this->storage.commit();
-						dbg_print("commit synch. to io %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
+						dbg_print("commit synch. to io %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
 						nst::journal::get_instance().synch();
 					}
 				}catch (...){
@@ -107,3 +113,5 @@ namespace spaces{
 		return std::make_shared<dbms>(STORAGE_NAME,true);
 	}
 }
+#undef __LOG_NAME__
+#define __LOG_NAME__ __LOG_SPACES__

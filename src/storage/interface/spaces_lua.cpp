@@ -27,18 +27,15 @@ static int l_serve_space(lua_State *L) {
 
     return  0;
 }
-static int l_leech_space(lua_State *L) {
+static int l_seed_space(lua_State *L) {
     try{
         if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
-            const char * ip = lua_tostring(L,1);
+			const char * ip = lua_tostring(L,1);
+			nst::u16 port = lua_tointeger(L,2);
+			stored::get_abstracted_storage(SPACES_NAME)->add_seed(ip,port);
 
-            nst::replication_configuration rconf;
-            rconf.replication = nst::replication_configuration::repl_leech;
-            rconf.rpc_address = ip;
-            rconf.rpc_port = lua_tointeger(L,2);
-            stored::add_repl_config(STORAGE_NAME, rconf);
 
-        }
+		}
     }catch(std::exception& e){
         luaL_error(L,"could not connect: %s",e.what());
     }
@@ -48,12 +45,8 @@ static int l_replicate_space(lua_State *L) {
     try{
         if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
             const char * ip = lua_tostring(L,1);
-
-            nst::replication_configuration rconf;
-            rconf.replication = nst::replication_configuration::repl_backup;
-            rconf.rpc_address = ip;
-            rconf.rpc_port = lua_tointeger(L,2);
-            stored::add_repl_config(STORAGE_NAME, rconf);
+			nst::u16 port = lua_tointeger(L,2);
+			stored::get_abstracted_storage(SPACES_NAME)->add_replicant(ip,port);
 
         }
     }catch(std::exception& e){
@@ -124,7 +117,9 @@ static int l_configure_space(lua_State *L) {
 	return 0;
 }
 static int l_setmaxmb_space(lua_State *L) {
-	allocation_pool.set_max_pool_size(1024*1024*lua_tonumber(L,1));
+	nst::u64 mmb = (nst::u64)lua_tonumber(L,1);
+	allocation_pool.set_max_pool_size((1024UL*1024UL*mmb*2UL)/3UL);
+	buffer_allocation_pool.set_max_pool_size((1024UL*1024UL*mmb)/3UL);
     return 0;
 }
 
@@ -143,7 +138,7 @@ static const struct luaL_Reg spaces_f[] = {
 	{ "rollback", l_rollback_space },
     { "setMaxMb", l_setmaxmb_space },
     { "replicate", l_replicate_space },
-    { "leech", l_leech_space },
+    { "seed", l_seed_space },
 	{ NULL, NULL } /* sentinel */
 };
 

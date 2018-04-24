@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2013, Christiaan Pretorius
+Copyright (c) 2013,2014,2015,2016,2017,2018 Christiaan Pretorius
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -19,15 +19,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #define _ABSTRACTED_STORAGE_H_CEP2013_
 #include <storage/transactions/transactional_storage.h>
 #include "stx/storage/basic_storage.h"
-//#include "fields.h"
 //#include "MurmurHash3.h"
 #include <map>
 #include <set>
 #include <vector>
 #include <rabbit/unordered_map>
-#ifdef _MSC_VER
-#include <conio.h>
-#endif
+#undef __LOG_NAME__
+#define __LOG_NAME__ "AST"
 namespace NS_STORAGE = stx::storage;
 namespace nst = stx::storage;
 typedef std::set<std::string> _LockList;
@@ -73,20 +71,6 @@ namespace stored{
 		_Allocations& get_allocations(){
 			if(_allocations == NULL){
 				_allocations = get_abstracted_storage(   (*this).name  );/// defines replication configuration
-	struct replication_configuration{
-		enum{
-			repl_seed,
-			repl_leech,
-			repl_backup
-
-		};
-		replication_configuration(): replication(repl_seed),rpc_port(0){
-
-		}
-		nst::i32 replication;
-		nst::u32 rpc_port;
-		std::string rpc_address; // v4 or v6
-	};
 			}
 			return *_allocations;
 		}
@@ -108,6 +92,18 @@ namespace stored{
 					begin(writer);
 				}else
 					_transaction = get_allocations().begin(writer);/// resource aquisition on initialization
+				if(_transaction == NULL){
+					throw NullPointerException();
+				}
+			}
+			return *_transaction;
+		}
+		_Transaction& get_transaction(bool writer, const nst::version_type& version){
+			if(_transaction == NULL){
+				if(_allocations == NULL){
+					begin(writer);
+				}else
+					_transaction = get_allocations().begin(writer,version);/// resource aquisition on initialization
 				if(_transaction == NULL){
 					throw NullPointerException();
 				}
@@ -249,6 +245,15 @@ namespace stored{
 			order = get_allocations().get_order();
 
 		}
+		void begin(bool writer,const nst::version_type& version){
+			rollback();
+			get_allocations();
+			(*this).writer = writer;
+			if(writer) get_allocations().write_lock();
+			get_transaction(writer,version);
+			order = get_allocations().get_order();
+
+		}
 
 		NS_STORAGE::u64 current_transaction_order() const{
 			return order;
@@ -300,7 +305,9 @@ namespace stored{
 			
 			return r;
 		}
-
+		void add_replicant(const std::string& address, nst::u16 port){
+			get_allocations().add_replicant(address,port);
+		}
 		/// return the version of the current transaction
 
 		NS_STORAGE::version_type get_version(){
@@ -438,8 +445,9 @@ namespace stored{
 	}
 	/// definitions for registry functions
 	typedef rabbit::unordered_map<std::string, _Allocations*> _AlocationsMap;
-	typedef rabbit::unordered_map<std::string, NS_STORAGE::replication_configuration> _ReplicationConfigurations;
-	extern void add_repl_config(const std::string& name, const NS_STORAGE::replication_configuration & repl_conf);
+
 	extern _Allocations* _get_abstracted_storage(const std::string& name);
 };
+#undef __LOG_NAME__
+#define __LOG_NAME__ __LOG_SPACES__
 #endif

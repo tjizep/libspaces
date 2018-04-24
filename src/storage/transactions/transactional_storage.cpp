@@ -3,13 +3,14 @@
 #include <stx/storage/types.h>
 #include <iostream>
 #include <stx/storage/pool.h>
-
+#include <storage/transactions/abstracted_storage.h>
 typedef Poco::ScopedLockWithUnlock<Poco::Mutex> syncronized;
 static Poco::Mutex& get_stats_lock(){
 	static Poco::Mutex _c_lock;
 	return _c_lock;
 }
 extern stx::storage::allocation::pool allocation_pool;
+extern stx::storage::allocation::pool buffer_allocation_pool;
 extern bool stx::memory_low_state;
 namespace stx{
 namespace storage{
@@ -50,21 +51,25 @@ namespace storage{
 			void run(){
 				stopped = false;
 				started = true;
-				Poco::Thread::sleep(5000);
+				Poco::Thread::sleep(100);
 				timer_val = os::millis();
 				try{
 					while(is_started()){
-						Poco::Thread::sleep(1500);
-
-                        if(allocation_pool.is_near_depleted()){
+						Poco::Thread::sleep(10);
+						double total_mb = ((double)(allocation_pool.get_total_allocated()+buffer_allocation_pool.get_total_allocated())/(1024.0*1024.0));
+						double max_alloc = ((double)allocation_pool.get_max_pool_size())/(1024.0*1024.0);
+						double max_buf_alloc = buffer_allocation_pool.get_max_pool_size()/(1024.0*1024.0);
+                        if(allocation_pool.is_near_depleted() || buffer_allocation_pool.is_near_depleted()){
                             if(!::stx::memory_low_state){
-								dbg_print(" resources: %.3f",((double)allocation_pool.get_total_allocated()/(1024.0*1024.0)));
+
                                 //std::cout << "switching to low state" << std::endl;
                             }
-
+							inf_print(" resources: %.3f",total_mb);
 							::stx::memory_low_state = true;
+							//stored::reduce_all();
 							while(is_started() && allocation_pool.is_near_factor(0.75)) {
-								Poco::Thread::sleep(100);
+								Poco::Thread::sleep(10);
+								//stored::reduce_all();
 							}
                             ::stx::memory_low_state = false;
                         }else{

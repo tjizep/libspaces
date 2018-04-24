@@ -68,13 +68,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <stdio.h>
 
 /// files that use these macros need to include <iostream> or <stdio.h>
+#define __LOG_SPACES__ "SPACES"
+#define __LOG_NAME__ __LOG_SPACES__
 
-#define dbg_print(x,...)          do {  if (false) (printf("[DBG] " x "\n", ##__VA_ARGS__)); } while(0)
-#define wrn_print(x,...)          do {  if (true) (printf("[WRN] " x "\n", ##__VA_ARGS__)); } while(0)
-#define err_print(x,...)          do {  if (true) (printf("[ERR] " x "\n", ##__VA_ARGS__)); } while(0)
-#define inf_print(x,...)          do {  if (true) (printf("[INF] " x "\n", ##__VA_ARGS__)); } while(0)
 namespace stx{
 	namespace storage{
+			extern bool storage_debugging;
+			extern bool storage_info;
 		/// unsigned integer primitive types
 			typedef unsigned char u8;
 			typedef Poco::UInt16 u16;
@@ -93,6 +93,12 @@ namespace stx{
 			typedef Poco::UUID version_type;
 		/// format spec casts
 			typedef long long unsigned int fi64; /// cast for %llu
+
+			static const char * tostring(const version_type& v) {
+				static std::string _t_str;
+				_t_str = v.toString();
+				return _t_str.c_str();
+			}
 
 	};
 	extern bool memory_low_state;
@@ -115,6 +121,11 @@ namespace std {
 		}
     };
 };
+namespace nst = stx::storage;
+#define dbg_print(x,...)          do {  if (nst::storage_debugging) (printf("[DBG][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
+#define wrn_print(x,...)          do {  if (nst::storage_info) (printf("[WRN][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
+#define err_print(x,...)          do {  if (true) (printf("[ERR][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
+#define inf_print(x,...)          do {  if (nst::storage_info) (printf("[INF][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
 #endif
 
 ///_STX_STORAGE_TYPES_H_

@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2013, Christiaan Pretorius
+Copyright (c) 2013,2014,2015,2016,2017,2018, Christiaan Pretorius
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -64,6 +64,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <stx/storage/pool.h>
 #include <Poco/UUIDGenerator.h>
+#ifdef __LOG_NAME__
+#undef __LOG_NAME__
+#endif
+#define __LOG_NAME__ "TXS"
+
 namespace nst = stx::storage;
 inline Poco::UUID create_version(){
 	return Poco::UUIDGenerator::defaultGenerator().create();
@@ -130,21 +135,7 @@ namespace storage{
 			return (*this).name;
 		}
 	};
-	/// defines replication configuration
-	struct replication_configuration{
-		enum{
-			repl_off,
-			repl_leech,
-			repl_backup
 
-		};
-		replication_configuration(): replication(repl_off),rpc_port(0){
-
-		}
-		nst::i32 replication;
-		nst::u32 rpc_port;
-		std::string rpc_address; // v4 or v6
-	};
 	/// defines an interface for a journal participant
 	class journal_participant
 	{
@@ -281,6 +272,11 @@ namespace storage{
 	class InvalidReaderCount : public std::exception{
 		public: /// version released != engaged
 		InvalidReaderCount() throw() {
+		}
+	};
+	class ReplicationFailure : public std::exception{
+	public: /// Replication Failed
+		ReplicationFailure() throw() {
 		}
 	};
 	enum journal_commands{
@@ -1046,6 +1042,9 @@ namespace storage{
 		/// gets a version
 		const version_type& get_version() const {
 			return (*this).version;
+		}
+		const char * get_version_str() const {
+			return nst::tostring((*this).version);
 		}
 		/// sets a version
 		void set_version(version_type version){
@@ -2227,6 +2226,7 @@ namespace storage{
 
 		typedef typename storage_allocator_type::address_type address_type;
 
+
 	private:
 
 
@@ -2234,12 +2234,12 @@ namespace storage{
 		struct version_namer{
 			std::string name;
 			std::string to_string(const Poco::UUID& version){
-				return version.toString().c_str();
+				return version.toString();
 			}
 			std::string to_string(const u32& version){
 				std::string result;
 				Poco::NumberFormatter::append(result, version);
-				return result.c_str();
+				return result;
 			}
 			version_namer(const version_type &version, const std::string extension) {
 
@@ -2281,6 +2281,10 @@ namespace storage{
 
 		storage_container storages;			/// list of versions already committed contains a min of 1 storages aftger construction
 
+		spaces::replication_clients replicated;
+											/// replication client
+		spaces::replication_clients seeds;	/// this is a leech node - never writes back (we can be both leech and symbiont)
+
 		storage_container recycler;			/// recycler for used transactions
 
 		version_storage_map storage_versions;
@@ -2298,7 +2302,7 @@ namespace storage{
 		version_storage_type* writing_transaction;
 											/// the single writing transaction
 		Poco::FastMutex w_lock;				/// the write lock for single writing transaction
-		replication_configuration rconf;	/// replication configuration
+
 	private:
 		void save_recovery_info(){
 			if(storages.size() > 1){
@@ -2323,6 +2327,24 @@ namespace storage{
 			}
 		}
 
+		bool check_open_replicants(){
+			nst::i32 opened = 0;
+			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+				try{
+					if(!(*r)->is_open()){
+						(*r)->open(false,this->get_name());
+					}
+					++opened;
+				}catch(std::exception& e){
+					dbg_print("could not open a replicant %s: %s:%lld",e.what(),(*r)->get_address(), (*r)->get_port());
+				}
+
+			}
+			if(opened < (replicated.size() / 2)){
+				wrn_print("not enough replicants could be opened %lld of %lld", (nst::fi64) opened,(nst::fi64) replicated.size());
+			}
+			return opened >= (replicated.size() / 2);
+		}
 	public:
 
 		/// merge idle transactions from latest to oldest
@@ -2535,7 +2557,7 @@ namespace storage{
 		void touch(){
 			this->initial->touch();
 		}
-		/// the time since last operation ocurred
+		/// the time since last operation
 		u64 get_age() const {
 			return this->initial->get_age();
 		}
@@ -2568,6 +2590,20 @@ namespace storage{
 			if(references==0)
 				initial->engage();
 			++references;
+		}
+
+		/// add a replication client at address and port
+
+		void add_replicant(const std::string &address, nst::u16 port){
+			syncronized _sync(*lock);
+
+			replicated.push_back(spaces::create_client(address,port));
+		}
+		/// add a leech client at address and port (this is the leech the other is the seed)
+
+		void add_seed(const std::string &address, nst::u16 port){
+			syncronized _sync(*lock);
+			seeds.push_back(spaces::create_client(address,port));
 		}
 
 		/// releases a reference to this coordinatron
@@ -2643,13 +2679,113 @@ namespace storage{
 		}
 		/// start a new version with a dependency on the previously commited version or initial storage
 		/// smart pointers are not thread safe so only use them internally
+		version_storage_type* begin(bool writer) {
+			version_type version = create_version();
+			return begin(writer,version);
+		}
+		/// start as many replicants as possible
+		/// return false if too many failed
+		bool begin_replicants(bool writer, const version_type& version){
+			if(!check_open_replicants())
+				return false;
+			dbg_print("starting %lld replicants ", (nst::fi64)replicated.size());
+			spaces::replication_clients ok;
+			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+				try{
+					(*r)->begin(writer,version);
+					ok.push_back((*r));
+				}catch(std::exception& e){
+					wrn_print("error starting transaction [%s] on %s:%lld",e.what(),(*r)->get_address(), (*r)->get_port());
+					(*r)->close();
+				}
 
-		version_storage_type* begin(bool writer){
-
-			if(writer){
-				//get_single_writer_lock().lock();
 			}
+			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
+				wrn_print("too few replicants could be started %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+				for(auto r = ok.begin(); r != ok.begin(); ++r) {
+					try {
+						(*r)->rollback();
+					} catch (std::exception &e) {
+						dbg_print("error closing transaction %s", e.what());
+						(*r)->close();
+					}
+				}
+				return false;
+			}else{
+				return true;
+			}
+		}
+		/// start as many replicants as possible
+		/// return false if too many failed
+		bool commit_replicants(){
+			if(!check_open_replicants())
+				return false;
+			spaces::replication_clients ok;
+			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+				if((*r)->is_open()){
+					(*r)->commit();
+					ok.push_back((*r));
+				}
 
+
+			}
+			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
+				wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+				for(auto r = ok.begin(); r != ok.begin(); ++r){
+					try{
+						if((*r)->is_open()) {
+							(*r)->rollback(); /// TODO: rolback as many of them as possible
+							(*r)->close();
+						}
+					}catch(std::exception& e){
+						dbg_print("error committing transaction %s", e.what());
+						(*r)->close();
+					}
+
+				}
+
+				return false;
+			}else{
+				return true;
+			}
+		}
+		bool rolback_replicants(){
+			if(!check_open_replicants())
+				return false;
+			spaces::replication_clients ok;
+			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+				if((*r)->is_open()){
+					(*r)->rollback();
+					ok.push_back((*r));
+				}
+
+
+			}
+			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
+				wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+				for(auto r = ok.begin(); r != ok.begin(); ++r){
+					try{
+						if((*r)->is_open()) {
+							(*r)->close();
+						}
+					}catch(std::exception& e){
+						dbg_print("error closing transaction %s", e.what());
+						(*r)->close();
+					}
+
+				}
+
+				return false;
+			}else{
+				return true;
+			}
+		}
+		version_storage_type* begin(bool writer, const version_type& version){
+
+
+			if(!begin_replicants(writer, version)){
+				throw ReplicationFailure();/// replication could not be started
+			}
 
 			syncronized _sync(*lock);
 			touch();
@@ -2666,7 +2802,7 @@ namespace storage{
 			}
 			version_storage_type_ptr b = nullptr;
 			if(writer || recycler.empty()){
-				b = std::make_shared< version_storage_type>(last_address, order, create_version(), (*this).lock);
+				b = std::make_shared< version_storage_type>(last_address, order, version, (*this).lock);
 				storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(version_namer(b->get_version(),initial->get_name()),true);
 				allocator->set_allocation_start(last_address);
 				b->set_allocator(allocator);
@@ -2736,6 +2872,11 @@ namespace storage{
 				err_print("cannot commit: this is not a writing transaction");
 				throw InvalidTransactionType();
 			}
+			if(!commit_replicants()){
+				err_print("could not commit enough replicants reverse local transaction");
+				discard(transaction);
+				throw ReplicationFailure();
+			}
 			{
 				syncronized _sync(*lock);
 				touch();
@@ -2762,6 +2903,9 @@ namespace storage{
 
 				if(version == nullptr){
 					throw InvalidVersion();
+				}
+				if(!commit_replicants()){
+					throw ReplicationFailure();
 				}
 
 
@@ -2804,11 +2948,11 @@ namespace storage{
 			dbg_print("merge transaction %s on %s",transaction->get_version().toString().c_str(),this->get_name().c_str());
 			bool writer = !transaction->is_readonly();
 			if(!writer){
-				err_print("cannot commit: this is not a writing transaction\n");
+				err_print("cannot commit: this is not a writing transaction");
 				throw InvalidTransactionType();
 			}
 			if(transaction != writing_transaction){
-				err_print("cannot commit: this is not the previously given writing transaction\n");
+				err_print("cannot commit: this is not the previously given writing transaction");
 				throw InvalidWriterOrder();
 			}
 			if (!recovery)		/// dont journal during recovery
@@ -2818,16 +2962,17 @@ namespace storage{
 				touch();
 				if(active_transactions == 0){
 					discard(transaction);
-					err_print("cannot commit: no more active transactions\n");
+					err_print("cannot commit: no more active transactions");
 					throw InvalidWriterOrder();
 
 					// return false;
 				}
-				//printf("[COMMIT MVCC] [%s] %lld at v. %lld\n", transaction->get_allocator().get_name().c_str(), (long long)transaction->get_allocator().get_version());
+				auto& allocator = transaction->get_allocator();
+				dbg_print("[COMMIT MVCC] [%s] at v. %s", allocator.get_name().c_str(), nst::tostring(allocator.get_version()));
 
 				if(writer && transaction->modified() && transaction->get_order() < order){
 					discard(transaction);
-					err_print("invalid writer order\n");
+					err_print("invalid writer order");
 					throw InvalidWriterOrder();
 				}
 
@@ -2874,7 +3019,9 @@ namespace storage{
 		void discard(version_storage_type* transaction){
 
 			bool writer = !transaction->is_readonly();
-
+			if(!rolback_replicants()){
+				err_print("replicants could not be rolled back, continue to reverse transaction locally");
+			}
 
 
 			{
@@ -2885,7 +3032,7 @@ namespace storage{
 				if(writer)
 					--writing_transactions;
 				--active_transactions;
-				//printf("[DISCARD MVCC] [%s] at v. %lld\n", transaction->get_allocator(last_address).get_name().c_str(), (long long)transaction->get_allocator().get_version());
+				dbg_print("Discard [%s] at v. %s", transaction->get_allocator().get_name().c_str(),nst::tostring(transaction->get_allocator().get_version()));
 
 				if(transaction->get_previous() == nullptr)
 				{
@@ -2968,4 +3115,6 @@ namespace storage{
 /// complete namespaces
 };/// storage
 };///stx
+#undef __LOG_NAME__
+#define __LOG_NAME__ __LOG_SPACES__
 #endif //_TRANSACTIONAL_STORAGE_H_

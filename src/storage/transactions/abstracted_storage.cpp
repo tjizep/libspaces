@@ -3,15 +3,16 @@
 
 static Poco::Mutex m;
 static stored::_AlocationsMap instances;
-static stored::_ReplicationConfigurations replications;
+
 namespace nst = ::stx::storage;
+namespace stx{
+	namespace storage{
+		bool storage_debugging = false;
+		bool storage_info = false;
+	}
+};
 namespace stored{
-    void add_repl_config(const std::string& name, const NS_STORAGE::replication_configuration & repl_conf){
-        replications[name] = repl_conf;
-    }
-    const nst::replication_configuration& get_repl_conf (const std::string& name){
-        return replications[name];
-    }
+
 	_Allocations* _get_abstracted_storage(const std::string& name){
 
 		_Allocations* r = NULL;

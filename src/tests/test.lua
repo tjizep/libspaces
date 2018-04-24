@@ -2,8 +2,9 @@ require "packages"
 require "spaces"
 --spaces.replicate("127.0.0.1")
 spaces.data("test")
-local u = 1e6
-local kl = 8
+local u = 1e7
+local MAX_GEN =3e6
+local kl = 16
 local seed = 78976
 math.randomseed(seed) -- reseed to standard value for repeatable tests
 
@@ -37,7 +38,7 @@ local function generate(n)
 	--print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
 	return tdata
 end
-spaces.setMaxMb(1000)
+spaces.setMaxMb(5000)
 
 local s = spaces.open(); -- starts a transaction automatically
 
@@ -61,7 +62,7 @@ local tdata = {}
 
 if #data == 0 or #data < u then
 
-	local PERIOD = 2e6
+	local PERIOD = 1e5
 	local t = os.clock()
 	local td = os.clock()
 	print("start st write",t)
@@ -70,7 +71,7 @@ if #data == 0 or #data < u then
 
 		if tdata[i-ustart] == nil then
 			local gt = os.clock()
-			tdata = generate(math.min(u,1e6))
+			tdata = generate(math.min(u,MAX_GEN))
 			ustart = i - 1
 			gt = (os.clock() - gt)
 			td = td + gt
@@ -82,16 +83,17 @@ if #data == 0 or #data < u then
 		end
 		local ss = tdata[i-ustart]
 		data[ss] = i*2;
+		--spaces.commit()
+
 	end
 	local dt = os.clock()-t;
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s")
 	spaces.commit()
 
-
-else
-	tdata = generate(math.min(u,1e6))
 end
+math.randomseed(seed)
+tdata = generate(math.min(u,MAX_GEN))
 spaces.read()
 print("start st read")
 local cnt = 0

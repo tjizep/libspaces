@@ -235,7 +235,7 @@ namespace stx
         enum
         {   bytes_per_page = 4096, /// this isnt currently used but could be
             max_scan = 0,
-            keys_per_page = 128, ///192 is good for transactions, 384
+            keys_per_page = 96, ///192 is good for transactions, 384
             caches_per_page = 4,
             max_release = 8
         };
@@ -1693,7 +1693,7 @@ namespace stx
             }
         public:
             ~surface_node() {
-                this->deallocate_data();
+               this->deallocate_data();
             }
             void check_next() const {
                 return;
@@ -1792,13 +1792,14 @@ namespace stx
                 init(at);
                 return  *reinterpret_cast<data_type*>(_values + permutations[at]);
             }
+
+            /// update keys at a position
             void update(int at, const key_type &key, const data_type& value) {
                 get_key(at) = key;
                 get_value(at) = value;
-                (*this).inc_occupants();
-
             }
-            // insert a key and value pair at
+
+            /// insert a key and value pair at
             void insert_(int at, const key_type &key, const data_type& value) {
 
                 BTREE_ASSERT(this->get_occupants() < surfaceslotmax);
@@ -1956,6 +1957,7 @@ namespace stx
                       key_interpolator interp) {
 
                 using namespace stx::storage;
+                bool direct_encode = false;
                 (*this).address = address;
                 /// size_t bs = buffer.size();
                 buffer_type::const_iterator reader = buffer.begin();
@@ -1971,37 +1973,42 @@ namespace stx
                 (*this).preceding.set_context(context);
                 (*this).preceding.set_where(sa);
                 sa = leb128::read_signed(reader);
-
-                //int vs = sizeof(data_type)*surfaceslotmax;
-                //int ks = sizeof(key_type)*surfaceslotmax;
-
                 if (sa == address) {
                     err_print("loading node with invalid next address");
                 }
                 (*this).next.set_context(context);
                 (*this).next.set_where(sa);
+                if(direct_encode) {
 
-                if (encoded_key_size > 0) {
-                    //interp.decode(buffer, reader, keys(), (*this).get_occupants());
-                }
-                else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.retrieve(buffer, reader, get_key(k));
+
+                    /// TODO: nb only because vectors are usually allocated contiguously
+                    allocated = leb128::read_signed(reader);
+                    ::memcpy(permutations, &(*reader), surfaceslotmax);
+                    reader += surfaceslotmax;
+                    ::memcpy(reinterpret_cast<nst::u8 *>(_keys), &(*reader), allocated * sizeof(key_type));
+                    reader += allocated * sizeof(key_type);
+                    ::memcpy(reinterpret_cast<nst::u8 *>(_values), &(*reader), allocated * sizeof(data_type));
+                    reader += allocated * sizeof(data_type);
+                }else {
+
+
+                    if (encoded_key_size > 0) {
+                        //interp.decode(buffer, reader, keys(), (*this).get_occupants());
+                    } else {
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage.retrieve(buffer, reader, get_key(k));
+                        }
+                    }
+
+                    if (encoded_value_size > 0) {
+                        //interp.decode_values(buffer, reader, values(), (*this).get_occupants());
+                    } else {
+
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage.retrieve(buffer, reader, get_value(k));
+                        }
                     }
                 }
-
-                if (encoded_value_size > 0) {
-                    //interp.decode_values(buffer, reader, values(), (*this).get_occupants());
-                }
-                else {
-
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-
-                        storage.retrieve(buffer, reader, get_value(k));
-
-                    }
-                }
-
                 size_t d = reader - buffer.begin();
 
                 if (d != bsize) {
@@ -2027,6 +2034,7 @@ namespace stx
 
             void save(key_interpolator interp, storage_type &storage, buffer_type& buffer) const {
                 using namespace stx::storage;
+                bool direct_encode = false;
                 nst::i32 encoded_key_size = 0; // (nst::i32)interp.encoded_size(_keys, (*this).get_occupants());
                 nst::i32 encoded_value_size = 0; // (nst::i32)interp.encoded_values_size(values(), (*this).get_occupants());
                 if (!interp.encoded(btree::allow_duplicates)) {
@@ -2041,28 +2049,38 @@ namespace stx
                 storage_use += leb128::signed_size(encoded_value_size);
                 storage_use += leb128::signed_size(preceding.get_where());
                 storage_use += leb128::signed_size(next.get_where());
-                if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
-                    storage_use += encoded_key_size;
-                }
-                else {
-                    encoded_key_size = 0;
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage_use += storage.store_size(get_key(k));
-                    }
+                if(direct_encode) {
 
-                }
-                if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
-                    //storage_use += interp.encoded_values_size(values(), (*this).get_occupants());
-                }
-                else {
-                    encoded_value_size = 0;
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage_use += storage.store_size(get_value(k));
+
+                    storage_use += leb128::signed_size(allocated);
+
+                    storage_use += surfaceslotmax;
+                    storage_use += allocated * sizeof(key_type);
+                    storage_use += allocated * sizeof(data_type);
+                }else {
+                    if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
+                        //storage_use += encoded_key_size;
+                    } else {
+                        encoded_key_size = 0;
+                        storage_use += sizeof(key_type) * (*this).allocated;
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage_use += storage.store_size(get_key(k));
+                        }
+
+                    }
+                    if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
+                        //storage_use += interp.encoded_values_size(values(), (*this).get_occupants());
+                    } else {
+                        encoded_value_size = 0;
+                        storage_use += sizeof(data_type) * (*this).allocated;
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage_use += storage.store_size(get_value(k));
+                        }
                     }
                 }
                 buffer.resize(storage_use);
                 if (buffer.size() != (size_t)storage_use) {
-                    err_print("resize failed");
+                    err_print("storage resize failed");
                 }
                 buffer_type::iterator writer = buffer.begin();
                 writer = leb128::write_signed(writer, (*this).get_occupants());
@@ -2071,20 +2089,35 @@ namespace stx
                 writer = leb128::write_signed(writer, encoded_value_size);
                 writer = leb128::write_signed(writer, preceding.get_where());
                 writer = leb128::write_signed(writer, next.get_where());
-                if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
-                    //interp.encode(writer, keys(), (*this).get_occupants());
-                }
-                else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.store(writer, get_key(k));
+
+
+                if(direct_encode){
+                    writer = leb128::write_signed(writer, allocated);
+                    /// TODO: nb only because vectors are usually allocated contiguously
+                    ::memcpy(&(*writer), permutations, surfaceslotmax);
+                    writer += surfaceslotmax;
+                    ::memcpy(&(*writer), reinterpret_cast<const nst::u8*>(_keys),allocated*sizeof(key_type));
+                    writer += allocated*sizeof(key_type);
+                    ::memcpy(&(*writer), reinterpret_cast<const nst::u8*>(_values),allocated*sizeof(data_type));
+                    writer += allocated*sizeof(data_type);
+                }else {
+
+
+                    if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
+                        //interp.encode(writer, keys(), (*this).get_occupants());
+                    } else {
+
+
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage.store(writer, get_key(k));
+                        }
                     }
-                }
-                if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
-                    //interp.encode_values(buffer, writer, values(), (*this).get_occupants());
-                }
-                else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.store(writer, get_value(k));
+                    if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
+                        //interp.encode_values(buffer, writer, values(), (*this).get_occupants());
+                    } else {
+                        for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                            storage.store(writer, get_value(k));
+                        }
                     }
                 }
                 ptrdiff_t d = writer - buffer.begin();
@@ -3636,7 +3669,7 @@ namespace stx
             /// Bytes used by surface nodes in tree
             ptrdiff_t       surface_use;
 
-            /// Bytes used by interior nodes in tree
+            /// Bytes used by interior nodes in trestart_tree_sizee
             ptrdiff_t       interior_use;
 
             /// print timer
@@ -3651,7 +3684,7 @@ namespace stx
             nst::i64 last_surface_size;
 
             /// Base B+ tree parameter: The number of cached key/data slots in each surface
-            static const unsigned short         caches = btree_self::cacheslotmax;
+            static const unsigned short         cacstart_tree_sizehes = btree_self::cacheslotmax;
 
             /// Base B+ tree parameter: The number of key/data slots in each surface
             static const unsigned short     surfaces = btree_self::surfaceslotmax;
@@ -3684,6 +3717,12 @@ namespace stx
             {
                 return static_cast<double>(tree_size) / (leaves * surfaces);
             }
+            /// members to optimize small transactions
+            stx::storage::i64   start_root;
+            stx::storage::i64   start_tree_size ;
+            stx::storage::i64   start_head;
+            stx::storage::i64   start_last;
+            stx::storage::i64   start_last_surface_size;
         };
 
     private:
@@ -3734,13 +3773,18 @@ namespace stx
             if (get_storage()->get_boot_value(b)) {
 
                 restore((stx::storage::stream_address)b);
+                stats.start_root = b;
                 stx::storage::i64 sa = 0;
                 get_storage()->get_boot_value(stats.tree_size, 2);
+                stats.start_tree_size = stats.tree_size;
                 get_storage()->get_boot_value(sa, 3);
+                stats.start_head = sa;
                 headsurface.set_where((stx::storage::stream_address)sa);
                 get_storage()->get_boot_value(sa, 4);
+                stats.start_last = sa;
                 last_surface.set_where((stx::storage::stream_address)sa);
                 get_storage()->get_boot_value(stats.last_surface_size, 5);
+                stats.start_last_surface_size = stats.last_surface_size;
             }
 
         }
@@ -3907,7 +3951,7 @@ namespace stx
             return !key_less(a, b) && !key_less(b, a);
         }
 
-        /// saves the boot values - connot in read only mode or when nodes are shared
+        /// saves the boot values - can npt in read only mode or when nodes are shared
         void write_boot_values()
         {
 
@@ -3915,11 +3959,29 @@ namespace stx
             if (stats.changes)
             {
                 /// avoid letting those pigeons out
-                get_storage()->set_boot_value(root.get_where());
-                get_storage()->set_boot_value(stats.tree_size, 2);
-                get_storage()->set_boot_value(headsurface.get_where(), 3);
-                get_storage()->set_boot_value(last_surface.get_where(), 4);
-                get_storage()->set_boot_value(stats.last_surface_size, 5);
+                if(stats.start_head != root.get_where()){
+                    get_storage()->set_boot_value(root.get_where());
+                    stats.start_head == root.get_where();
+                }
+
+                if(stats.start_tree_size != stats.tree_size){
+                    get_storage()->set_boot_value(stats.tree_size, 2);
+                    stats.start_tree_size = stats.tree_size;
+                }
+                if(stats.start_head != headsurface.get_where()){
+                    get_storage()->set_boot_value(headsurface.get_where(), 3);
+                    stats.start_head = headsurface.get_where();
+                }
+                if(stats.start_last != last_surface.get_where()){
+                    get_storage()->set_boot_value(last_surface.get_where(), 4);
+                    stats.start_last = last_surface.get_where();
+
+                }
+                if(stats.start_last_surface_size != stats.last_surface_size){
+                    get_storage()->set_boot_value(stats.last_surface_size, 5);
+                    stats.start_last_surface_size = stats.last_surface_size;
+                }
+
                 stats.changes = 0;
             }
         }

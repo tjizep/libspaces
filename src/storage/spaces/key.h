@@ -352,7 +352,7 @@ namespace spaces {
 		data name;
 	
 	public:
-		static const bool use_encoding = true;
+		static const bool use_encoding = false;
 		key(const key&r) : context(r.context), name(r.name){
 
 		}

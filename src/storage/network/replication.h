@@ -21,14 +21,20 @@ namespace spaces{
     class block_replication_client{
     private:
         std::string address;
+        nst::u16 port;
         typedef std::shared_ptr<rpc::client> client_ptr;
         client_ptr remote;
     public:
+        block_replication_client(const std::string& address, nst::u16 port);
         block_replication_client();
         void set_address(const std::string& address);
+        const char * get_address() const ;
+        nst::fi64 get_port() const ;
         bool is_open() const ;
-        void begin(bool is_read);
-        void commit();
+        void begin(bool is_write);
+        void begin(bool is_write,const nst::version_type& version);
+
+        bool commit();
         void rollback();
         void open(bool is_new,const std::string& name);
         void store(nst::u64 address, const nst::buffer_type& data);
@@ -39,6 +45,11 @@ namespace spaces{
         nst::u64 max_block_address() const;
         ~block_replication_client();
     };
+
+    typedef std::shared_ptr<spaces::block_replication_client> repl_client_ptr;
+
+    typedef std::vector<repl_client_ptr> replication_clients;
+    extern repl_client_ptr create_client(const std::string& address, nst::u16 port);
 }
 
 

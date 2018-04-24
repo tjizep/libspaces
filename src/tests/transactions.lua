@@ -12,8 +12,9 @@ end
 
 
 local t = os.clock()
+local transactions = s.transactions
 for tx=1,u do
-    s.transactions.value=s.transactions.value + 1
+    transactions.value=transactions.value + 1
     spaces.commit()
 end
 print(s.transactions.value,math.floor(u/(os.clock()-t)).." tps")
