@@ -175,6 +175,9 @@ namespace storage{
 
 		void add_entry(Poco::UInt32 command, const std::string& name, long long address, const buffer_type& buffer);
 
+		/// marks a rollback
+		void mark_rollback(const std::string& name);
+
 		/// ensures all journal entries are synched to storage
 
 		void synch(bool force = false);
@@ -282,6 +285,7 @@ namespace storage{
 	enum journal_commands{
 		JOURNAL_PAGE = 0,
 		JOURNAL_COMMIT,
+		JOURNAL_ROLLBACK,
 		JOURNAL_TEMP_INFO
 	};
 
@@ -2865,6 +2869,11 @@ namespace storage{
 		/// via the journal
 		/// the version may be merged with dependent previous versions
 		/// returns true if the commit could take place
+		///
+		/// the journal synch. will add the final commit signal after the merge function
+		/// has completed - this will stop the journal from being recovered for this
+		/// transaction if any exception happens in this function
+
 		bool commit(version_storage_type* transaction){
 			//if(current_mem_use > max_mem_use){
 			bool writer = !transaction->is_readonly();
@@ -2883,7 +2892,7 @@ namespace storage{
 
 					// return false;
 				}
-				dbg_print("[COMMIT MVCC] [%s] %lld at v. %lld\n", transaction->get_allocator().get_name().c_str(), (long long)transaction->get_allocator().get_version());
+				dbg_print("[COMMIT MVCC] [%s] at v. %s", transaction->get_allocator().get_name().c_str(), nst::tostring(transaction->get_allocator().get_version()));
 
 				if(writer && transaction->modified() && transaction->get_order() < order){
 					discard(transaction);
@@ -2896,18 +2905,15 @@ namespace storage{
 				if(version == nullptr){
 					throw InvalidVersion();
 				}
-				if(!commit_replicants()){
-					throw ReplicationFailure();
-				}
-				/// TODO: add test journal entry to ensure persistence, MAYBE SOMETHING ELSE SHOULD BE DONE
-				if(!commit_replicants()){
-					err_print("could not commit enough replicants reverse local transaction");
-					discard(transaction);/// local state has not changed yet
-					throw ReplicationFailure();
-				}
+
 
 				if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
+
+				if(writer && !commit_replicants()){
+					err_print("could not commit enough replicants reverse local transaction");
+					throw ReplicationFailure();
+				}
 
 				--active_transactions;
 				if(writer)
@@ -2944,6 +2950,11 @@ namespace storage{
 		/// via the journal
 		/// the version may be merged with dependent previous versions
 		/// returns true if the merge could take place
+		///
+		/// the journal synch. will add the final commit signal after the merge function
+		/// has completed - this will stop the journal from being recovered for this
+		/// transaction if any exception happens in this function
+		/// the commit signal is small and should not fail easily
 		bool merge(version_storage_type* transaction){
 			dbg_print("merge transaction %s on %s",transaction->get_version().toString().c_str(),this->get_name().c_str());
 			bool writer = !transaction->is_readonly();
@@ -2955,8 +2966,14 @@ namespace storage{
 				err_print("cannot commit: this is not the previously given writing transaction");
 				throw InvalidWriterOrder();
 			}
+
 			if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
+
+			if(writer && !commit_replicants()){
+				err_print("could not commit enough replicants reverse local transaction");
+				throw ReplicationFailure();
+			}
 			{
 				syncronized _sync(*lock);
 				touch();
@@ -2994,6 +3011,7 @@ namespace storage{
 				if(storages.empty()){
 					throw WriterConsistencyViolation();
 				}
+
 				dbg_print("move transaction %s on %s",transaction->get_version().toString().c_str(),this->get_name().c_str());
 				version->move(storages.back().get());
 
@@ -3014,14 +3032,22 @@ namespace storage{
 			}
 			return true;
 		}
-		/// discard a new version similar to rollback
 
+		void rollback(version_storage_type* transaction){
+			this->discard(transaction);
+		}
+		/// discard a new version similar to rollback
 		void discard(version_storage_type* transaction){
 
 			bool writer = !transaction->is_readonly();
-			if(!rolback_replicants()){
-				err_print("replicants could not be rolled back, continue to reverse transaction locally");
+
+			if(writer){
+				journal::get_instance().mark_rollback(this->get_name());
+				if(!rolback_replicants()){
+					err_print("replicants could not be rolled back, continue to reverse transaction locally");
+				}
 			}
+
 
 
 			{

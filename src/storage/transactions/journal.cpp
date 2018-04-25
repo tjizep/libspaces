@@ -265,6 +265,12 @@ public:
 
 					}										
 					commands.clear();
+				}else if(record.command == nst::JOURNAL_ROLLBACK){
+					stored::_Transaction* transaction = pending[record.name];
+					if(transaction == nullptr) {
+						stored::_Allocations* allocations = stored::_get_abstracted_storage(record.name);
+						allocations->discard(transaction);
+					}
 				}
 			}
 
@@ -312,7 +318,9 @@ public:
 		}
 		journal_ostr.open(journal_name.c_str(), o_mode);
 	}
-
+    void mark_rollback(const std::string& name){
+        add_entry(nst::JOURNAL_ROLLBACK, name, 0, nst::buffer_type()); /// marks a commit boundary
+	}
 	void synch(bool force)
 	{
 		
