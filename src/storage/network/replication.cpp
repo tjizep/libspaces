@@ -91,14 +91,14 @@ namespace spaces{
             storage->begin(write);
 
         });
-        srv.bind("beginVersion", [&storage](bool write,const std::string& version) {
+        srv.bind("beginVersion", [&storage](bool write,const std::string& version,const std::string& last_version) {
             dbg_print("begin(%lld)", (nst::fi64)write);
 
             if(storage==nullptr) {
                 err_print("storage not available to start transaction");
                 return ;
             }
-            storage->begin(write,to_version(version));
+            storage->begin(write,to_version(version),to_version(last_version));
 
         });
         srv.bind("commit", [&storage]() {
@@ -210,10 +210,10 @@ namespace spaces{
         if(this->remote == nullptr) return;
         this->remote->call("begin",is_write);
     }
-    void block_replication_client::begin(bool is_write,const nst::version_type& version){
+    void block_replication_client::begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version){
         dbg_print("beginVersion(%lld,%s)",(nst::fi64)is_write, nst::tostring(version));
         if(this->remote == nullptr) return;
-        this->remote->call("beginVersion",is_write,to_data(version));
+        this->remote->call("beginVersion",is_write,to_data(version),to_data(last_version));
     }
     bool block_replication_client::commit(){
         dbg_print("commit()");

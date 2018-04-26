@@ -98,12 +98,12 @@ namespace stored{
 			}
 			return *_transaction;
 		}
-		_Transaction& get_transaction(bool writer, const nst::version_type& version){
+		_Transaction& get_transaction(bool writer, const nst::version_type& version, const nst::version_type& last_version){
 			if(_transaction == NULL){
 				if(_allocations == NULL){
 					begin(writer);
 				}else
-					_transaction = get_allocations().begin(writer,version);/// resource aquisition on initialization
+					_transaction = get_allocations().begin(writer,version,last_version);/// resource aquisition on initialization
 				if(_transaction == NULL){
 					throw NullPointerException();
 				}
@@ -245,12 +245,12 @@ namespace stored{
 			order = get_allocations().get_order();
 
 		}
-		void begin(bool writer,const nst::version_type& version){
+		void begin(bool writer,const nst::version_type& version,const nst::version_type& last_version){
 			rollback();
 			get_allocations();
 			(*this).writer = writer;
 			if(writer) get_allocations().write_lock();
-			get_transaction(writer,version);
+			get_transaction(writer,version,last_version);
 			order = get_allocations().get_order();
 
 		}

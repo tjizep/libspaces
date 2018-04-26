@@ -1448,9 +1448,9 @@ namespace stx
                 if (o == 0)
                     return o;
                 /// optimization specifically for 'spaces' because of hierarchical ordering
-                //if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
-                //    return last_found;
-                //}
+                if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
+                    return last_found;
+                }
 
                 int l = 0, h = o;
 

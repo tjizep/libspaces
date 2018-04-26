@@ -127,7 +127,7 @@ static int l_setmaxmb_space(lua_State *L) {
 
 
 static const struct luaL_Reg spaces_f[] = {
-	{ "data", l_configure_space },
+	{ "storage", l_configure_space },
     { "serve", l_serve_space},
 	{ "open", l_open_space },
 	{ "read", l_read },

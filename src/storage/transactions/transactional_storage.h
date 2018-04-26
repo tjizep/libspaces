@@ -2323,6 +2323,7 @@ namespace storage{
 
 		spaces::replication_clients replicated;
 											/// replication client
+		spaces::replication_control repl_control;
 		spaces::replication_clients seeds;	/// this is a leech node - never writes back (we can be both leech and symbiont)
 
 		storage_container recycler;			/// recycler for used transactions
@@ -2367,24 +2368,7 @@ namespace storage{
 			}
 		}
 
-		bool check_open_replicants(){
-			nst::i32 opened = 0;
-			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
-				try{
-					if(!(*r)->is_open()){
-						(*r)->open(false,this->get_name());
-					}
-					++opened;
-				}catch(std::exception& e){
-					dbg_print("could not open a replicant %s: %s:%lld",e.what(),(*r)->get_address(), (*r)->get_port());
-				}
 
-			}
-			if(opened < (replicated.size() / 2)){
-				wrn_print("not enough replicants could be opened %lld of %lld", (nst::fi64) opened,(nst::fi64) replicated.size());
-			}
-			return opened >= (replicated.size() / 2);
-		}
 	public:
 
 		/// merge idle transactions from latest to oldest
@@ -2526,6 +2510,7 @@ namespace storage{
 		,	journal_synching(false)
 		,	timer(get_lr_timer())
 		,	writing_transaction(nullptr)
+		,	repl_control(initial->get_name())
 		{
 			//initial->engage();
 			delete_temp_files_of(initial->get_name());
@@ -2721,150 +2706,14 @@ namespace storage{
 		/// smart pointers are not thread safe so only use them internally
 		version_storage_type* begin(bool writer) {
 			version_type version = create_version();
-			return begin(writer,version);
+			return begin(writer,version,last_comitted_version);
 		}
-		/// start as many replicants as possible
-		/// return false if too many failed
-		bool begin_replicants(bool writer, const version_type& version){
-			if(!check_open_replicants())
-				return false;
-			dbg_print("starting %lld replicants ", (nst::fi64)replicated.size());
-			spaces::replication_clients ok;
-			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
-				try{
-					(*r)->begin(writer,version);
-					ok.push_back((*r));
-				}catch(std::exception& e){
-					wrn_print("error starting transaction [%s] on %s:%lld",e.what(),(*r)->get_address(), (*r)->get_port());
-					(*r)->close();
-				}
 
-			}
-			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
-				wrn_print("too few replicants could be started %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-				for(auto r = ok.begin(); r != ok.begin(); ++r) {
-					try {
-						(*r)->rollback();
-					} catch (std::exception &e) {
-						dbg_print("error closing transaction %s", e.what());
-						(*r)->close();
-					}
-				}
-				return false;
-			}else{
-				return true;
-			}
-		}
-		/// start as many replicants as possible
-		/// return false if too many failed
-		bool write_replicants(const version_storage_type_ptr& source ){
-			if(!check_open_replicants())
-				return false;
-			spaces::replication_clients ok;
-			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
-				if((*r)->is_open()){
-					try{
-						source->replicate(*r);
-						ok.push_back((*r));
-					}catch(std::exception& e){
-						dbg_print("error replicating transaction %s", e.what());
-					}
-
-
-				}
-
-
-			}
-			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
-				wrn_print("too few replicants could replicate their data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-				for(auto r = ok.begin(); r != ok.begin(); ++r){
-					try{
-						if((*r)->is_open()) {
-							(*r)->rollback(); /// TODO: rolback as many of them as possible
-							(*r)->close();
-						}
-					}catch(std::exception& e){
-						dbg_print("error committing transaction %s", e.what());
-						(*r)->close();
-					}
-
-				}
-
-				return false;
-			}else{
-				return true;
-			}
-		}
-		/// start as many replicants as possible
-		/// return false if too many failed
-		bool commit_replicants(){
-			if(!check_open_replicants())
-				return false;
-			spaces::replication_clients ok;
-			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
-				if((*r)->is_open()){
-					(*r)->commit();
-					ok.push_back((*r));
-				}
-
-
-			}
-			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
-				wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-				for(auto r = ok.begin(); r != ok.begin(); ++r){
-					try{
-						if((*r)->is_open()) {
-							(*r)->rollback(); /// TODO: rolback as many of them as possible
-							(*r)->close();
-						}
-					}catch(std::exception& e){
-						dbg_print("error committing transaction %s", e.what());
-						(*r)->close();
-					}
-
-				}
-
-				return false;
-			}else{
-				return true;
-			}
-		}
-		bool rolback_replicants(){
-			if(!check_open_replicants())
-				return false;
-			spaces::replication_clients ok;
-			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
-				if((*r)->is_open()){
-					(*r)->rollback();
-					ok.push_back((*r));
-				}
-
-
-			}
-			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
-				wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-				for(auto r = ok.begin(); r != ok.begin(); ++r){
-					try{
-						if((*r)->is_open()) {
-							(*r)->close();
-						}
-					}catch(std::exception& e){
-						dbg_print("error closing transaction %s", e.what());
-						(*r)->close();
-					}
-
-				}
-
-				return false;
-			}else{
-				return true;
-			}
-		}
-		version_storage_type* begin(bool writer, const version_type& version){
+		version_storage_type* begin(bool writer, const version_type& version, const version_type& l_version){
 			/// TODO: check if the version given is larger than the previously
 			/// committed version
 
-			if(!begin_replicants(writer, version)){
+			if(!repl_control.begin_replicants(writer, last_comitted_version,version, replicated)){
 				throw ReplicationFailure();/// replication could not be started
 			}
 
@@ -2941,7 +2790,7 @@ namespace storage{
 			return initial->contains(which);
 		}
 
-		/// finish a version and commit it to storage
+		/// finish a version and commit it to storage, replicated
 		/// the commit is coordinated with other mvcc storages
 		/// via the journal
 		/// the version may be merged with dependent previous versions
@@ -2990,11 +2839,11 @@ namespace storage{
 
 				if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
-				if(writer && !write_replicants(version)){
+				if(writer && !repl_control.write_replicants(version,replicated)){
 					err_print("could not write enough replicants reverse local transaction");
 					throw ReplicationFailure();
 				}
-				if(writer && !commit_replicants()){
+				if(writer && !repl_control.commit_replicants(replicated)){
 					err_print("could not commit enough replicants reverse local transaction");
 					throw ReplicationFailure();
 				}
@@ -3069,11 +2918,11 @@ namespace storage{
 
 			if (!recovery)		/// dont journal during recovery
 				transaction->journal((*this).initial->get_name());
-			if(writer && !write_replicants(version)){
+			if(writer && !repl_control.write_replicants(version,replicated)){
 				err_print("could not write enough replicants reverse local transaction");
 				throw ReplicationFailure();
 			}
-			if(writer && !commit_replicants()){
+			if(writer && !repl_control.commit_replicants(replicated)){
 				err_print("could not commit enough replicants reverse local transaction");
 				throw ReplicationFailure();
 			}
@@ -3147,7 +2996,7 @@ namespace storage{
 
 			if(writer){
 				journal::get_instance().mark_rollback(this->get_name());
-				if(!rolback_replicants()){
+				if(!repl_control.rolback_replicants(replicated)){
 					err_print("replicants could not be rolled back, continue to reverse transaction locally");
 				}
 			}
