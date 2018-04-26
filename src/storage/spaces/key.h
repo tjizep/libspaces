@@ -29,7 +29,7 @@ namespace spaces {
 	class astring {
 	private:
 		static const i4 SS = 256;
-		i4 l;
+		ui4 l;
 		i1 sequence[sizeof(std::vector<char>)];
 		std::vector<char> & make_long() {
 			new (sequence) std::vector<char>();
@@ -43,7 +43,7 @@ namespace spaces {
 		const std::vector<char> &str() const {
 			return (std::vector<char>&)sequence;
 		}
-		void resize(i4 l, const char * data) {
+		void resize(ui4 l, const char * data) {
 			if (l >= sizeof(sequence)) {
 				std::vector<char> &s = make_long();
 				s.resize(l);
@@ -72,7 +72,7 @@ namespace spaces {
 		bool is_long() const {
 			return l == SS;
 		}
-		void resize(i4 l) {
+		void resize(ui4 l) {
 			if (l >= sizeof(sequence)) {
 				make_long().resize(l);					
 				return;
@@ -82,7 +82,10 @@ namespace spaces {
 		void set_data(const char * data,i4 l) {
 			resize(l,data);			
 		}
-		
+		template<typename _tT>
+        void set_data(const std::vector<_tT>& data) {
+            resize(data.size(),(const char*)data.data());
+        }
 		i4 size() const {
 			return l == SS ? (i4)(str().size()) : 
 				l;
@@ -140,7 +143,7 @@ namespace spaces {
 		}
 		astring& operator=(const std::string& right) {
 			
-			set_data(right.data(), (i4)right.size());
+			set_data(right.data(), (ui4)right.size());
 			return *this;
 		}
 
@@ -241,8 +244,7 @@ namespace spaces {
 		void set_function(const _VectorType& vt) {
 			clear();
 			type = data_type::function;
-			//std::copy(vt.begin(), vt.end(), std::back_inserter(sequence));
-			//sequence.append(s, l);
+			sequence.set_data<typename _VectorType::value_type>(vt);
 
 		}
 		i4 compare(const data&right) const {
@@ -352,7 +354,7 @@ namespace spaces {
 		data name;
 	
 	public:
-		static const bool use_encoding = false;
+		static const bool use_encoding = true;
 		key(const key&r) : context(r.context), name(r.name){
 
 		}

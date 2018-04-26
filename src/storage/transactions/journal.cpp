@@ -318,9 +318,7 @@ public:
 		}
 		journal_ostr.open(journal_name.c_str(), o_mode);
 	}
-    void mark_rollback(const std::string& name){
-        add_entry(nst::JOURNAL_ROLLBACK, name, 0, nst::buffer_type()); /// marks a commit boundary
-	}
+
 	void synch(bool force)
 	{
 		
@@ -427,7 +425,9 @@ namespace storage{
 	void flush_buffer(){
 		js().flush_buffer();
 	}
-
+	void journal::mark_rollback(const std::string& name){
+		js().add_entry(nst::JOURNAL_ROLLBACK, name, 0, nst::buffer_type()); /// marks a commit boundary
+	}
 	/// adds a journal entry written to disk
 	
 	void journal::add_entry(Poco::UInt32 command, const std::string &name, long long address, const buffer_type& buffer){

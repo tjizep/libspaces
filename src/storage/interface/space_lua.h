@@ -26,9 +26,9 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 
 namespace spaces{
 	typedef rabbit::unordered_map<ptrdiff_t, spaces::space*> _LuaKeyMap;
-	typedef spaces::dbms::_Set _SSet;
-	typedef _SSet::iterator iterator;
-	typedef std::set<key> _MSet;
+	//typedef spaces::dbms::_Set _SSet;
+	//typedef _SSet::iterator iterator;
+	typedef std::map<key,record> _MMap;
 
 
 	struct lua_db_session {
@@ -50,7 +50,7 @@ namespace spaces{
 				d = spaces::get_writer();
 			}
 		}
-		spaces::_SSet &get_set() {
+		_Set &get_set() {
 			return d->get_set();
 		}
 		nst::u64 gen_id(){
@@ -76,13 +76,13 @@ namespace spaces{
 
 	};
 	struct lua_mem_session {
-		spaces::_MSet s;
-		typedef spaces::_MSet _Set;
+		spaces::_MMap s;
+		typedef spaces::_MMap _Set;
 		nst::u64 id;
 		lua_mem_session(bool) : id(1) {
 		}
 
-		spaces::_MSet &get_set() {
+		_Set &get_set() {
 			return s;
 		}
         nst::u64 gen_id(){
@@ -101,10 +101,10 @@ namespace spaces{
 		}
 
 	};
-
+	template<typename _Set>
 	struct lua_iterator {
-		_SSet::iterator i;
-		_SSet::iterator e;
+		typename _Set::iterator i;
+		typename _Set::iterator e;
 		bool end() const {
 			return i == e;
 		}
@@ -205,8 +205,47 @@ namespace spaces{
 	}
 	
 	#define tofilep(L)	((FILE **)luaL_checkudata(L, 1, LUA_FILEHANDLE))
-	
 
+	static const spaces::record& get_data(const spaces::lua_mem_session::_Set::iterator& i){
+		return (*i).second;
+	}
+	static spaces::record& get_data(spaces::lua_mem_session::_Set::iterator& i){
+		return (*i).second;
+	}
+//static const spaces::record& get_data(const spaces::lua_db_session::_Set::iterator& i){
+//	return i.data();
+//}
+	static spaces::record& get_data(spaces::lua_db_session::_Set::iterator& i){
+		return i.data();
+	}
+
+
+	static const spaces::key& get_key(const spaces::lua_mem_session::_Set::iterator& i){
+		return (*i).first;
+	}
+//static spaces::key& get_key(spaces::lua_mem_session::_Set::iterator& i){
+//	return (*i).first;
+//}
+	static const spaces::key& get_key(const spaces::lua_db_session::_Set::iterator& i){
+		return i.key();
+	}
+	static spaces::key& get_key(spaces::lua_db_session::_Set::iterator& i) {
+		return i.key();
+	}
+	static ptrdiff_t get_count(const spaces::lua_db_session::_Set::iterator& i, const spaces::lua_db_session::_Set::iterator& j) {
+		return i.count(j);
+	}
+	static ptrdiff_t get_count(const spaces::lua_mem_session::_Set::iterator& i, const spaces::lua_mem_session::_Set::iterator& j) {
+		ptrdiff_t cnt = 0;
+		spaces::lua_mem_session::_Set::iterator ii = i;
+
+		while(ii != j){
+			++cnt;
+			++ii;
+		}
+		return cnt;
+
+	}
 	template<typename _SessionType>
 	class lua_session {
 	private:
@@ -214,6 +253,7 @@ namespace spaces{
 		_SessionType session;
 		lua_State *L;
 	public:
+		typedef typename _SessionType::_Set _Set;
 		lua_session(bool reader) : L(nullptr),session(reader) {
 
 		}
@@ -253,6 +293,7 @@ namespace spaces{
 		typename _SessionType::_Set& get_set() {
 			return session.get_set();
 		}
+
 		nst::u64 len(const space* p) {
 			if (p->second.get_identity() > 0) {
 				spaces::key f, e;
@@ -262,19 +303,20 @@ namespace spaces{
 				///.set_identity(std::numeric_limits<ui8>::max());
 				auto& s = get_set();
 				// create the lua iterator		
-				spaces::iterator fi = s.lower_bound(f);
+				typename _Set::iterator fi = s.lower_bound(f);
 				if (fi != s.end()) {
-					return fi.count(s.upper_bound(e));
+					return get_count(fi,s.upper_bound(e));
+
 				}
 				
 			}
 			return 0;
 		}
-		spaces::lua_iterator* create_iterator() {
-			return create_instance_from_nothing<spaces::lua_iterator>(L); /* new userdatum is already on the stack */
+		spaces::lua_iterator<_Set>* create_iterator() {
+			return create_instance_from_nothing<spaces::lua_iterator< _Set>>(L); /* new userdatum is already on the stack */
 		}
-		spaces::lua_iterator*  get_iterator(int at = 1) {
-			spaces::lua_iterator * i = err_checkudata<spaces::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
+		spaces::lua_iterator<_Set>*  get_iterator(int at = 1) {
+			spaces::lua_iterator<_Set> * i = err_checkudata<spaces::lua_iterator<_Set>>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
 			return i;
 
 		}
@@ -353,7 +395,7 @@ namespace spaces{
 				auto& s = session.get_set();
 				auto i = s.find(first);
 				if (i != s.end()) {
-					second = i.data();
+					second = get_data(i);
 				}
 				if (override || second.get_identity() == 0) {
 					second.set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity

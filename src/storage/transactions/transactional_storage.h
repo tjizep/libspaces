@@ -1173,7 +1173,39 @@ namespace storage{
 
 			inf_print("readahead %s complete %.4g s", get_name().c_str(),(double)(os::millis()-ts)/1000.0);
 		}
+		/// replicate all the data into the destination
+		/// move all data to dest wether it exists or not
+		void replicate(const spaces::repl_client_ptr& dest) {
 
+			_Allocations todo;
+			get_addresses(todo);
+			nst::u64 unloaded = 0;
+
+			dbg_print("[TX MOVE START] ver. %s -> %s", nst::tostring(get_version()), dest->get_address());
+			for (typename _Allocations::iterator a = todo.begin(); a != todo.end(); ++a) {
+				stream_address at = a->first;
+				ref_block_descriptor current = a->second;
+
+
+				if (current != nullptr) {
+					dbg_print("replicating %lld [%lld] ", (nst::fi64) at, (nst::fi64) current->block.size());
+					buffer_type &r = current->block;
+
+					version_type allocated_version = current->get_version();
+					dest->store(at, r);
+
+
+					recycle_block(at, current);
+				} else {
+					++unloaded;
+					buffer_type &r = allocate(at, read);
+					dest->store(at, r);
+					complete();
+
+				}
+
+			}
+		}
 		/// move all data to dest wether it exists or not
 		void move(sqlite_allocator& dest){
 
@@ -1832,6 +1864,10 @@ namespace storage{
 		void move(version_based_allocator_ref dest){
 			get_allocator().move(dest->get_allocator());
 		}
+		/// replicate data to remote
+		void replicate(const spaces::repl_client_ptr &dest){
+			get_allocator().replicate(dest);
+		}
 		/// remove version and cached data
 		void purge(){
 			if((*this).allocations != nullptr){
@@ -2277,7 +2313,7 @@ namespace storage{
 
 		u32 writing_transaction_thread;		/// thread which started the writing transaction
 
-		version_type next_version;			/// next version generator
+		version_type last_comitted_version;	/// last comitted version
 
 		address_type last_address;			/// maximum address allocated
 
@@ -2721,6 +2757,46 @@ namespace storage{
 		}
 		/// start as many replicants as possible
 		/// return false if too many failed
+		bool write_replicants(const version_storage_type_ptr& source ){
+			if(!check_open_replicants())
+				return false;
+			spaces::replication_clients ok;
+			for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+				if((*r)->is_open()){
+					try{
+						source->replicate(*r);
+						ok.push_back((*r));
+					}catch(std::exception& e){
+						dbg_print("error replicating transaction %s", e.what());
+					}
+
+
+				}
+
+
+			}
+			if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
+				wrn_print("too few replicants could replicate their data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+				for(auto r = ok.begin(); r != ok.begin(); ++r){
+					try{
+						if((*r)->is_open()) {
+							(*r)->rollback(); /// TODO: rolback as many of them as possible
+							(*r)->close();
+						}
+					}catch(std::exception& e){
+						dbg_print("error committing transaction %s", e.what());
+						(*r)->close();
+					}
+
+				}
+
+				return false;
+			}else{
+				return true;
+			}
+		}
+		/// start as many replicants as possible
+		/// return false if too many failed
 		bool commit_replicants(){
 			if(!check_open_replicants())
 				return false;
@@ -2785,7 +2861,8 @@ namespace storage{
 			}
 		}
 		version_storage_type* begin(bool writer, const version_type& version){
-
+			/// TODO: check if the version given is larger than the previously
+			/// committed version
 
 			if(!begin_replicants(writer, version)){
 				throw ReplicationFailure();/// replication could not be started
@@ -2881,7 +2958,11 @@ namespace storage{
 				err_print("cannot commit: this is not a writing transaction");
 				throw InvalidTransactionType();
 			}
-
+			if(transaction->get_version() <= last_comitted_version){
+				err_print("the transactions version is less than the last comited resetting");
+				last_comitted_version = version_type();
+				throw InvalidVersion();
+			}
 			{
 				syncronized _sync(*lock);
 				touch();
@@ -2909,7 +2990,10 @@ namespace storage{
 
 				if (!recovery)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
-
+				if(writer && !write_replicants(version)){
+					err_print("could not write enough replicants reverse local transaction");
+					throw ReplicationFailure();
+				}
 				if(writer && !commit_replicants()){
 					err_print("could not commit enough replicants reverse local transaction");
 					throw ReplicationFailure();
@@ -2935,6 +3019,9 @@ namespace storage{
 				}
 				storages.push_back(version);
 
+				last_comitted_version = transaction->get_version();
+									/// set the last comitted version
+
 				++order;			/// increment committed transaction count
 
 				merge_down();		/// merge unused transaction versions
@@ -2956,7 +3043,8 @@ namespace storage{
 		/// transaction if any exception happens in this function
 		/// the commit signal is small and should not fail easily
 		bool merge(version_storage_type* transaction){
-			dbg_print("merge transaction %s on %s",transaction->get_version().toString().c_str(),this->get_name().c_str());
+			dbg_print("merge transaction %s on %s",nst::tostring(transaction->get_version()),this->get_name().c_str());
+
 			bool writer = !transaction->is_readonly();
 			if(!writer){
 				err_print("cannot commit: this is not a writing transaction");
@@ -2967,9 +3055,24 @@ namespace storage{
 				throw InvalidWriterOrder();
 			}
 
-			if (!recovery)		/// dont journal during recovery
-					transaction->journal((*this).initial->get_name());
+			if(transaction->get_version() <= last_comitted_version){
+				err_print("the transactions version is less than the last comited resetting");
+				last_comitted_version = version_type();
+				throw InvalidVersion();
+			}
 
+			version_storage_type_ptr version = storage_versions.at(transaction->get_version());
+
+			if(version == nullptr){
+				throw InvalidVersion();
+			}
+
+			if (!recovery)		/// dont journal during recovery
+				transaction->journal((*this).initial->get_name());
+			if(writer && !write_replicants(version)){
+				err_print("could not write enough replicants reverse local transaction");
+				throw ReplicationFailure();
+			}
 			if(writer && !commit_replicants()){
 				err_print("could not commit enough replicants reverse local transaction");
 				throw ReplicationFailure();
@@ -2993,11 +3096,7 @@ namespace storage{
 					throw InvalidWriterOrder();
 				}
 
-				version_storage_type_ptr version = storage_versions.at(transaction->get_version());
 
-				if(version == nullptr){
-					throw InvalidVersion();
-				}
 
 
 				last_address = std::max<address_type>(last_address, version->last());
@@ -3012,10 +3111,15 @@ namespace storage{
 					throw WriterConsistencyViolation();
 				}
 
-				dbg_print("move transaction %s on %s",transaction->get_version().toString().c_str(),this->get_name().c_str());
+				dbg_print("move transaction %s on %s",nst::tostring(transaction->get_version()),this->get_name().c_str());
+				last_comitted_version = transaction->get_version();
+									/// set the last comitted version to ensure the destrinations
+									/// remain synchronized - if for instance a rollback fails
 				version->move(storages.back().get());
 
 				++order;			/// increment committed transaction count
+
+
 
 				transaction->set_order(order);
 

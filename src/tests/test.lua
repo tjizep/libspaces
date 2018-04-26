@@ -1,10 +1,10 @@
 require "packages"
 require "spaces"
---spaces.replicate("127.0.0.1")
+spaces.replicate("127.0.0.1",15001)
 spaces.data("test")
-local u = 1e7
+local u = 1e6
 local MAX_GEN =3e6
-local kl = 16
+local kl = 8
 local seed = 78976
 math.randomseed(seed) -- reseed to standard value for repeatable tests
 
@@ -62,26 +62,27 @@ local tdata = {}
 
 if #data == 0 or #data < u then
 
-	local PERIOD = 1e5
+	local PERIOD = 1e6
 	local t = os.clock()
 	local td = os.clock()
 	print("start st write",t)
 	local ustart = 0
 	for i = 1,u do
-
-		if tdata[i-ustart] == nil then
+		local ss = tdata[i-ustart]
+		if ss == nil then
 			local gt = os.clock()
 			tdata = generate(math.min(u,MAX_GEN))
 			ustart = i - 1
 			gt = (os.clock() - gt)
 			td = td + gt
 			t = t + gt
+			ss = tdata[i-ustart]
 		end
 		if (i % PERIOD) == 0 then
 			print("wrote "..(PERIOD) .. " keys in ",os.clock()-td .. " tot. "..i,(PERIOD)/(os.clock()-td).." keys/s")
 			td=os.clock()
 		end
-		local ss = tdata[i-ustart]
+
 		data[ss] = i*2;
 		--spaces.commit()
 

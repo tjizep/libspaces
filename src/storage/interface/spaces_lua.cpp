@@ -17,6 +17,8 @@ extern "C" {
 
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::lua_session<spaces::lua_db_session> session_t;
+//typedef spaces::lua_session<spaces::lua_mem_session> session_t;
+typedef spaces::lua_iterator<session_t::_Set> lua_iterator_t;
 static int l_serve_space(lua_State *L) {
     nst::u32 port = spaces::DEFAULT_PORT;
     if(lua_isnumber(L,1)){
@@ -205,6 +207,8 @@ static int spaces_newindex(lua_State *L) {
 	return 0;
 }
 
+
+
 static int spaces_index(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
     s->begin(); /// use whatever mode is set
@@ -218,14 +222,14 @@ static int spaces_index(lua_State *L) {
 		auto i = s->get_set().find(k.first);
 		if (i != s->get_set().end()) {
 
-			if (i.data().get_identity() != 0) {
-				r = s->open_space(i.data().get_identity());
-				r->first = i.key();
-				r->second = i.data();
+			if (spaces::get_data(i).get_identity() != 0) {
+				r = s->open_space(spaces::get_data(i).get_identity());
+				r->first = spaces::get_key(i);
+				r->second = spaces::get_data(i);
 
 			}
 			else {
-				s->push_data(i.data().get_value());
+				s->push_data(spaces::get_data(i).get_value());
 			}
 
 		}
@@ -434,10 +438,10 @@ static int spaces_call(lua_State *L) {
 static int l_pairs_iter(lua_State* L) { //i,k,v 
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
 
-	spaces::lua_iterator *i = s->get_iterator(lua_upvalueindex(1));
-	if (!i->end()) {		
-		
-		s->push_pair(i->i.key(),i->i.data());
+	lua_iterator_t *i = s->get_iterator(lua_upvalueindex(1));
+	if (!i->end()) {
+
+		s->push_pair(spaces::get_key(i->i),spaces::get_data(i->i));
 		i->next();
 		return 2;
 	}
@@ -454,7 +458,7 @@ static int spaces___pairs(lua_State* L) {
 	e.get_name().make_infinity();	
 	
 	// create the lua iterator
-	spaces::lua_iterator * pi = s->create_iterator();	
+	lua_iterator_t * pi = s->create_iterator();
 	pi->i = s->get_set().lower_bound(f);
 	pi->e = s->get_set().lower_bound(e);
 
