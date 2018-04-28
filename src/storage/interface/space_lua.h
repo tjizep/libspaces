@@ -408,20 +408,21 @@ namespace spaces{
 			resolve_id(&p);
 		}
 
-		spaces::space * get_space(int at = 1) {
-
+		spaces::space * is_space(int at = 1) {
 			if (lua_istable(L, at)) {
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
 
 				spaces::space * space_s = keys[pt];
-				if (space_s == nullptr) {
-					luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
-				}
-
 				return space_s;
 			}
-			luaL_error(L, "no meta table of type %s", SPACES_LUA_TYPE_NAME);
 			return nullptr;
+		}
+		spaces::space * get_space(int at = 1) {
+			spaces::space * space = is_space(at);
+			if(space==nullptr){
+				luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
+			}
+			return space;
 		}
 
 		spaces::space* open_space(ui8 id) {
@@ -558,6 +559,13 @@ namespace spaces{
 			int lt = lua_type(L, at);
 			switch (lt) {
 			case LUA_TTABLE: {
+				auto space = is_space(at);
+				if(space!=nullptr){
+					if (space->second.get_identity()) {
+						r.set_identity(space->second.get_identity()); // a link has no identity of its own ???
+					}
+					break;
+				}
 				resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
 				lua_pushnil(L);
 				/// will push the name and value of the current item (as returned by closure) 
