@@ -88,10 +88,7 @@ namespace stored{
 		}
 		_Transaction& get_transaction(bool writer){
 			if(_transaction == NULL){
-				if(_allocations == NULL){
-					begin(writer);
-				}else
-					_transaction = get_allocations().begin(writer);/// resource aquisition on initialization
+				_transaction = get_allocations().begin(writer);/// resource aquisition on initialization
 				if(_transaction == NULL){
 					throw NullPointerException();
 				}
@@ -100,10 +97,7 @@ namespace stored{
 		}
 		_Transaction& get_transaction(bool writer, const nst::version_type& version, const nst::version_type& last_version){
 			if(_transaction == NULL){
-				if(_allocations == NULL){
-					begin(writer);
-				}else
-					_transaction = get_allocations().begin(writer,version,last_version);/// resource aquisition on initialization
+				_transaction = get_allocations().begin(writer,version,last_version);/// resource aquisition on initialization
 				if(_transaction == NULL){
 					throw NullPointerException();
 				}
@@ -304,6 +298,12 @@ namespace stored{
 			}
 			
 			return r;
+		}
+		bool is_local_writes() const{
+		    if(_allocations!=nullptr){
+				return _allocations->is_local_writes();
+		    }
+            return true;
 		}
 		void add_replicant(const std::string& address, nst::u16 port){
 			get_allocations().add_replicant(address,port);

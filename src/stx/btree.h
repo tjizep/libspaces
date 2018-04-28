@@ -156,6 +156,22 @@ struct has_typedef_attached_values {
 namespace nst = stx::storage;
 namespace stx
 {
+    class bad_format : public std::exception{
+    public:
+        bad_format() {};
+    };
+    class bad_pointer : public std::exception{
+    public:
+        bad_pointer() {};
+    };
+    class bad_access : public std::exception{
+    public:
+        bad_access() {};
+    };
+    class bad_transaction : public std::exception{
+    public:
+        bad_transaction() {};
+    };
     class idle_processor {
     public:
         virtual void idle_time() = 0;
@@ -564,6 +580,7 @@ namespace stx
                 if ((*this).context == context) return;
                 if ((*this).context != NULL && context != NULL) {
                     err_print("suspicious context transfer");
+                    throw bad_pointer();
                 }
                 (*this).context = context;
             }
@@ -633,6 +650,7 @@ namespace stx
                 (*this).context = context;
                 if (context == NULL && (*this).w) {
                     err_print("[this] is NULL");
+                    throw bad_pointer();
                 }
 
                 ref();
@@ -666,6 +684,7 @@ namespace stx
                         }
                         else {
                             err_print("context does not exist");
+                            throw bad_access();
                         }
                         super::ptr = NULL_REF;
                     }
@@ -685,7 +704,7 @@ namespace stx
                     if (context->get_storage()->is_readonly()) {
 
                         err_print("cannot allocate new page in readonly mode");
-                        throw std::exception();
+                        throw bad_transaction();
                     }
                     context->get_storage()->allocate(super::w, stx::storage::create);
                     context->get_storage()->complete();
@@ -714,6 +733,7 @@ namespace stx
             void change() {
                 if (version_reload && (*this).ptr != NULL_REF && (*this).is_invalid()) {
                     err_print("Change should be called without an invalid member as this could mean that the operation preceding it is undone");
+                    throw bad_access();
                 }
                 change_before();
             }
@@ -818,6 +838,7 @@ namespace stx
                 }
                 else {
                     err_print("surface node reports its not a surface node");
+                    throw bad_access();
                 }
 
             }
@@ -833,13 +854,14 @@ namespace stx
                                 (s->get_address() == s->get_next().get_where()
                                 ) {
                             err_print("next check failed");
-                            return false;
+                            throw bad_access();
+
                         }
                         if
                                 (s == (*this).ptr && s->get_address() != (*this).get_where()
                                 ) {
                             err_print("self address check failed");
-                            return false;
+                            throw bad_access();
                         }
                     }
                 }
@@ -903,6 +925,7 @@ namespace stx
                         const _Loaded*r = static_cast<const _Loaded*>(super::ptr);
                         if (o && r != o) {
                             err_print("different pointer to same resource");
+                            throw bad_access();
                         }
                     }
                 }
@@ -917,6 +940,7 @@ namespace stx
                 }
                 else {
                     err_print("no context supplied");
+                    throw bad_access();
                 }
 
             }
@@ -930,6 +954,7 @@ namespace stx
                 }
                 else {
                     err_print("no context supplied");
+                    throw bad_access();
                 }
 
             }
@@ -944,6 +969,7 @@ namespace stx
                 }
                 else {
                     err_print("no context supplied");
+                    throw bad_access();
                 }
 
             }
@@ -972,12 +998,14 @@ namespace stx
                             const surface_node * n = c->get_next().rget_surface();
                             if (n->preceding.get_where() != (*this).get_where()) {
                                 err_print("The node has invalid preceding pointer");
+                                throw bad_access();
                             }
                         }
                         if (c->preceding.ptr != NULL_REF) {
                             surface_node * p = c->preceding.rget_surface();
                             if (p->get_next().get_where() != (*this).get_where()) {
                                 err_print("The node has invalid next pointer");
+                                throw bad_access();
                             }
                         }
                     }
@@ -987,6 +1015,7 @@ namespace stx
                 if (selfverify) {
                     if (this->get_where() == 0 && (*this).ptr != NULL_REF) {
                         err_print("invalid address");
+                        throw bad_pointer();
                     }
                 }
             }
@@ -1296,6 +1325,7 @@ namespace stx
             void check_node() const {
                 if (occupants > interiorslotmax + 1) {
                     err_print("page is probably corrupt");
+                    throw bad_format();
                 }
             }
         public:
@@ -1321,6 +1351,7 @@ namespace stx
             void check_deleted()const {
                 if (is_deleted != 0) {
                     err_print("node is deleted");
+                    throw bad_access();
                 }
             }
 
@@ -1671,6 +1702,7 @@ namespace stx
                 if (permutations[at] == surfaceslotmax) {
                     if (allocated == surfaceslotmax) {
                         err_print("cannot allocate any more keys");
+                        throw bad_format();
                     }
                     permutations[at] = allocated;
                     new (reinterpret_cast<key_type*>(_keys + allocated)) key_type();
@@ -1699,6 +1731,7 @@ namespace stx
                 return;
                 if (this->get_address() > 0 && next.get_where() == this->get_address()) {
                     err_print("set bad next");
+                    throw bad_access();
                 }
             }
 
@@ -1765,6 +1798,7 @@ namespace stx
                 if (p == surfaceslotmax) {
                     if (allocated == surfaceslotmax) {
                         err_print("cannot allocate any more keys");
+                        throw bad_format();
                     }
                     p = allocated++;
                     new (reinterpret_cast<key_type*>(_keys + p)) key_type(k);
@@ -1975,6 +2009,7 @@ namespace stx
                 sa = leb128::read_signed(reader);
                 if (sa == address) {
                     err_print("loading node with invalid next address");
+                    throw bad_format();
                 }
                 (*this).next.set_context(context);
                 (*this).next.set_where(sa);
@@ -2014,6 +2049,7 @@ namespace stx
                 if (d != bsize) {
                     BTREE_ASSERT(d == buffer.size());
                     err_print("surface nodes of invalid size");
+                    throw bad_format();
                 }
                 (*this).sorted = (*this).get_occupants();
 
@@ -2081,6 +2117,7 @@ namespace stx
                 buffer.resize(storage_use);
                 if (buffer.size() != (size_t)storage_use) {
                     err_print("storage resize failed");
+                    throw bad_pointer();
                 }
                 buffer_type::iterator writer = buffer.begin();
                 writer = leb128::write_signed(writer, (*this).get_occupants());
@@ -2271,6 +2308,7 @@ namespace stx
 
                 if (n->get_address() > 0 && n->get_address() == n->get_next().get_where()) {
                     err_print("saving node with recursive address");
+                    throw bad_access();
                 }
                 buffer_type full;
                 n->save(key_interpolator(), *get_storage(), create_buffer);
@@ -2316,6 +2354,7 @@ namespace stx
         void save(typename btree::node* n, stream_address w) {
             if (n == NULL_REF) {
                 err_print("attempting to save NULL");
+                throw bad_format();
                 return;
             }
             if (get_storage()->is_readonly()) {
@@ -2364,6 +2403,7 @@ namespace stx
             if (selfverify) {
                 if (get_storage()->current_transaction_order() < page->get_transaction()) {
                     err_print("page is probably corrupt - invalid transaction order");
+                    throw bad_format();
                 }
             }
             if (!version_reload) return true;
@@ -2417,6 +2457,7 @@ namespace stx
                     surface_test2 = static_cast<const surface_node*>((*s).second);
                     if (surface_test2 == surface_test1) {
                         err_print("multiple addresses pointing to same node");
+                        throw bad_format();
                     }
                 }
 
@@ -2429,6 +2470,7 @@ namespace stx
                     surface_test2 = static_cast<const surface_node*>((*s).second);
                     if (surface_test2 == surface_test1) {
                         err_print("multiple addresses pointing to same node (2)");
+                        throw bad_format();
 
                     }
                 }
@@ -2443,6 +2485,7 @@ namespace stx
             if (preallocated != nullptr) {
                 if (w != preallocated->get_address()) {
                     err_print("input address does not match preallocated node address");
+                    throw bad_format();
                     ///erase_address(preallocated->get_address());
                     ///erase_address(w);
                 }
@@ -2475,8 +2518,9 @@ namespace stx
             buffer_type& dangling_buffer = get_storage()->allocate(w, stx::storage::read);
             if (get_storage()->is_end(dangling_buffer) || dangling_buffer.size() == 0) {
                 err_print("bad allocation at %li in %s", (long int)w, get_storage()->get_name().c_str());
+
                 BTREE_ASSERT(get_storage()->is_end(dangling_buffer) && dangling_buffer.size() > 0);
-                throw std::exception();
+                throw bad_transaction();
             }
             bool is_preallocated = false;
             nst::version_type version = get_storage()->get_allocated_version();
@@ -2501,6 +2545,7 @@ namespace stx
                 else {
                     if (preallocated != nullptr) {
                         err_print("page should be reassigned");
+                        throw bad_access();
                     }
                     s = allocate_surface(w, loader, slot);
                 }
@@ -4163,6 +4208,7 @@ namespace stx
                 if (nodes_loaded.count((*n).first) > 0) {
                     if ((*n).second == NULL_REF) {
                         err_print("cannot unlink null node");
+                        throw bad_pointer();
                     }
                     else {
                         t = (*n).second;
@@ -4282,6 +4328,7 @@ namespace stx
                 }
                 else {
                     err_print("no address supplied");
+                    throw bad_pointer();
                 }
 
                 return n;
@@ -4311,6 +4358,7 @@ namespace stx
                 if ((n->refs == 0) || n->is_orphaned()) {
                     if (delete_check && n->is_deleted) {
                         err_print("node has already been deleted");
+                        throw bad_pointer();
                         return;
                     }
                     save(n, w);
@@ -4336,6 +4384,7 @@ namespace stx
             void orphan_node(typename btree::node* n) {
                 if (n == NULL_REF) {
                     err_print("received a NULL reference");
+                    throw bad_pointer();
                     return;
                 }
                 if (n->issurfacenode())
@@ -4373,9 +4422,11 @@ namespace stx
                         nodes_loaded.erase(w);
                         if (surfaces_loaded.count(w)) {
                             err_print("node cannot be both surface and interior unless its the root node");
+                            throw bad_access();
                         }
                         if (interiors_loaded.count(w) == 0) {
                             err_print("node was not registered in the interior list");
+                            throw bad_access();
                         }
                         interiors_loaded.erase(w);
                     }

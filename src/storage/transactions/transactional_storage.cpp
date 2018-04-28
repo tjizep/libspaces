@@ -51,7 +51,7 @@ namespace storage{
 			void run(){
 				stopped = false;
 				started = true;
-				Poco::Thread::sleep(100);
+				Poco::Thread::sleep(1000);
 				timer_val = os::millis();
 				try{
 					while(is_started()){

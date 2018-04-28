@@ -9,26 +9,13 @@
 #include <storage/spaces/dbms.h>
 
 #include "replication.h"
-
+#ifdef __LOG_NAME__
+#undef __LOG_NAME__
+#endif
+#define __LOG_NAME__ "DBMS"
 namespace spaces{
-    static std::string to_data(const nst::version_type& version){
-        std::string version_data;
-        version_data.resize(16);
-        version.copyTo(&version_data[0]);
-        return version_data;
-    }
-    static nst::version_type to_version(const std::string& data){
-        nst::version_type version;
-        version.copyFrom(data.data());
-        return version;
-    }
-    static void assign(nst::version_type &version, const std::string& data){
-        version.copyFrom(data.data());
-    }
-    static void assign(std::string& version_data, const nst::version_type &version){
-        version_data.resize(16);
-        version.copyTo(&version_data[0]);
-    }
+
+
     static const bool debug_print = true;
     static const bool debug_print_client = false;
     typedef std::shared_ptr<stored::abstracted_storage> storage_ptr;
@@ -53,52 +40,92 @@ namespace spaces{
 
         });
 
-        srv.bind("get", [&storage](std::string& version, nst::buffer_type& data, nst::u64 address) {
+        srv.bind("get", [&storage](nst::u64 address) {
             dbg_print("get(%lld)", (nst::fi64)address);
-            if(storage==nullptr) return false;
-            if(storage->is_transacted()) return false;
+            auto result = std::make_tuple(false,nst::version_type(),nst::buffer_type());
+            if(storage==nullptr) {
+                dbg_print("get(%lld) failed no storage", (nst::fi64)address);
+                return result;
+            }
+            if(!storage->is_transacted()){
+                dbg_print("get(%lld) failed no transaction", (nst::fi64)address);
+                return result;
+            }
             nst::u64 which = address;
-            data = storage->allocate(which,stx::storage::read);
+            auto data = storage->allocate(which,stx::storage::read);
 
-            assign(version,storage->get_allocated_version());
+            result = std::make_tuple(true,storage->get_allocated_version(),data);
+
             storage->complete();
+            dbg_print("get return version(%s)", nst::tostring(std::get<1>(result)));
+            return result;
         });
-        srv.bind("is_latest", [&storage](const std::string& version, nst::buffer_type& data, nst::u64 address) {
-            dbg_print("get(%lld)", (nst::fi64)address);
-            if(storage==nullptr) return false;
-            if(storage->is_transacted()) return false;
+        srv.bind("is_latest", [&storage](const nst::version_type& version, nst::buffer_type& data, nst::u64 address) {
+            dbg_print("is_latest(%lld,%s)", (nst::fi64)address, nst::tostring(version));
+            if(storage==nullptr){
+                return false;
+            }
+            if(!storage->is_transacted()) return false;
             nst::u64 which = address;
 
-            return storage->is_latest(which,to_version(version));
+            return storage->is_latest(which,version);
 
 
         });
         srv.bind("store", [&storage](nst::u64 address, const nst::buffer_type& data) {
             dbg_print("store(%lld,%lld)", (nst::fi64)address, (nst::fi64)data.size() );
-            if(storage==nullptr) return false;
-            if(storage->is_transacted()) return false;
+            if(storage==nullptr){
+                dbg_print("store() storage not set");
+                return false;
+            }
+            if(!storage->is_transacted()) {
+                dbg_print("store() storage not transacted");
+                return false;
+            }
             nst::u64 which = address;
             nst::buffer_type& writeable = storage->allocate(which,stx::storage::create);
             writeable = data;
             storage->complete();
+            dbg_print("complete store(%lld,%lld)", (nst::fi64)address, (nst::fi64)data.size() );
+            return true;
         });
         srv.bind("begin", [&storage](bool write) {
             dbg_print("begin(%lld)", (nst::fi64)write);
             if(storage==nullptr) {
                 err_print("storage not available to start transaction");
-                return ;
+                return false;
             }
-            storage->begin(write);
+            try{
+                dbg_print("begin new transaction %s on %s",nst::tostring(storage->get_version()),storage->get_name().c_str());
+
+                storage->begin(write);
+                dbg_print("begin ok");
+
+                return true;
+            }catch(std::exception &e){
+                err_print("error starting transaction %s",e.what());
+            }
+            return false;
 
         });
-        srv.bind("beginVersion", [&storage](bool write,const std::string& version,const std::string& last_version) {
-            dbg_print("begin(%lld)", (nst::fi64)write);
+        srv.bind("beginVersion", [&storage](bool write,const nst::version_type& version,const nst::version_type& last_version) {
+            dbg_print("beginVersion(%lld,%s,%s)", (nst::fi64)write, nst::tostring(version), nst::tostring(last_version));
 
             if(storage==nullptr) {
                 err_print("storage not available to start transaction");
-                return ;
+                return false;
             }
-            storage->begin(write,to_version(version),to_version(last_version));
+            try{
+
+                dbg_print("begin new transaction %s on %s",nst::tostring(storage->get_version()),storage->get_name().c_str());
+                storage->begin(write,version,last_version);
+                dbg_print("begin ok");
+                return true;
+            }catch(std::exception& e){
+                err_print("error starting transaction %s",e.what());
+
+            }
+            return false;
 
         });
         srv.bind("commit", [&storage]() {
@@ -109,6 +136,9 @@ namespace spaces{
             }
             try{
                 storage->commit();
+                dbg_print("commit synch. to io %s on %s",nst::tostring(storage->get_version()),storage->get_name().c_str());
+                nst::journal::get_instance().synch();
+                dbg_print("finished commit()");
                 return true;
             }catch(std::exception& e){
                 err_print("error committing transaction %s, client notified",e.what());
@@ -145,11 +175,12 @@ namespace spaces{
             return storage->contains(address);
 
         });
+
         srv.bind("close", [&storage]() {
             dbg_print("close()");
             storage=nullptr;
         });
-        std::cout << "spaces server listening on port " << this->port << std::endl;
+        inf_print("spaces server listening on port %lld", (nst::fi64)this->port);
         srv.run();
     }
     block_replication_server::~block_replication_server(){
@@ -204,16 +235,16 @@ namespace spaces{
             }
         }
     }
-    void block_replication_client::begin(bool is_write){
+    bool block_replication_client::begin(bool is_write){
 
         dbg_print("begin(%lld)",(nst::fi64)is_write);
-        if(this->remote == nullptr) return;
-        this->remote->call("begin",is_write);
+        if(this->remote == nullptr) return false;
+        this->remote->call("begin",is_write).as<bool>();
     }
-    void block_replication_client::begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version){
+    bool block_replication_client::begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version){
         dbg_print("beginVersion(%lld,%s)",(nst::fi64)is_write, nst::tostring(version));
-        if(this->remote == nullptr) return;
-        this->remote->call("beginVersion",is_write,to_data(version),to_data(last_version));
+        if(this->remote == nullptr) return false;
+        return this->remote->call("beginVersion",is_write,version,last_version).as<bool>();
     }
     bool block_replication_client::commit(){
         dbg_print("commit()");
@@ -238,24 +269,31 @@ namespace spaces{
             this->remote = std::make_shared<rpc::client>(this->address, port);
         this->remote->call("open", is_new, name);
     }
-    void block_replication_client::store(nst::u64 address, const nst::buffer_type& data){
+    bool block_replication_client::store(nst::u64 address, const nst::buffer_type& data){
         dbg_print("store(%lld,[%lld])",(nst::fi64)address, (nst::fi64)data.size());
-        if(this->remote == nullptr) return;
-        this->remote->call("store", address, data);
+        if(this->remote == nullptr) return false;
+        return this->remote->call("store", address, data).as<bool>();
     }
-    bool block_replication_client::get(nst::version_type& version, nst::buffer_type& data, nst::u64 address){
-        dbg_print("get(%s, %lld, [%lld])", nst::tostring(version),(nst::fi64)address, (nst::fi64)data.size());
-        if(this->remote == nullptr)
-            return false;
+    std::tuple<bool,nst::version_type,nst::buffer_type> block_replication_client::get(nst::u64 address){
+        dbg_print("get(%lld)", (nst::fi64)address);
 
-        return this->remote->call("get", to_data(version), data, address).as<bool>();
+        if(this->remote == nullptr)
+            return std::make_tuple(false,nst::version_type(),nst::buffer_type());
+
+
+        auto result = this->remote->call("get", address).as<std::tuple<bool,nst::version_type,nst::buffer_type>>();
+        dbg_print("get(%lld)->[%s,%lld]", (nst::fi64)address,nst::tostring(std::get<1>(result)),(nst::fi64)std::get<2>(result).size());
+        if(std::get<0>(result)){
+            return std::make_tuple(true,std::get<1>(result),std::get<2>(result));
+        }else{
+            return std::make_tuple(false,nst::version_type(),nst::buffer_type());
+        }
+
     }
     bool block_replication_client::is_latest(const nst::version_type& version, nst::u64 address){
         dbg_print("is_latest(%s, %lld)",version.toString().c_str() ,(nst::fi64)address);
-        std::string version_data;
-        version_data.resize(16);
-        version.copyTo(&version_data[0]);
-        return this->remote->call("is_latest", version_data, address).as<bool>();
+
+        return this->remote->call("is_latest", version, address).as<bool>();
     }
     nst::u64 block_replication_client::max_block_address() const {
         dbg_print("max_block_address()");
@@ -267,6 +305,7 @@ namespace spaces{
         if(this->remote == nullptr) return false;
         return this->remote->call("contains").as<nst::u64>();
     }
+
     block_replication_client::~block_replication_client(){
         this->close();
     }
@@ -274,3 +313,5 @@ namespace spaces{
         return std::make_shared<block_replication_client>(address,port);
     }
 }
+#undef __LOG_NAME__
+#define __LOG_NAME__ __LOG_SPACES__

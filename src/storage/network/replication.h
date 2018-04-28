@@ -31,14 +31,14 @@ namespace spaces{
         const char * get_address() const ;
         nst::fi64 get_port() const ;
         bool is_open() const ;
-        void begin(bool is_write);
-        void begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version);
+        bool begin(bool is_write);
+        bool begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version);
 
         bool commit();
         void rollback();
         void open(bool is_new,const std::string& name);
-        void store(nst::u64 address, const nst::buffer_type& data);
-        bool get(nst::version_type& version, nst::buffer_type& data, nst::u64 address);
+        bool store(nst::u64 address, const nst::buffer_type& data);
+        std::tuple<bool, nst::version_type, nst::buffer_type> get(nst::u64 address);
         bool is_latest(const nst::version_type& version, nst::u64 address);
         bool contains(nst::u64 address);
         void close();
@@ -52,17 +52,25 @@ namespace spaces{
     extern repl_client_ptr create_client(const std::string& address, nst::u16 port);
 
     class replication_control{
+    private:
         std::string name;
+        replication_clients replicated;
+        std::map<nst::version_type, nst::u32> version_count;
+        std::map<nst::version_type, nst::buffer_type> version_data;
+
     public:
+        void add_replicant(const std::string &address, nst::u16 port){
+            replicated.push_back(spaces::create_client(address,port));
+        }
         const std::string& get_name() const {
             return this->name;
         }
         replication_control(const std::string& name) : name(name){
 
         }
-        bool check_open_replicants(const replication_clients& replicated){
+        bool check_open_replicants(const replication_clients& replicated) const {
             nst::i32 opened = 0;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 try{
                     if(!(*r)->is_open()){
                         (*r)->open(false,this->get_name());
@@ -80,13 +88,13 @@ namespace spaces{
         }
         /// start as many replicants as possible
         /// return false if too many failed
-        bool begin_replicants(bool writer, const nst::version_type& version, const nst::version_type& last_version, const spaces::replication_clients& replicated){
+        bool begin_replicants(bool writer, const nst::version_type& version, const nst::version_type& last_version){
             if(replicated.empty()) return true;
             if(!check_open_replicants(replicated))
                 return false;
             dbg_print("starting %lld replicants ", (nst::fi64)replicated.size());
             spaces::replication_clients ok;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 try{
                     (*r)->begin(writer,version,last_version);
                     ok.push_back((*r));
@@ -98,7 +106,7 @@ namespace spaces{
             }
             if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
                 wrn_print("too few replicants could be started %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-                for(auto r = ok.begin(); r != ok.begin(); ++r) {
+                for(auto r = ok.begin(); r != ok.end(); ++r) {
                     try {
                         (*r)->rollback();
                     } catch (std::exception &e) {
@@ -114,12 +122,12 @@ namespace spaces{
         /// start as many replicants as possible
         /// return false if too many failed
         template<typename version_storage_type_ptr>
-        bool write_replicants(const version_storage_type_ptr& source , const spaces::replication_clients& replicated){
+        bool write_replicants(const version_storage_type_ptr& source){
             if(replicated.empty()) return true;
             if(!check_open_replicants(replicated))
                 return false;
             spaces::replication_clients ok;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 if((*r)->is_open()){
                     try{
                         source->replicate(*r);
@@ -135,7 +143,7 @@ namespace spaces{
             }
             if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
                 wrn_print("too few replicants could replicate their data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-                for(auto r = ok.begin(); r != ok.begin(); ++r){
+                for(auto r = ok.begin(); r != ok.end(); ++r){
                     try{
                         if((*r)->is_open()) {
                             (*r)->rollback(); /// TODO: rolback as many of them as possible
@@ -159,23 +167,22 @@ namespace spaces{
         (   nst::buffer_type& out
         ,   nst::version_type& version
         ,   const nst::stream_address & resource
-        ,   const spaces::replication_clients& replicated
         ){
             if(replicated.empty()) return true;
             if(!check_open_replicants(replicated))
                 return false;
-            spaces::replication_clients ok;
-            nst::version_type max_version;
-            std::map<nst::version_type, nst::u32> version_count;
-            std::map<nst::version_type, nst::buffer_type> version_data;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            version_count.clear();
+            version_data.clear();
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 if((*r)->is_open()){
                     try{
                         nst::buffer_type data;
-                        if((*r)->get(version, data, resource)){
-
+                        ///std::tuple<bool,nst::version_type,nst::buffer_type>
+                        auto result = (*r)->get(resource);
+                        if(std::get<0>(result)){
+                            nst::version_type version = std::get<1>(result);
                             if(version_data.count(version) == 0){
-                                version_data[version] = data;
+                                version_data[version] = std::get<2>(result);
                             }
                             version_count[version]++;
                         }
@@ -201,12 +208,12 @@ namespace spaces{
         }
         /// start as many replicants as possible
         /// return false if too many failed
-        bool commit_replicants(const spaces::replication_clients& replicated){
+        bool commit_replicants(){
             if(replicated.empty()) return true;
             if(!check_open_replicants(replicated))
                 return false;
             spaces::replication_clients ok;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 if((*r)->is_open()){
                     (*r)->commit();
                     ok.push_back((*r));
@@ -216,7 +223,7 @@ namespace spaces{
             }
             if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
                 wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-                for(auto r = ok.begin(); r != ok.begin(); ++r){
+                for(auto r = ok.begin(); r != ok.end(); ++r){
                     try{
                         if((*r)->is_open()) {
                             (*r)->rollback(); /// TODO: rolback as many of them as possible
@@ -234,12 +241,12 @@ namespace spaces{
                 return true;
             }
         }
-        bool rolback_replicants(const spaces::replication_clients& replicated){
+        bool rolback_replicants(){
             if(replicated.empty()) return true;
             if(!check_open_replicants(replicated))
                 return false;
             spaces::replication_clients ok;
-            for(auto r = replicated.begin(); r != replicated.begin(); ++r){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 if((*r)->is_open()){
                     (*r)->rollback();
                     ok.push_back((*r));
@@ -249,7 +256,7 @@ namespace spaces{
             }
             if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
                 wrn_print("too few replicants could commit %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
-                for(auto r = ok.begin(); r != ok.begin(); ++r){
+                for(auto r = ok.begin(); r != ok.end(); ++r){
                     try{
                         if((*r)->is_open()) {
                             (*r)->close();
@@ -266,7 +273,48 @@ namespace spaces{
                 return true;
             }
         }
+        nst::u64 get_max_address() const {
+            if(replicated.empty()) return 0ull;
+            if(!check_open_replicants(replicated))
+                return 0ull;
+            spaces::replication_clients ok;
+            nst::u64 result = 0;
+            nst::u32 count = 0;
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
+                if((*r)->is_open()){
+                    result = std::max<nst::u64>(result,(*r)->max_block_address());
+                    ++count;
+                }
+            }
+            if(count < replicated.size() / 2){ /// at least half must succeed (democratic)
+                wrn_print("too few replicants could find the data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+                return 0ull;
+            }else{
+                return result;
+            }
+        }
+        bool contains(nst::u64 what){
+            if(replicated.empty()) return false;
+            if(!check_open_replicants(replicated))
+                return false;
+            spaces::replication_clients ok;
+            nst::u32 count = 0;
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
+                if((*r)->is_open()){
+                    if((*r)->contains(what)){
+                        ++count;
+                    }
+                }
+            }
+            if(count < replicated.size() / 2){ /// at least half must succeed (democratic)
+                wrn_print("too few replicants could find the data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+                return false;
+            }else{
+                return true;
+            }
+        }
     };
+    typedef std::shared_ptr<replication_control> replication_control_ptr;
 }
 
 

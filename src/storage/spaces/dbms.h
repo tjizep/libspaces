@@ -95,8 +95,10 @@ namespace spaces{
 						}
 						dbg_print("commit final %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
 						this->storage.commit();
-						dbg_print("commit synch. to io %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
-						nst::journal::get_instance().synch();
+						if(this->storage.is_local_writes()){
+							dbg_print("commit synch. to io %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
+							nst::journal::get_instance().synch();
+						}
 					}
 				}catch (...){
 					err_print("error during commit");

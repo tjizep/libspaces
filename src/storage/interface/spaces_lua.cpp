@@ -34,7 +34,7 @@ static int l_seed_space(lua_State *L) {
         if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
 			const char * ip = lua_tostring(L,1);
 			nst::u16 port = lua_tointeger(L,2);
-			stored::get_abstracted_storage(SPACES_NAME)->add_seed(ip,port);
+			stored::get_abstracted_storage(STORAGE_NAME)->add_seed(ip,port);
 
 
 		}
@@ -43,12 +43,21 @@ static int l_seed_space(lua_State *L) {
     }
     return 0;
 }
+static int l_space_local_writes(lua_State *L) {
+    try{
+
+        stored::get_abstracted_storage(STORAGE_NAME)->set_local_writes(lua_toboolean(L,1));
+    }catch(std::exception& e){
+        luaL_error(L,"could not set local writes: %s",e.what());
+    }
+	return 0;
+}
 static int l_replicate_space(lua_State *L) {
     try{
         if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
             const char * ip = lua_tostring(L,1);
 			nst::u16 port = lua_tointeger(L,2);
-			stored::get_abstracted_storage(SPACES_NAME)->add_replicant(ip,port);
+			stored::get_abstracted_storage(STORAGE_NAME)->add_replicant(ip,port);
 
         }
     }catch(std::exception& e){
@@ -109,9 +118,15 @@ static int l_rollback_space(lua_State *L) {
 }
 
 static int l_space_debug(lua_State* L) {
+	nst::storage_debugging = true;
+	nst::storage_info = true;
 	return 0;
 }
-
+static int l_space_quiet(lua_State* L) {
+	nst::storage_debugging = false;
+	nst::storage_info = false;
+	return 0;
+}
 static int l_configure_space(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 		nst::data_directory = lua_tostring(L,1);
@@ -141,6 +156,9 @@ static const struct luaL_Reg spaces_f[] = {
     { "setMaxMb", l_setmaxmb_space },
     { "replicate", l_replicate_space },
     { "seed", l_seed_space },
+	{ "debug", l_space_debug },
+	{ "quiet", l_space_quiet },
+    { "localWrites", l_space_local_writes },
 	{ NULL, NULL } /* sentinel */
 };
 

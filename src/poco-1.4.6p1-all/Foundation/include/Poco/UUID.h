@@ -41,6 +41,7 @@
 
 
 #include "Poco/Foundation.h"
+#include <rpc/client.h>
 
 
 namespace Poco {
@@ -176,6 +177,8 @@ private:
 	UInt8  _node[6];
 	
 	friend class UUIDGenerator;
+public:
+	MSGPACK_DEFINE_ARRAY(_timeLow,_timeMid,_timeHiAndVersion,_clockSeq,_node)
 };
 
 

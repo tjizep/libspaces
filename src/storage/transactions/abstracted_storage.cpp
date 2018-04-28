@@ -3,7 +3,6 @@
 
 static Poco::Mutex m;
 static stored::_AlocationsMap instances;
-
 namespace nst = ::stx::storage;
 namespace stx{
 	namespace storage{
@@ -63,7 +62,7 @@ namespace stored{
 			r = instances[name];
 			if (r == NULL) {
 				r = new _Allocations(
-						std::make_shared<_BaseAllocator>(stx::storage::default_name_factory(name.c_str())));
+						std::make_shared<_BaseAllocator>(stx::storage::default_name_factory(name)));
 				///r->set_readahead(true);
 				instances[name] = r;
 			}

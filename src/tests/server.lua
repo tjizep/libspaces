@@ -1,4 +1,5 @@
 require "packages"
 require "spaces"
-spaces.data("server")
+--spaces.debug()
+spaces.storage("server")
 spaces.serve()

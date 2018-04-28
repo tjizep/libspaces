@@ -282,6 +282,12 @@ namespace storage{
 		ReplicationFailure() throw() {
 		}
 	};
+	class InvalidReplicationController : public std::exception{
+	public: /// Replication controller not available
+		InvalidReplicationController() throw() {
+		}
+	};
+
 	enum journal_commands{
 		JOURNAL_PAGE = 0,
 		JOURNAL_COMMIT,
@@ -459,6 +465,9 @@ namespace storage{
 
 		nst::u64 timer;				/// timer - time when last allocation took place
 
+		spaces::replication_control_ptr repl;
+		bool local_writes;				/// don't write anything to storage
+
 		ptrdiff_t get_block_use(const block_descriptor& v){
 			return v.block.capacity() + sizeof(block_type)+32; /// the 32 is for the increase in the allocations table
 		}
@@ -569,8 +578,14 @@ namespace storage{
 				if(get_version() == version_type() 
 					){
 					max_address = 0;
+					if(this->repl!=nullptr) {
+						(*this).next = this->repl->get_max_address();
 
-					(*this).next = std::max<address_type>((address_type)max_address, (*this).next); /// next is pre incremented
+					}
+					if((*this).next == 0){
+						(*this).next = std::max<address_type>((address_type)max_address, (*this).next); /// next is pre incremented
+					}
+
 				}
 			}
 			if(_session == nullptr){
@@ -614,8 +629,18 @@ namespace storage{
 
 		/// returns true if the buffer with address specified by w has been retrieved
 		bool get_exists(const address_type& w){
+			if(this->repl!=nullptr){
+
+				if(this->repl->contains(w)){
+
+					return true;
+				}else{
+					return false;
+				}
+			}
 			if(is_new) return false;
 			if(w >= next) return false;
+
 			get_session();
 
 
@@ -627,6 +652,17 @@ namespace storage{
 		bool get_buffer(const address_type& w){
 			if(!w)
 				throw InvalidAddressException();
+
+
+			if(this->repl!=nullptr){
+				version_type temp_version;
+				if(this->repl->read_replicants(current_block,temp_version,w)){
+					current_version = nst::tostring(temp_version);
+					return true;
+				}else{
+					return false;
+				}
+			}
 
 			if(is_new) return false;
 			get_session();
@@ -749,10 +785,9 @@ namespace storage{
 						delete (*b).second;
 					}
 				}
-
 			}
 			if(!mods && get_use() <= (before*factor)){
-				/// printf("reduced storage %s\n", get_name().c_str());
+				dbg_print("reduced storage %s", get_name().c_str());
 				return;
 			}
 
@@ -776,9 +811,12 @@ namespace storage{
 			for(typename _Blocks::iterator b = by_address.begin(); b != by_address.end(); ++b){
 
 				mods--;
-				versions[(*b).first] = (*b).second->get_version();
-				add_buffer((*b).first, (*b).second->block);
-				(*b).second->set_written();
+				if(!local_writes){
+					versions[(*b).first] = (*b).second->get_version();
+					add_buffer((*b).first, (*b).second->block);
+					(*b).second->set_written();
+				}
+
 				up_use(reflect_block_use((*b).second)); /// update to correctly reflect
 				if(release)
 				{
@@ -970,6 +1008,16 @@ namespace storage{
 		}
 
 	public:
+		void check_max_address(){
+			if(this->repl!=nullptr) {
+				(*this).next = std::max<nst::u64>(this->repl->get_max_address(),this->next);
+
+			}
+		}
+		/// set replication controller
+		void set_replication_control(const spaces::replication_control_ptr & repl){
+			this->repl = repl;
+		}
 		/// returns true if the buffer with address specified by w has been retrieved
 		bool exists(const address_type& w){
 			return this->get_exists(w);
@@ -1194,8 +1242,6 @@ namespace storage{
 					version_type allocated_version = current->get_version();
 					dest->store(at, r);
 
-
-					recycle_block(at, current);
 				} else {
 					++unloaded;
 					buffer_type &r = allocate(at, read);
@@ -1357,7 +1403,7 @@ namespace storage{
 		,	result(nullptr)				///	save the last result after allocate is called to improve safety
 		,	file_size(0)				/// no file size initialy
 		,	timer(get_lr_timer())
-					/// if true the data files are deleted on destruction
+		,	local_writes(true)			/// stops any modified blocks from being written
 		{
 
 			using Poco::File;
@@ -1386,7 +1432,12 @@ namespace storage{
 		void set_allocation_start(address_type start){
 			next = std::max<address_type>(start,next);
 		}
-
+		void set_local_writes(bool local_writes){
+			this->local_writes = local_writes;
+		}
+		bool get_local_writes() const {
+			return this->local_writes;
+		}
 		~sqlite_allocator(){
 			//printf("[TX DELETE] %s ver. %lld \n", get_name().c_str(), (long long)get_version());
 			discard();
@@ -1515,6 +1566,11 @@ namespace storage{
 		address_type last() const{
 			syncronized ul(lock);
 
+			return (*this).next;
+		}
+		address_type last() {
+			syncronized ul(lock);
+			check_max_address();
 			return (*this).next;
 		}
 
@@ -2321,9 +2377,8 @@ namespace storage{
 
 		storage_container storages;			/// list of versions already committed contains a min of 1 storages aftger construction
 
-		spaces::replication_clients replicated;
-											/// replication client
-		spaces::replication_control repl_control;
+		spaces::replication_control_ptr control;
+											/// controls replication
 		spaces::replication_clients seeds;	/// this is a leech node - never writes back (we can be both leech and symbiont)
 
 		storage_container recycler;			/// recycler for used transactions
@@ -2344,30 +2399,9 @@ namespace storage{
 											/// the single writing transaction
 		Poco::FastMutex w_lock;				/// the write lock for single writing transaction
 
+		bool local_writes;						/// do not write anything
+
 	private:
-		void save_recovery_info(){
-			if(storages.size() > 1){
-				std::string names;
-				typename storage_container::iterator c = storages.begin();
-				typename storage_container::iterator c_begin = ++c;
-				for(; c != storages.end(); ++c)
-				{
-					if( c != c_begin )
-						names += ",";
-					std::string n = (*c)->get_allocator().get_name();
-					names += n;
-				}
-
-
-				stream_address addr = INTITIAL_ADDRESS;
-				buffer_type& content = initial->allocate(addr, create);
-				content.resize(names.size());
-				if(names.size() > 0)
-					memcpy(&content[0], &names[0], names.size());
-				initial->complete();
-			}
-		}
-
 
 	public:
 
@@ -2485,7 +2519,7 @@ namespace storage{
 				if(storages.empty()){
 					throw InvalidVersion();
 				};
-				save_recovery_info();
+
 				/// algorithm error
 				//if((*storages.begin()) != initial) {}; ///algorithm error
 
@@ -2510,7 +2544,7 @@ namespace storage{
 		,	journal_synching(false)
 		,	timer(get_lr_timer())
 		,	writing_transaction(nullptr)
-		,	repl_control(initial->get_name())
+		,	local_writes(true)
 		{
 			//initial->engage();
 			delete_temp_files_of(initial->get_name());
@@ -2518,43 +2552,7 @@ namespace storage{
 			b->set_allocator(initial);
 			b->set_previous(nullptr);
 			storages.push_back(b);
-			std::string names;
-			stream_address addr = INTITIAL_ADDRESS;
-			buffer_type& content = initial->allocate(addr, read);
-			if(!initial->is_end(content) && content.size() > 0){
-				names.resize(content.size());
-				memcpy(&names[0], &content[0], names.size());
-				inf_print("found initial versions %s\n",names.c_str());
-			}
 
-			initial->complete();
-			if(!names.empty()){
-				bool delete_temp_files = true;
-				if(delete_temp_files){
-
-				}else {
-					Poco::StringTokenizer tokens(names.c_str(), ",");
-					for(Poco::StringTokenizer::Iterator t = tokens.begin(); t != tokens.end(); ++t){
-						storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(default_name_factory((*t).c_str()));
-						last_address = std::max<stream_address>(last_address, allocator->last() );
-						version_storage_type_ptr b = std::make_shared< version_storage_type>(last_address, ++order, create_version(), (*this).lock);
-						allocator->set_allocation_start(last_address);
-						b->set_allocator(allocator);
-						storages.push_back(b);
-						storage_versions[b->get_version()] = b;
-					}
-					merge_down();
-					if(storages.size() > 1){
-						throw InvalidStorageException();
-					}
-				}
-
-			}
-			initial->begin_new();
-			initial->allocate(addr, create).clear();
-			initial->complete();
-			initial->commit();
-			journal::get_instance().engage_participant(this);
 		}
 
 		virtual ~mvcc_coordinator(){
@@ -2616,13 +2614,31 @@ namespace storage{
 				initial->engage();
 			++references;
 		}
+		const spaces::replication_control_ptr &get_replication_control(){
+			if(this->control == nullptr){
+				this->control = std::make_shared<spaces::replication_control>(initial->get_name());
+				this->initial->set_replication_control(control);
+			}
 
+			return control;
+
+		}
+		const spaces::replication_control_ptr &get_replication_control() const {
+			if(this->control == nullptr){
+				throw InvalidReplicationController();
+			}
+
+			return control;
+
+		}
 		/// add a replication client at address and port
 
 		void add_replicant(const std::string &address, nst::u16 port){
 			syncronized _sync(*lock);
+			get_replication_control()->add_replicant(address,port);
+			/// just check that the max address hasnt changed
+			initial->check_max_address();
 
-			replicated.push_back(spaces::create_client(address,port));
 		}
 		/// add a leech client at address and port (this is the leech the other is the seed)
 
@@ -2713,12 +2729,14 @@ namespace storage{
 			/// TODO: check if the version given is larger than the previously
 			/// committed version
 
-			if(!repl_control.begin_replicants(writer, last_comitted_version,version, replicated)){
+			if(control!=nullptr && !control->begin_replicants(writer,version, last_comitted_version)){
 				throw ReplicationFailure();/// replication could not be started
 			}
 
 			syncronized _sync(*lock);
 			touch();
+			if(writer && local_writes)
+				journal::get_instance().engage_participant(this);
 			/// TODODONE: reuse an existing unmerged transaction - possibly share unmerged transactions
 			/// TODODONE: lazy create unmerged transactions only when a write occurs
 			/// TODO: optimize mergeable transactions
@@ -2774,6 +2792,16 @@ namespace storage{
 			(*this).initial->set_readahead(is_readahead);
 		}
 
+		/// prevent writes from being sent to local storage
+
+		void set_local_writes(bool local_writes){
+			(*this).initial->set_local_writes(local_writes);
+			(*this).local_writes = local_writes;
+		}
+		bool is_local_writes() const {
+			return (*this).local_writes;
+		}
+
 		/// return the transaction order of this coordinator
 
 		u64 get_order() const {
@@ -2808,7 +2836,7 @@ namespace storage{
 				throw InvalidTransactionType();
 			}
 			if(transaction->get_version() <= last_comitted_version){
-				err_print("the transactions version is less than the last comited resetting");
+				err_print("the transaction version is less than the last comitted, resetting");
 				last_comitted_version = version_type();
 				throw InvalidVersion();
 			}
@@ -2837,13 +2865,13 @@ namespace storage{
 				}
 
 
-				if (!recovery)		/// dont journal during recovery
+				if (!recovery && local_writes)		/// dont journal during recovery
 					transaction->journal((*this).initial->get_name());
-				if(writer && !repl_control.write_replicants(version,replicated)){
+				if(control != nullptr && !control->write_replicants(version)){
 					err_print("could not write enough replicants reverse local transaction");
 					throw ReplicationFailure();
 				}
-				if(writer && !repl_control.commit_replicants(replicated)){
+				if(control != nullptr && control->commit_replicants()){
 					err_print("could not commit enough replicants reverse local transaction");
 					throw ReplicationFailure();
 				}
@@ -2916,13 +2944,13 @@ namespace storage{
 				throw InvalidVersion();
 			}
 
-			if (!recovery)		/// dont journal during recovery
+			if (!recovery && local_writes)		/// dont journal during recovery
 				transaction->journal((*this).initial->get_name());
-			if(writer && !repl_control.write_replicants(version,replicated)){
+			if(control != nullptr && !control->write_replicants(version)){
 				err_print("could not write enough replicants reverse local transaction");
 				throw ReplicationFailure();
 			}
-			if(writer && !repl_control.commit_replicants(replicated)){
+			if(control != nullptr && !control->commit_replicants()){
 				err_print("could not commit enough replicants reverse local transaction");
 				throw ReplicationFailure();
 			}
@@ -2939,23 +2967,22 @@ namespace storage{
 				auto& allocator = transaction->get_allocator();
 				dbg_print("[COMMIT MVCC] [%s] at v. %s", allocator.get_name().c_str(), nst::tostring(allocator.get_version()));
 
-				if(writer && transaction->modified() && transaction->get_order() < order){
+				if(transaction->modified() && transaction->get_order() < order){
 					discard(transaction);
 					err_print("invalid writer order");
 					throw InvalidWriterOrder();
 				}
-
-
-
 
 				last_address = std::max<address_type>(last_address, version->last());
 
 				version_storage_type_ptr prev = version->get_previous();
 				if(prev==nullptr)
 					throw WriterConsistencyViolation();
+
 				if(prev != storages.back()){
 					throw ConcurrentWriterError();
 				}
+
 				if(storages.empty()){
 					throw WriterConsistencyViolation();
 				}
@@ -2964,6 +2991,7 @@ namespace storage{
 				last_comitted_version = transaction->get_version();
 									/// set the last comitted version to ensure the destrinations
 									/// remain synchronized - if for instance a rollback fails
+
 				version->move(storages.back().get());
 
 				++order;			/// increment committed transaction count
@@ -2996,7 +3024,7 @@ namespace storage{
 
 			if(writer){
 				journal::get_instance().mark_rollback(this->get_name());
-				if(!repl_control.rolback_replicants(replicated)){
+				if(control != nullptr && !control->rolback_replicants()){
 					err_print("replicants could not be rolled back, continue to reverse transaction locally");
 				}
 			}

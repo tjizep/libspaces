@@ -12,7 +12,9 @@ extern nst::i64 get_store_journal_size();
 
 extern nst::u64 get_store_journal_lower_max();
 static Poco::Mutex llock;
-
+static std::string get_journal_name(){
+	return nst::data_directory + "/store-journal.dat";
+}
 #ifdef _SPACES_JOURNAL_LOGGING_
 
 std::ofstream creation("allocations.txt", std::ios::app);
@@ -44,13 +46,13 @@ public:
 	typedef std::unordered_map<std::string, participant_ref> participants_type;
 private:
 	std::string journal_name;
-	std::string compact_name;
+	//std::string compact_name;
 	Poco::Mutex jlock;
 
 	std::ofstream journal_ostr;
-	std::ofstream compacted_ostr;
+	//std::ofstream compacted_ostr;
 	Poco::BinaryWriter writer;
-	Poco::BinaryWriter compacted_writer;
+	//Poco::BinaryWriter compacted_writer;
 	size_t bytes_used;
 	nst::u64 sequence;
 	nst::u64 last_synch;
@@ -60,12 +62,12 @@ private:
 public:
 	static const std::ios_base::openmode o_mode = std::ios::binary|std::ios::app;
 	journal_state()
-	:	journal_name(nst::data_directory + "/store-journal.dat")
-	,	compact_name(nst::data_directory + "/store-compact-journal.dat")
+	:	journal_name(get_journal_name())
+	//,	compact_name(nst::data_directory + "/store-compact-journal.dat")
 	,	journal_ostr(journal_name.c_str(), o_mode)
-	,	compacted_ostr(compact_name.c_str(), o_mode)
+	//,	compacted_ostr(compact_name.c_str(), o_mode)
 	,	writer(journal_ostr)
-	,	compacted_writer(compacted_ostr)
+	//,	compacted_writer(compacted_ostr)
 	,	bytes_used(0)
 	,	sequence(0)
 	,	last_synch(0)
@@ -206,6 +208,7 @@ public:
 
 	void recover(){
 		nst::synchronized _llock(llock);
+
 		typedef std::vector<_Command, sta::buffer_pool_alloc_tracker<_Command>> _Commands;
 		typedef std::unordered_map<std::string, stored::_Transaction*> _PendingTransactions;
 		std::ifstream journal_istr(journal_name.c_str(), std::ios::binary);
@@ -400,6 +403,12 @@ namespace storage{
 	}
 
 	void journal::recover(){
+		std::string jn = get_journal_name();
+		std::ifstream file(jn);
+		if (!file){
+			dbg_print("journal file %s not found",jn.c_str());
+			return;
+		}
 		js().recover();
 	}
 
