@@ -783,7 +783,7 @@ namespace stx
                 btree* context = (*this).get_context();
                 nst::u32 o = n->get_occupants() + 1;
                 for (nst::u32 p = 0; p < o; ++p) {
-                    n->childid[p].discard(*context);
+                    n->get_childid(p).discard(*context);
                 }
 
             }
@@ -1535,6 +1535,20 @@ namespace stx
             /// persisted reference type providing unobtrusive page management
             typedef pointer_proxy<interior_node> ptr;
 
+
+            /// return a child id
+            typename node::ptr          &get_childid(int at){
+                return this->childid[at];
+            }
+            const
+            typename node::ptr          &get_childid(int at) const {
+                return this->childid[at];
+            }
+            void set_childid(int at, const typename node::ptr& child){
+                this->childid[at] = child;
+
+            }
+        private:
             /// Keys of children or data pointers
             key_type        _keys[interiorslotmax];
 
@@ -1545,16 +1559,23 @@ namespace stx
             key_type        *keys() {
                 return &_keys[0];
             }
+
             const
             key_type        *keys() const {
                 return &_keys[0];
             }
-
+        public:
             const
             key_type        &get_key(int at) const {
                 return _keys[at];
             }
 
+            key_type        &get_key(int at) {
+                return _keys[at];
+            }
+            void set_key(int at,const key_type &key) {
+                _keys[at] = key;
+            }
             /// Set variables to initial values
             inline void initialize(btree* context, const unsigned short l)
             {
@@ -3110,8 +3131,8 @@ namespace stx
             /// together.
             inline reference operator*() const
             {
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot],
-                                                            currnode->values()[current_slot]));
+                temp_value = pair_to_value_type()(pair_type(currnode->get_key(current_slot),
+                                                            currnode->get_value(current_slot)));
                 return temp_value;
             }
 
@@ -3120,21 +3141,21 @@ namespace stx
             /// together.
             inline pointer operator->() const
             {
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot],
-                                                            currnode->values()[current_slot]));
+                temp_value = pair_to_value_type()(pair_type(currnode->get_key(current_slot),
+                                                            currnode->get_value(current_slot)));
                 return &temp_value;
             }
 
             /// Key of the current slot
             inline const key_type& key() const
             {
-                return currnode->keys()[current_slot];
+                return currnode->get_key(current_slot);
             }
 
             /// Read-only reference to the current data object
             inline const data_type& data() const
             {
-                return currnode->values()[current_slot];
+                return currnode->get_value(current_slot);
             }
 
             /// Prefix++ advance the iterator to the next slot
@@ -3793,7 +3814,7 @@ namespace stx
 
         static const bool delete_check = true;
 
-        /// reload version mode. if true then pages as reloaded on the fly improving small transaction perfromance
+        /// reload version mode. if true then pages as reloaded on the fly improving small transaction performance
 
         static const bool version_reload = true;
 
@@ -4154,7 +4175,7 @@ namespace stx
                 if (i != interiors_loaded.end()) {
                     typename btree::interior_node* interior = (btree::interior_node*)(*i).second;
                     nst::u16 p = surface->get_loaded_slot();
-                    interior->childid[p].discard(*this);
+                    interior->get_childid(p).discard(*this);
                 }/// else interior does not exist anymore = mission accomplished
             }/// this case may result in all the links not being removed
             t = surface;
@@ -4172,6 +4193,7 @@ namespace stx
             ///typedef std::vector<node::ptr,::sta::tracker<node::ptr,::sta::bt_counter>> _LinkedList;
 
             size_t c = 0;
+            /// NB: it wont work with std::unordered_map
             for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
 
                 surface_node* surface = (surface_node*)(*n).second;
@@ -4181,16 +4203,7 @@ namespace stx
             }
 
         }
-        void free_single_surface(stream_address a) {
-
-            auto n = this->surfaces_loaded.find(a);
-            if (n != surfaces_loaded.end()) {
-                surface_node* surface = (surface_node*)(*n).second;
-                this->unlink_surface_2(surface);
-                this->free_node((*n).second, (*n).first);
-            }
-
-        }
+        /// unlink nodes
         void raw_unlink_nodes() {
 
             this->headsurface.discard(*this);
@@ -4878,8 +4891,8 @@ namespace stx
 
             slot = find_lower(interior, key);
             loader = interior.get_where();
-            interior->childid[slot].load(interior.get_where(), slot);
-            n = interior->childid[slot];
+            interior->get_childid(slot).load(interior.get_where(), slot);
+            n = interior->get_childid(slot);
         }
 
         typename surface_node::ptr surface = n;
@@ -4901,8 +4914,8 @@ namespace stx
         {
             typename interior_node::ptr interior = n;
             slot = find_lower(interior, key);
-            interior->childid[slot].load(interior.get_where(), slot);
-            n = interior->childid[slot];
+            interior->get_childid(slot).load(interior.get_where(), slot);
+            n = interior->get_childid(slot);
         }
 
         typename surface_node::ptr surface = n;
@@ -4924,7 +4937,7 @@ namespace stx
         {
             const typename interior_node::ptr interior = n;
             slot = find_lower(interior, key);
-            n = interior->childid[slot];
+            n = interior->get_childid(slot);
         }
         typename surface_node::ptr surface = n;
         slot = find_lower(surface, key);
@@ -4961,9 +4974,9 @@ namespace stx
             slot = find_lower(static_cast<interior_node*>(n. operator->()), key);
             typename interior_node::ptr interior = n;
             interior_node * i = static_cast<interior_node*>(n. operator->());
-            i->childid[slot].load(i->get_address(), slot);
+            i->get_childid(slot).load(i->get_address(), slot);
 
-            n = i->childid[slot];
+            n = i->get_childid(slot);
 
         }
         typename surface_node::ptr surface = n;
@@ -5007,7 +5020,7 @@ namespace stx
             typename interior_node::ptr interior = n;
             slot = find_upper(interior, key);
 
-            n = interior->childid[slot];
+            n = interior->get_childid(slot);
         }
 
         typename surface_node::ptr surface = n;
@@ -5273,10 +5286,10 @@ namespace stx
         if (newchild != NULL_REF)
         {
             typename interior_node::ptr newroot = allocate_interior(root->level + 1);
-            newroot->keys()[0] = newkey;
+            newroot->set_key(0, newkey);
 
-            newroot->childid[0] = root;
-            newroot->childid[1] = newchild;
+            newroot->set_childid(0, root);
+            newroot->set_childid(1, newchild);
 
             newroot->set_occupants(1);
             newroot.change();
@@ -5322,9 +5335,9 @@ namespace stx
 
             int at = interior->find_lower(key_less, key_terp, key);
 
-            BTREE_PRINT("btree::insert_descend into " << interior->childid[at] << std::endl);
+            BTREE_PRINT("btree::insert_descend into " << interior->get_childid(at) << std::endl);
 
-            std::pair<iterator, bool> r = insert_descend(interior->childid[at], interior.get_where(), at,
+            std::pair<iterator, bool> r = insert_descend(interior->get_childid(at), interior.get_where(), at,
                                                          key, value, &newkey, newchild);
 
             if (newchild != NULL_REF)
@@ -5362,12 +5375,12 @@ namespace stx
                         typename interior_node::ptr splitinterior = splitnode;
                         splitinterior.change_before();
                         // move the split key and it's datum into the left node
-                        interior->keys()[interior->get_occupants()] = *splitkey;
-                        interior->childid[interior->get_occupants() + 1] = splitinterior->childid[0];
+                        interior->set_key(interior->get_occupants(), *splitkey);
+                        interior->set_childid(interior->get_occupants() + 1, splitinterior->get_childid(0));
                         interior->inc_occupants();
 
                         // set new split key and move corresponding datum into right node
-                        splitinterior->childid[0] = newchild;
+                        splitinterior->set_childid(0, newchild);
 
                         *splitkey = newkey;
 
@@ -5393,13 +5406,13 @@ namespace stx
                 interior_node * ref = interior.rget();
                 while (i > at)
                 {
-                    ref->keys()[i] = ref->keys()[i - 1];
-                    ref->childid[i + 1] = ref->childid[i];
+                    ref->set_key(i, ref->get_key(i - 1));
+                    ref->set_childid(i + 1, ref->get_childid(i));
                     i--;
                 }
 
-                interior->keys()[at] = newkey;
-                interior->childid[at + 1] = newchild;
+                interior->set_key(at ,newkey);
+                interior->set_childid(at + 1, newchild);
 
                 interior->inc_occupants();
             }
@@ -5563,19 +5576,19 @@ namespace stx
         for (unsigned int slot = mid + 1; slot < interior->get_occupants(); ++slot)
         {
             unsigned int ni = slot - (mid + 1);
-            newinterior->keys()[ni] = interior->keys()[slot];
-            newinterior->childid[ni] = interior->childid[slot];
-            interior->childid[slot].discard(*this);
+            newinterior->set_key(ni, interior->get_key(slot));
+            newinterior->set_childid(ni, interior->get_childid(slot));
+            interior->get_childid(slot).discard(*this);
         }
-        newinterior->childid[newinterior->get_occupants()] = interior->childid[interior->get_occupants()];
+        newinterior->set_childid(newinterior->get_occupants(), interior->get_childid(interior->get_occupants()));
         /// TODO: BUG: this discard causes an invalid page save
-        interior->childid[interior->get_occupants()].discard(*this);
+        interior->get_childid(interior->get_occupants()).discard(*this);
 
 
         interior->set_occupants(mid);
         interior->clear_references();
 
-        *_newkey = interior->keys()[mid];
+        *_newkey = interior->get_key(mid);
         _newinterior = newinterior;
 
     }
@@ -5769,8 +5782,8 @@ namespace stx
 
                     parent.change_before();
 
-                    BTREE_ASSERT(parent->childid[parentslot] == curr);
-                    parent->keys()[parentslot] = surface->get_key(surface->get_occupants() - 1);
+                    BTREE_ASSERT(parent->get_childid(parentslot) == curr);
+                    parent->set_key(parentslot, surface->get_key(surface->get_occupants() - 1));
 
                 }
                 else
@@ -5871,31 +5884,31 @@ namespace stx
             if (slot == 0)
             {
                 typename interior_node::ptr l = left;
-                myleft = (left == NULL_REF) ? NULL : l->childid[left->get_occupants() - 1];
+                myleft = (left == NULL_REF) ? NULL : l->get_childid(left->get_occupants() - 1);
                 myleftparent = leftparent;
             }
             else
             {
-                myleft = interior->childid[slot - 1];
+                myleft = interior->get_childid(slot - 1);
                 myleftparent = interior;
             }
 
             if (slot == interior->get_occupants())
             {
                 typename interior_node::ptr r = right;
-                myright = (right == NULL_REF) ? NULL_REF : r->childid[0];
+                myright = (right == NULL_REF) ? NULL_REF : r->get_childid(0);
                 myrightparent = rightparent;
             }
             else
             {
-                myright = interior->childid[slot + 1];
+                myright = interior->get_childid(slot + 1);
                 myrightparent = interior;
             }
 
-            BTREE_PRINT("erase_one_descend into " << interior->childid[slot] << std::endl);
+            BTREE_PRINT("erase_one_descend into " << interior->get_childid(slot) << std::endl);
 
             result_t result = erase_one_descend(key,
-                                                interior->childid[slot],
+                                                interior->get_childid(slot),
                                                 myleft, myright,
                                                 myleftparent, myrightparent,
                                                 interior, slot);
@@ -5914,9 +5927,9 @@ namespace stx
                 {
                     BTREE_PRINT("Fixing lastkeyupdate: key " << result.lastkey << " into parent " << parent << " at parentslot " << parentslot << std::endl);
 
-                    BTREE_ASSERT(parent->childid[parentslot] == curr);
+                    BTREE_ASSERT(parent->get_childid(parentslot) == curr);
                     parent.change_before();
-                    parent->keys()[parentslot] = result.lastkey;
+                    parent->set_key(parentslot,result.lastkey);
                 }
                 else
                 {
@@ -5929,19 +5942,19 @@ namespace stx
             {
                 // either the current node or the next is empty and should be removed
                 //const interior_node * cinterior = interior.rget();
-                if (interior->childid[slot]->get_occupants() != 0)
+                if (interior->get_childid(slot)->get_occupants() != 0)
                     slot++;
 
                 interior.change_before();
                 // this is the child slot invalidated by the merge
-                BTREE_ASSERT(interior->childid[slot]->get_occupants() == 0);
+                BTREE_ASSERT(interior->get_childid(slot)->get_occupants() == 0);
 
-                free_node(interior->childid[slot]);
+                free_node(interior->get_childid(slot));
 
                 for (int i = slot; i < interior->get_occupants(); i++)
                 {
-                    interior->keys()[i - 1] = interior->keys()[i];
-                    interior->childid[i] = interior->childid[i + 1];
+                    interior->set_key(i - 1, interior->get_key(i));
+                    interior->set_childid(i, interior->get_childid(i + 1));
                 }
                 interior->dec_occupants();
 
@@ -5950,8 +5963,8 @@ namespace stx
                     BTREE_ASSERT(slot > 0);
                     // fix split key for leaves
                     slot--;
-                    typename surface_node::ptr child = interior->childid[slot];
-                    interior->keys()[slot] = child->get_key(child->get_occupants() - 1);
+                    typename surface_node::ptr child = interior->get_childid(slot);
+                    interior->set_key(slot, child->get_key(child->get_occupants() - 1));
                 }
             }
 
@@ -5963,7 +5976,7 @@ namespace stx
                     BTREE_ASSERT(interior == root);
                     BTREE_ASSERT(interior->get_occupants() == 0);
                     interior.change_before();
-                    root = interior->childid[0];
+                    root = interior->get_childid(0);
 
                     interior->set_occupants(0);
                     free_node(interior);
@@ -6073,15 +6086,15 @@ namespace stx
             {
                 if (parent && parentslot < parent->get_occupants())
                 {
-                    BTREE_ASSERT(parent->childid[parentslot] == curr);
-                    parent->keys()[parentslot] = surface->keys()[surface->get_occupants() - 1];
+                    BTREE_ASSERT(parent->get_childid(parentslot) == curr);
+                    parent->set_key(parentslot, surface->get_key(surface->get_occupants() - 1));
                 }
                 else
                 {
                     if (surface->get_occupants() >= 1)
                     {
-                        BTREE_PRINT("Scheduling lastkeyupdate: key " << surface->keys()[surface->get_occupants() - 1] << std::endl);
-                        myres |= result_t(btree_update_lastkey, surface->keys()[surface->get_occupants() - 1]);
+                        BTREE_PRINT("Scheduling lastkeyupdate: key " << surface->get_key(surface->get_occupants() - 1) << std::endl);
+                        myres |= result_t(btree_update_lastkey, surface->get_key(surface->get_occupants() - 1));
                     }
                     else
                     {
@@ -6178,30 +6191,30 @@ namespace stx
 
                 if (slot == 0)
                 {
-                    myleft = (left == NULL) ? NULL : (static_cast<interior_node*>(left))->childid[left->get_occupants() - 1];
+                    myleft = (left == NULL) ? NULL : (static_cast<interior_node*>(left))->get_childid(left->get_occupants() - 1);
                     myleftparent = leftparent;
                 }
                 else
                 {
-                    myleft = interior->childid[slot - 1];
+                    myleft = interior->get_childid(slot - 1);
                     myleftparent = interior;
                 }
 
                 if (slot == interior->get_occupants())
                 {
-                    myright = (right == NULL) ? NULL : (static_cast<interior_node*>(right))->childid[0];
+                    myright = (right == NULL) ? NULL : (static_cast<interior_node*>(right))->get_childid(0);
                     myrightparent = rightparent;
                 }
                 else
                 {
-                    myright = interior->childid[slot + 1];
+                    myright = interior->get_childid(slot + 1);
                     myrightparent = interior;
                 }
 
-                BTREE_PRINT("erase_iter_descend into " << interior->childid[slot] << std::endl);
+                BTREE_PRINT("erase_iter_descend into " << interior->get_childid(slot) << std::endl);
 
                 result = erase_iter_descend(iter,
-                                            interior->childid[slot],
+                                            interior->get_childid(slot),
                                             myleft, myright,
                                             myleftparent, myrightparent,
                                             interior, slot);
@@ -6228,7 +6241,7 @@ namespace stx
                 {
                     BTREE_PRINT("Fixing lastkeyupdate: key " << result.lastkey << " into parent " << parent << " at parentslot " << parentslot << std::endl);
 
-                    BTREE_ASSERT(parent->childid[parentslot] == curr);
+                    BTREE_ASSERT(parent->get_childid(parentslot) == curr);
                     parent->keys()[parentslot] = result.lastkey;
                 }
                 else
@@ -6241,11 +6254,11 @@ namespace stx
             if (result.has(btree_fixmerge))
             {
                 // either the current node or the next is empty and should be removed
-                if (interior->childid[slot]->get_occupants() != 0)
+                if (interior->get_childid(slot)->get_occupants() != 0)
                     slot++;
 
                 // this is the child slot invalidated by the merge
-                BTREE_ASSERT(interior->childid[slot]->get_occupants() == 0);
+                BTREE_ASSERT(interior->get_childid(slot)->get_occupants() == 0);
 
                 interior.change_before();
 
@@ -6254,7 +6267,7 @@ namespace stx
                 for (int i = slot; i < interior->get_occupants(); i++)
                 {
                     interior->keys()[i - 1] = interior->keys()[i];
-                    interior->childid[i] = interior->childid[i + 1];
+                    interior->set_childid(i, interior->get_childid(i + 1));
                 }
                 interior->dec_occupants();
 
@@ -6262,8 +6275,8 @@ namespace stx
                 {
                     // fix split key for children leaves
                     slot--;
-                    surface_node *child = static_cast<surface_node*>(interior->childid[slot]);
-                    interior->keys()[slot] = child->keys()[child->get_occupants() - 1];
+                    surface_node *child = static_cast<surface_node*>(interior->get_childid(slot));
+                    interior->keys()[slot] = child->get_key(child->get_occupants() - 1);
                 }
             }
 
@@ -6275,7 +6288,7 @@ namespace stx
                     BTREE_ASSERT(interior == root);
                     BTREE_ASSERT(interior->get_occupants() == 0);
 
-                    root = interior->childid[0];
+                    root = interior->get_childid(0);
 
                     interior->set_occupants(0);
                     free_node(interior);
@@ -6388,7 +6401,7 @@ namespace stx
         BTREE_ASSERT(left->level == right->level);
         BTREE_ASSERT(parent->level == left->level + 1);
 
-        BTREE_ASSERT(parent->childid[parentslot] == left);
+        BTREE_ASSERT(parent->get_childid(parentslot) == left);
 
         BTREE_ASSERT(left->get_occupants() + right->get_occupants() < interiorslotmax);
 
@@ -6396,30 +6409,30 @@ namespace stx
         {
             // find the left node's slot in the parent's children
             unsigned int leftslot = 0;
-            while (leftslot <= parent->get_occupants() && parent->childid[leftslot] != left)
+            while (leftslot <= parent->get_occupants() && parent->get_childid(leftslot) != left)
                 ++leftslot;
 
             BTREE_ASSERT(leftslot < parent->get_occupants());
-            BTREE_ASSERT(parent->childid[leftslot] == left);
-            BTREE_ASSERT(parent->childid[leftslot + 1] == right);
+            BTREE_ASSERT(parent->get_childid(leftslot) == left);
+            BTREE_ASSERT(parent->get_childid(leftslot + 1) == right);
 
             BTREE_ASSERT(parentslot == leftslot);
         }
         left.change_before();
         right.change_before();
         // retrieve the decision key from parent
-        left->keys()[left->get_occupants()] = parent->keys()[parentslot];
+        left->set_key(left->get_occupants(), parent->get_key(parentslot));
         left->inc_occupants();
 
         // copy over keys and children from right
         for (unsigned int i = 0; i < right->get_occupants(); i++)
         {
-            left->keys()[left->get_occupants() + i] = right->keys()[i];
-            left->childid[left->get_occupants() + i] = right->childid[i];
+            left->set_key(left->get_occupants() + i, right->get_key(i));
+            left->set_childid(left->get_occupants() + i, right->get_childid(i));
         }
         left->set_occupants(left->get_occupants() + right->get_occupants());
 
-        left->childid[left->get_occupants()] = right->childid[right->get_occupants()];
+        left->set_childid(left->get_occupants() ,right->get_childid(right->get_occupants()));
 
         right->set_occupants(0);
         left.next_check();
@@ -6444,7 +6457,7 @@ namespace stx
         BTREE_ASSERT(left == right->preceding);
 
         BTREE_ASSERT(left->get_occupants() < right->get_occupants());
-        BTREE_ASSERT(parent->childid[parentslot] == left);
+        BTREE_ASSERT(parent->get_childid(parentslot, left));
 
         /// indicates nodes are going to change and loades latest version
 
@@ -6480,7 +6493,7 @@ namespace stx
         if (parentslot < parent->get_occupants())
         {
             parent.change_before();
-            parent->keys()[parentslot] = left->get_key(left->get_occupants() - 1);
+            parent->set_key(parentslot, left->get_key(left->get_occupants() - 1));
             return btree_ok;
         }
         else   // the update is further up the tree
@@ -6504,7 +6517,7 @@ namespace stx
         BTREE_ASSERT(parent->level == left->level + 1);
 
         BTREE_ASSERT(left->get_occupants() < right->get_occupants());
-        BTREE_ASSERT(parent->childid[parentslot] == left);
+        BTREE_ASSERT(parent->get_childid(parentslot) == left);
 
         unsigned int shiftnum = (right->get_occupants() - left->get_occupants()) >> 1;
 
@@ -6521,42 +6534,42 @@ namespace stx
             // find the left node's slot in the parent's children and compare to parentslot
 
             unsigned int leftslot = 0;
-            while (leftslot <= parent->get_occupants() && parent->childid[leftslot] != left)
+            while (leftslot <= parent->get_occupants() && parent->get_childid(leftslot) != left)
                 ++leftslot;
 
             BTREE_ASSERT(leftslot < parent->get_occupants());
-            BTREE_ASSERT(parent->childid[leftslot] == left);
-            BTREE_ASSERT(parent->childid[leftslot + 1] == right);
+            BTREE_ASSERT(parent->get_childid(leftslot) == left);
+            BTREE_ASSERT(parent->get_childid(leftslot + 1) == right);
 
             BTREE_ASSERT(leftslot == parentslot);
         }
 
         // copy the parent's decision keys() and childid to the first new key on the left
-        left->keys()[left->get_occupants()] = parent->keys()[parentslot];
+        left->set_key(left->get_occupants(), parent->get_key(parentslot));
         left->inc_occupants();
 
         // copy the other items from the right node to the last slots in the left node.
         for (unsigned int i = 0; i < shiftnum - 1; i++)
         {
-            left->keys()[left->get_occupants() + i] = right->keys()[i];
-            left->childid[left->get_occupants() + i] = right->childid[i];
+            left->set_key(left->get_occupants() + i, right->get_key(i));
+            left->set_childid(left->get_occupants() + i, right->get_childid(i));
         }
         left->set_occupants(left->get_occupants() + shiftnum - 1);
 
         // fixup parent
-        parent->keys()[parentslot] = right->keys()[shiftnum - 1];
+        parent->set_key(parentslot, right->get_key(shiftnum - 1));
         // last pointer in left
-        left->childid[left->get_occupants()] = right->childid[shiftnum - 1];
+        left->set_childid(left->get_occupants(), right->get_childid(shiftnum - 1));
 
         // shift all slots in the right node
 
         right->set_occupants(right->get_occupants() - shiftnum);
         for (int i = 0; i < right->get_occupants(); i++)
         {
-            right->keys()[i] = right->keys()[i + shiftnum];
-            right->childid[i] = right->childid[i + shiftnum];
+            right->set_key(i, right->get_key(i + shiftnum));
+            right->set_childid(i, right->get_childid(i + shiftnum));
         }
-        right->childid[right->get_occupants()] = right->childid[right->get_occupants() + shiftnum];
+        right->set_childid(right->get_occupants(), right->get_childid(right->get_occupants() + shiftnum));
         right.next_check();
         left.next_check();
     }
@@ -6576,7 +6589,7 @@ namespace stx
 
         BTREE_ASSERT(left->get_next() == right);
         BTREE_ASSERT(left == right->preceding);
-        BTREE_ASSERT(parent->childid[parentslot] == left);
+        BTREE_ASSERT(parent->get_childid(parentslot) == left);
 
         BTREE_ASSERT(left->get_occupants() > right->get_occupants());
 
@@ -6592,12 +6605,12 @@ namespace stx
         {
             // find the left node's slot in the parent's children
             unsigned int leftslot = 0;
-            while (leftslot <= parent->get_occupants() && parent->childid[leftslot] != left)
+            while (leftslot <= parent->get_occupants() && parent->get_childid(leftslot) != left)
                 ++leftslot;
 
             BTREE_ASSERT(leftslot < parent->get_occupants());
-            BTREE_ASSERT(parent->childid[leftslot] == left);
-            BTREE_ASSERT(parent->childid[leftslot + 1] == right);
+            BTREE_ASSERT(parent->get_childid(leftslot) == left);
+            BTREE_ASSERT(parent->get_childid(leftslot + 1) == right);
 
             BTREE_ASSERT(leftslot == parentslot);
         }
@@ -6622,7 +6635,7 @@ namespace stx
         }
         left->set_occupants(left->get_occupants() - shiftnum);
 
-        parent->keys()[parentslot] = left->get_key(left->get_occupants() - 1);
+        parent->set_key(parentslot, left->get_key(left->get_occupants() - 1));
         left.next_check();
         right.next_check();
     }
@@ -6641,7 +6654,7 @@ namespace stx
         BTREE_ASSERT(parent->level == left->level + 1);
 
         BTREE_ASSERT(left->get_occupants() > right->get_occupants());
-        BTREE_ASSERT(parent->childid[parentslot] == left);
+        BTREE_ASSERT(parent->get_childid(parentslot) == left);
 
         right.change_before();
         left.change_before();
@@ -6655,12 +6668,12 @@ namespace stx
         {
             // find the left node's slot in the parent's children
             unsigned int leftslot = 0;
-            while (leftslot <= parent->get_occupants() && parent->childid[leftslot] != left)
+            while (leftslot <= parent->get_occupants() && parent->get_childid(leftslot) != left)
                 ++leftslot;
 
             BTREE_ASSERT(leftslot < parent->get_occupants());
-            BTREE_ASSERT(parent->childid[leftslot] == left);
-            BTREE_ASSERT(parent->childid[leftslot + 1] == right);
+            BTREE_ASSERT(parent->get_childid(leftslot) == left);
+            BTREE_ASSERT(parent->get_childid(leftslot + 1) == right);
 
             BTREE_ASSERT(leftslot == parentslot);
         }
@@ -6669,27 +6682,27 @@ namespace stx
 
         BTREE_ASSERT(right->get_occupants() + shiftnum < interiorslotmax);
 
-        right->childid[right->get_occupants() + shiftnum] = right->childid[right->get_occupants()];
+        right->set_childid(right->get_occupants() + shiftnum, right->get_childid(right->get_occupants()));
         for (int i = right->get_occupants() - 1; i >= 0; i--)
         {
-            right->keys()[i + shiftnum] = right->keys()[i];
-            right->childid[i + shiftnum] = right->childid[i];
+            right->set_key(i + shiftnum, right->get_key(i));
+            right->set_childid(i + shiftnum, right->get_childid(i));
         }
         right->set_occupants(right->get_occupants() + shiftnum);
 
         // copy the parent's decision keys and childid to the last new key on the right
-        right->keys()[shiftnum - 1] = parent->keys()[parentslot];
-        right->childid[shiftnum - 1] = left->childid[left->get_occupants()];
+        right->set_key(shiftnum - 1, parent->get_key(parentslot));
+        right->set_childid(shiftnum - 1, left->get_childid(left->get_occupants()));
 
         // copy the remaining last items from the left node to the first slot in the right node.
         for (unsigned int i = 0; i < shiftnum - 1; i++)
         {
-            right->keys()[i] = left->keys()[left->get_occupants() - shiftnum + i + 1];
-            right->childid[i] = left->childid[left->get_occupants() - shiftnum + i + 1];
+            right->set_key(i, left->get_key(left->get_occupants() - shiftnum + i + 1));
+            right->set_childid(i, left->get_childid(left->get_occupants() - shiftnum + i + 1));
         }
 
         // copy the first to-be-removed key from the left node to the parent's decision slot
-        parent->keys()[parentslot] = left->keys()[left->get_occupants() - shiftnum];
+        parent->set_key(parentslot, left->get_key(left->get_occupants() - shiftnum));
 
         left->set_occupants(left->get_occupants() - shiftnum);
 
@@ -6838,12 +6851,12 @@ namespace stx
 
             for (unsigned short slot = 0; slot < interior->get_occupants() - 1; ++slot)
             {
-                assert(key_lessequal(interior->keys()[slot], interior->keys()[slot + 1]));
+                assert(key_lessequal(interior->get_key(slot), interior->get_key(slot + 1)));
             }
 
             for (unsigned short slot = 0; slot <= interior->get_occupants(); ++slot)
             {
-                const typename node::ptr subnode = interior->childid[slot];
+                const typename node::ptr subnode = interior->get_childid(slot);
                 key_type subminkey = key_type();
                 key_type submaxkey = key_type();
 
@@ -6855,19 +6868,19 @@ namespace stx
                 if (slot == 0)
                     *minkey = subminkey;
                 else
-                    assert(key_greaterequal(subminkey, interior->keys()[slot - 1]));
+                    assert(key_greaterequal(subminkey, interior->get_key(slot - 1)));
 
                 if (slot == interior->get_occupants())
                     *maxkey = submaxkey;
                 else
-                    assert(key_equal(interior->keys()[slot], submaxkey));
+                    assert(key_equal(interior->get_key(slot), submaxkey));
 
                 if (interior->level == 1 && slot < interior->get_occupants())
                 {
                     // children are leaves and must be linked together in the
                     // correct order
-                    const typename surface_node::ptr surfacea = interior->childid[slot];
-                    const typename surface_node::ptr surfaceb = interior->childid[slot + 1];
+                    const typename surface_node::ptr surfacea = interior->get_childid(slot);
+                    const typename surface_node::ptr surfaceb = interior->get_childid(slot + 1);
 
                     assert(surfacea->get_next() == surfaceb);
                     assert(surfacea == surfaceb->preceding);
@@ -6877,11 +6890,11 @@ namespace stx
                 if (interior->level == 2 && slot < interior->get_occupants())
                 {
                     // verify surface links between the adjacent interior nodes
-                    const typename interior_node::ptr parenta = interior->childid[slot];
-                    const typename interior_node::ptr parentb = interior->childid[slot + 1];
+                    const typename interior_node::ptr parenta = interior->get_childid(slot);
+                    const typename interior_node::ptr parentb = interior->get_childid(slot + 1);
 
-                    const typename surface_node::ptr surfacea = parenta->childid[parenta->get_occupants()];
-                    const typename surface_node::ptr surfaceb = parentb->childid[0];
+                    const typename surface_node::ptr surfacea = parenta->get_childid(parenta->get_occupants());
+                    const typename surface_node::ptr surfaceb = parentb->get_childid(0);
 
                     assert(surfacea->get_next() == surfaceb);
                     assert(surfacea == surfaceb->preceding);

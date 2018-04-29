@@ -1,8 +1,8 @@
 require "packages"
 require "spaces"
 spaces.storage("test")
-spaces.replicate("localhost",16003)
-spaces.localWrites(false)
+--spaces.replicate("localhost",16003)
+--spaces.localWrites(false)
 local u = 1e6
 local MAX_GEN =3e6
 local kl = 8
