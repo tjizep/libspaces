@@ -124,18 +124,6 @@ public:
     malformed_page_exception() throw() {};
 };
 
-struct _D_has_attached_page_data {
-    template <typename T, void (T::*)() = &T::_D_attached_page_data>
-    struct get {};
-};
-
-template <typename T>
-struct attached_flag {
-
-    bool attached_page_data() {
-        return false;
-    };
-};
 template <typename T>
 struct has_typedef_attached_values {
     // Types "yes" and "no" are guaranteed to have different sizes,
@@ -158,19 +146,27 @@ namespace stx
 {
     class bad_format : public std::exception{
     public:
-        bad_format() {};
+        bad_format() {
+            err_print("btree bad format");
+        };
     };
     class bad_pointer : public std::exception{
     public:
-        bad_pointer() {};
+        bad_pointer() {
+            err_print("btree bad pointer");
+        };
     };
     class bad_access : public std::exception{
     public:
-        bad_access() {};
+        bad_access() {
+            err_print("btree bad access");
+        };
     };
     class bad_transaction : public std::exception{
     public:
-        bad_transaction() {};
+        bad_transaction() {
+            err_print("btree bad transaction");
+        };
     };
     class idle_processor {
     public:
@@ -251,7 +247,7 @@ namespace stx
         enum
         {   bytes_per_page = 4096, /// this isnt currently used but could be
             max_scan = 0,
-            keys_per_page = 96, ///192 is good for transactions, 384
+            keys_per_page = 128, ///192 is good for transactions, 384
             caches_per_page = 4,
             max_release = 8
         };
@@ -1308,11 +1304,13 @@ namespace stx
             /// the transaction version of this node
             nst::version_type version;
 
-            /// the persistence context
-            btree * context;
+
 
 
         protected:
+            /// the persistence context
+            btree * context;
+
             /// the pages last transaction that it was checked on
             storage::u64	transaction;
 
@@ -1431,6 +1429,7 @@ namespace stx
 
             inline void initialize(btree* context, const unsigned short l)
             {
+                this->context = context;
                 level = l;
                 occupants = 0;
 
@@ -1570,9 +1569,7 @@ namespace stx
                 return _keys[at];
             }
 
-            key_type        &get_key(int at) {
-                return _keys[at];
-            }
+
             void set_key(int at,const key_type &key) {
                 _keys[at] = key;
             }
@@ -1738,6 +1735,7 @@ namespace stx
                 for (int at = 0; at < surfaceslotmax; ++at) {
                     nst::u16 al = permutations[at];
                     if ( al != surfaceslotmax) {
+                        node::context->add_hash(*reinterpret_cast<key_type*>(_keys + al), nullptr, at);
                         reinterpret_cast<key_type*>(_keys + al)->~key_type();
                         reinterpret_cast<data_type*>(_values + al)->~data_type();
                     }
@@ -1830,7 +1828,10 @@ namespace stx
                     (*reinterpret_cast<data_type*>(_values + p)) = v;
                 }
             }
-
+            void set_key(int at, const key_type& key){
+                init(at);
+                *reinterpret_cast<key_type*>(_keys + permutations[at]) = key;
+            }
             inline key_type &get_key(i4 at) {
                 init(at);
                 return *reinterpret_cast<key_type*>(_keys + permutations[at]);
@@ -1913,6 +1914,7 @@ namespace stx
             inline void initialize(btree* context)
             {
                 node::initialize(context, 0);
+                (*this).context = context;
                 (*this).sorted = 0;
                 (*this).loader = 0;
                 (*this).loaded_slot = 0;
@@ -2014,6 +2016,7 @@ namespace stx
                 using namespace stx::storage;
                 bool direct_encode = false;
                 (*this).address = address;
+                (*this).context = context;
                 /// size_t bs = buffer.size();
                 buffer_type::const_iterator reader = buffer.begin();
 
@@ -2052,7 +2055,9 @@ namespace stx
                         //interp.decode(buffer, reader, keys(), (*this).get_occupants());
                     } else {
                         for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                            storage.retrieve(buffer, reader, get_key(k));
+                            key_type & key = get_key(k);
+                            storage.retrieve(buffer, reader, key);
+                            context->add_hash(key,this,k);
                         }
                     }
 
@@ -2205,11 +2210,11 @@ namespace stx
         //typedef std::unordered_map<stream_address, node*> _AddressedNodes; /// TODO: the memory used by these is not counted
 
 
-
+        typedef std::pair<const surface_node*,nst::u16> _HashKey;
         typedef std::pair<stream_address, ::stx::storage::version_type> _AddressPair;
         typedef std::pair<stream_address, node*> _AllocatedNode;
         typedef std::vector< _AllocatedNode> _AllocatedNodes; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
-
+        typedef rabbit::unordered_map<size_t, _HashKey > _NodeHash; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
 
         /// provides register for currently loaded/decoded nodes
         /// used to prevent reinstantiation of existing nodes
@@ -2220,6 +2225,17 @@ namespace stx
         _AddressedNodes		interiors_loaded;
         _AddressedNodes		surfaces_loaded;
         _AllocatedNodes		modified;
+        /// a fast lookup table to speedup finds in constant time
+        mutable
+        _NodeHash           key_lookup;
+        /// add a hashed key to the lookup table
+        void add_hash(const key_type& key,surface_node* node, int at){
+            size_t h = stx::btree_hash<key_type>()(key);
+            if(h){
+
+                key_lookup[h] = std::make_pair(node,at);
+            }
+        }
 
         ///	returns NULL if a node with given storage address is not currently
         /// loaded. otherwise returns the currently loaded node
@@ -4874,6 +4890,18 @@ namespace stx
         return (slot < surface->get_occupants() && key_equal(key, surface->keys()[slot]));
     }
 
+    /// fast lookup that does not always succeed
+    _HashKey lookup(const key_type& key) const {
+
+        size_t h = stx::btree_hash<key_type>()(key);
+        if(h && !key_lookup.empty()){
+            auto r = key_lookup[h];
+            if(r.first!= nullptr && key_equal(key, r.first->get_key(r.second))){
+                return r;
+            }
+        }
+        return _HashKey();
+    }
     /// Tries to locate a key in the B+ tree and returns an iterator to the
     /// key/data slot if found. If unsuccessful it returns end().
     iterator find(const key_type &key)
@@ -4883,6 +4911,10 @@ namespace stx
         typename node::ptr n = root;
         if (n == NULL_REF) return end();
         int slot = 0;
+        _HashKey kl = lookup(key);
+        if(kl.first!=nullptr){
+            return  iterator(kl.first,kl.second);
+        }
         stream_address loader = 0;
         while (!n->issurfacenode())
         {
@@ -4909,7 +4941,10 @@ namespace stx
         typename node::ptr n = root;
         if (n == NULL_REF) return end();
         int slot = 0;
-
+        _HashKey kl = lookup(key);
+        if(kl.first!=nullptr){
+            return  const_iterator(kl.first,kl.second);
+        }
         while (!n->issurfacenode())
         {
             typename interior_node::ptr interior = n;

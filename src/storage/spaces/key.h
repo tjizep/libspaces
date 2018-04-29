@@ -60,7 +60,24 @@ namespace spaces {
 		{
 			return memcmp(data(), right.data(), std::min<i4>(size(), right.size()));
 		}
+		// FNV-1a hash function for bytes
+		// https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+		// https://tools.ietf.org/html/draft-eastlake-fnv-13#section-6
+		// used to attempt to fix bad hashes from code
+		size_t fnv_1a_bytes(const unsigned char *bytes, size_t count) const {
+			const unsigned long long FNV64prime = 0x00000100000001B3ull;
+			const unsigned long long FNV64basis = 0xCBF29CE484222325ull;
+			size_t r = FNV64basis;
+			for (size_t a = 0; a < count; ++a){
+				r ^= (size_t)bytes[a]; // folding of one byte at a time
+				r *= FNV64prime;
+			}
+			return r;
+		}
 	public:
+		size_t hash() const{
+			return fnv_1a_bytes(decoded(),size());
+		}
 		void clear() {
 			if (is_long()) {
 				str().clear();
@@ -101,6 +118,9 @@ namespace spaces {
 		char *writable(){
 			return l == SS ? &str()[0] : 
 				sequence;
+		}
+		const unsigned char *decoded() const {
+			return (const unsigned char *)data();
 		}
 		const char *readable() const {
 			return l == SS ? &str()[0] :
@@ -152,6 +172,7 @@ namespace spaces {
 	private:
 		i4 type;
 		astring sequence;
+
 	public:
 		data(const data&r)
 		: 	sequence(r.sequence)
@@ -347,6 +368,24 @@ namespace spaces {
 			}
 			return reader;
 		};
+
+		size_t hash() const {
+			char* end;
+			switch (type) {
+				case data_type::numeric:
+				case data_type::boolean:
+					return get_integer();
+				case data_type::text:
+					return this->sequence.hash();
+				//case data_type::function:
+				//case data_type::multi:
+				//case data_type::infinity:
+				default:
+					break;
+			}
+			return 0;
+
+		}
 	};
 	class key {
 	private:
@@ -442,6 +481,9 @@ namespace spaces {
 			}
 			return writer;
 		}
+		size_t hash() const {
+			return context*31 + name.hash();
+		}
 		
 	};
 	class record {
@@ -529,4 +571,12 @@ namespace spaces {
 
 	};
 	typedef std::pair<key, record> space;
+}
+namespace stx{
+	template<>
+	struct btree_hash<spaces::key>{
+		size_t operator()(const spaces::key& k) const{
+			return k.hash(); ///
+		};
+	};
 }

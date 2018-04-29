@@ -97,27 +97,28 @@ end
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
 spaces.read()
-print("start st read")
-local cnt = 0
-t = os.clock()
-td = t
-if tdata ~= nil then
-	for k,v in ipairs(tdata) do
-		cnt = cnt + 1
-		local dv = data[v]
+for rr = 1,2 do
+	print("start st read")
+	local cnt = 0
+	t = os.clock()
+	td = t
+	if tdata ~= nil then
+		for k,v in ipairs(tdata) do
+			cnt = cnt + 1
+			local dv = data[v]
 
-		if  dv == nil then
-			print("broken keys ",k,v)
-			error("key error",k,v)
+			if  dv == nil then
+				print("broken keys ",k,v)
+				error("key error",k,v)
+
+			end
 
 		end
-
+		local dt = os.clock()-t;
+		local ops = math.floor(cnt/dt)
+		print("end st random read",dt,ops.." keys/s")
 	end
-	local dt = os.clock()-t;
-	local ops = math.floor(cnt/dt)
-	print("end st random read",dt,ops.." keys/s")
 end
-
 cnt = 0
 t = os.clock()
 local last = ""

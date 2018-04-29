@@ -28,7 +28,12 @@ extern "C"{
 
 
 namespace stx{
-
+	template<typename _Ht>
+	struct btree_hash{
+		size_t operator()(const _Ht& k) const{
+			return 0;///(size_t) std::hash<_Ht>()(k); ///
+		};
+	};
 	namespace storage{
 
 		namespace allocation{

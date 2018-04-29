@@ -811,7 +811,7 @@ namespace storage{
 			for(typename _Blocks::iterator b = by_address.begin(); b != by_address.end(); ++b){
 
 				mods--;
-				if(!local_writes){
+				if(local_writes){
 					versions[(*b).first] = (*b).second->get_version();
 					add_buffer((*b).first, (*b).second->block);
 					(*b).second->set_written();
@@ -3023,7 +3023,7 @@ namespace storage{
 			bool writer = !transaction->is_readonly();
 
 			if(writer){
-				journal::get_instance().mark_rollback(this->get_name());
+				//journal::get_instance().mark_rollback(this->get_name());
 				if(control != nullptr && !control->rolback_replicants()){
 					err_print("replicants could not be rolled back, continue to reverse transaction locally");
 				}

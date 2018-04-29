@@ -403,12 +403,15 @@ namespace storage{
 	}
 
 	void journal::recover(){
-		std::string jn = get_journal_name();
-		std::ifstream file(jn);
-		if (!file){
-			dbg_print("journal file %s not found",jn.c_str());
-			return;
+		{
+			std::string jn = get_journal_name();
+			std::ifstream file(jn);
+			if (!file){
+				dbg_print("journal file %s not found",jn.c_str());
+				return;
+			}
 		}
+
 		js().recover();
 	}
 
