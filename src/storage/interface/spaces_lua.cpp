@@ -19,6 +19,8 @@ DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::lua_session<spaces::lua_db_session> session_t;
 //typedef spaces::lua_session<spaces::lua_mem_session> session_t;
 typedef spaces::lua_iterator<session_t::_Set> lua_iterator_t;
+typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
+
 static int l_serve_space(lua_State *L) {
     nst::u32 port = spaces::DEFAULT_PORT;
     if(lua_isnumber(L,1)){
@@ -50,6 +52,21 @@ static int l_space_local_writes(lua_State *L) {
     }catch(std::exception& e){
         luaL_error(L,"could not set local writes: %s",e.what());
     }
+	return 0;
+}
+static int l_space_observe(lua_State* L){
+	try{
+
+		if (lua_isstring(L, 1) && lua_isnumber(L, 2)) {
+			const char *ip = lua_tostring(L, 1);
+			nst::u16 port = lua_tointeger(L, 2);
+
+			//stored::get_abstracted_storage(STORAGE_NAME)->set_observer(ip,port);
+		}
+	}catch(std::exception& e){
+		luaL_error(L,"could not set local writes: %s",e.what());
+	}
+	return 0;
 	return 0;
 }
 static int l_replicate_space(lua_State *L) {
@@ -120,6 +137,7 @@ static int l_rollback_space(lua_State *L) {
 static int l_space_debug(lua_State* L) {
 	nst::storage_debugging = true;
 	nst::storage_info = true;
+
 	return 0;
 }
 static int l_space_quiet(lua_State* L) {
@@ -159,6 +177,7 @@ static const struct luaL_Reg spaces_f[] = {
 	{ "debug", l_space_debug },
 	{ "quiet", l_space_quiet },
     { "localWrites", l_space_local_writes },
+	{ "observe", l_space_observe },
 	{ NULL, NULL } /* sentinel */
 };
 
@@ -229,14 +248,17 @@ static int spaces_newindex(lua_State *L) {
 
 static int spaces_index(lua_State *L) {
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-    s->begin(); /// use whatever mode is set
+
+	s->begin(); /// use whatever mode is set
 	spaces::space k;
 	spaces::space *r = nullptr;
 	spaces::space* p = s->get_space();
+
 	if (p->second.get_identity() != 0) {
 
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
+
 		auto i = s->get_set().find(k.first);
 		if (i != s->get_set().end()) {
 
@@ -245,15 +267,16 @@ static int spaces_index(lua_State *L) {
 				r->first = spaces::get_key(i);
 				r->second = spaces::get_data(i);
 
-			}
-			else {
+			} else {
 				s->push_data(spaces::get_data(i).get_value());
 			}
 
-		}
-		else {
+		} else {
 			lua_pushnil(L);
 		}
+
+
+
 	}
 	else { /// cannot index something thats not a parent
 		lua_pushnil(L);

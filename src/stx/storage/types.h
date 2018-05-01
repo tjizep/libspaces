@@ -66,7 +66,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <Poco/Types.h>
 #include <Poco/UUID.h>
 #include <stdio.h>
-
+#include <Poco/UUIDGenerator.h>
 /// files that use these macros need to include <iostream> or <stdio.h>
 #define __LOG_SPACES__ "SPACES"
 #define __LOG_NAME__ __LOG_SPACES__
@@ -100,11 +100,48 @@ namespace stx{
 				return _t_str.c_str();
 			}
 
+			inline version_type create_version(){
+				return Poco::UUIDGenerator::defaultGenerator().create();
+			}
+			/// some resource descriptors for low latency verification
+			typedef std::pair<stream_address,version_type> resource_descriptor;
+			typedef std::vector<resource_descriptor> resource_descriptors;
+
+
+
 	};
 	extern bool memory_low_state;
 };
+namespace nst = stx::storage;
 namespace std {
-    template <>
+
+	static const char * to_string(const nst::version_type& v) {
+		return nst::tostring(v);
+	}
+	static const char * to_string(const nst::resource_descriptor& v) {
+		static std::string result;
+		result = "{";
+		result += std::to_string(v.first);
+		result += std::to_string(v.second);
+		result += "}";
+		return result.c_str();
+	}
+
+	static const char * to_string(const nst::resource_descriptors& v) {
+		static std::string result;
+		result = "[";
+		for(auto vi = v.begin(); vi != v.end(); ++vi){
+			result += std::to_string((*vi));
+			if(vi != v.begin()){
+				result += ", ";
+			}
+		}
+		result += "]";
+		return result.c_str();
+	}
+
+
+	template <>
     class hash<stx::storage::version_type>{
     public:
 		size_t operator()(const stx::storage::version_type &version ) const{
@@ -121,7 +158,7 @@ namespace std {
 		}
     };
 };
-namespace nst = stx::storage;
+
 #define dbg_print(x,...)          do {  if (nst::storage_debugging) (printf("[DBG][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
 #define wrn_print(x,...)          do {  if (nst::storage_info) (printf("[WRN][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
 #define err_print(x,...)          do {  if (true) (printf("[ERR][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)

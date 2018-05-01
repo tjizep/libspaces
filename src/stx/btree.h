@@ -1735,7 +1735,7 @@ namespace stx
                 for (int at = 0; at < surfaceslotmax; ++at) {
                     nst::u16 al = permutations[at];
                     if ( al != surfaceslotmax) {
-                        node::context->add_hash(*reinterpret_cast<key_type*>(_keys + al), nullptr, at);
+                        node::context->erase_hash(*reinterpret_cast<key_type*>(_keys + al));
                         reinterpret_cast<key_type*>(_keys + al)->~key_type();
                         reinterpret_cast<data_type*>(_values + al)->~data_type();
                     }
@@ -2234,6 +2234,13 @@ namespace stx
             if(h){
 
                 key_lookup[h] = std::make_pair(node,at);
+            }
+        }
+        void erase_hash(const key_type& key){
+            size_t h = stx::btree_hash<key_type>()(key);
+            if(h){
+
+                key_lookup.erase(h);
             }
         }
 

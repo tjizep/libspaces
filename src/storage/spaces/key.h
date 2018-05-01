@@ -5,6 +5,7 @@
 #include <limits>
 #include <storage/spaces/data_type.h>
 #include <stx/storage/basic_storage.h>
+#include <rabbit/unordered_map>
 #ifdef _MSC_VER
 #define SPACES_NOINLINE_PRE _declspec(noinline)
 #define SPACES_NOINLINE_
@@ -28,30 +29,13 @@ namespace spaces {
 	};
 	class astring {
 	private:
-		static const i4 SS = 256;
-		ui4 l;
-		i1 sequence[sizeof(std::vector<char>)];
-		std::vector<char> & make_long() {
-			new (sequence) std::vector<char>();
-			l = SS;
-			return (std::vector<char>&)sequence;
-		}
+		nst::u16 l;
+		i1 sequence[22];
 
-		std::vector<char>&str() {
-			return (std::vector<char>&)sequence;
-		}
-		const std::vector<char> &str() const {
-			return (std::vector<char>&)sequence;
-		}
 		void resize(ui4 l, const char * data) {
-			if (l >= sizeof(sequence)) {
-				std::vector<char> &s = make_long();
-				s.resize(l);
-				memcpy(&s[0], data, l);
-				return;
-			}
-			this->l = l;
-			memcpy(sequence, data, l);
+
+			this->l = std::min<ui4>(l,sizeof(std::vector<char>));
+			memcpy(sequence, data, this->l);
 
 		}
 		SPACES_NOINLINE_PRE /// assume the comparison of long strings will happen less often 
@@ -75,25 +59,16 @@ namespace spaces {
 			return r;
 		}
 	public:
+		MSGPACK_DEFINE_ARRAY(l,sequence)
 		size_t hash() const{
 			return fnv_1a_bytes(decoded(),size());
 		}
 		void clear() {
-			if (is_long()) {
-				str().clear();
-			}
-			else {
-				l = 0;
-			}
+			l = 0;
 		}
-		bool is_long() const {
-			return l == SS;
-		}
+
 		void resize(ui4 l) {
-			if (l >= sizeof(sequence)) {
-				make_long().resize(l);					
-				return;
-			}			
+
 			this->l = l;
 		}		
 		void set_data(const char * data,i4 l) {
@@ -104,37 +79,28 @@ namespace spaces {
             resize(data.size(),(const char*)data.data());
         }
 		i4 size() const {
-			return l == SS ? (i4)(str().size()) : 
-				l;
+			return l;
 		}
 		const char *data() const {
-			return l == SS ? str().data() : 
-				sequence;
+			return sequence;
 		}
 		const char *c_str() const {
-			return l == SS ? str().data() :
-				sequence;
+			return sequence;
 		}
 		char *writable(){
-			return l == SS ? &str()[0] : 
-				sequence;
+			return sequence;
 		}
 		const unsigned char *decoded() const {
 			return (const unsigned char *)data();
 		}
 		const char *readable() const {
-			return l == SS ? &str()[0] :
-				   sequence;
+			return sequence;
 		}
 		
 		i4 compare(const astring& right) const {
 			i4 r = 0;
-			if (right.l != SS && l != SS) {
-				r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));				
-			}
-			else {
-				r = compare_data_long(right);
-			}
+
+			r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));
 			if (r == 0) {
 				return l - right.l;
 			}
@@ -146,19 +112,10 @@ namespace spaces {
 		astring(const astring& right) : l(0) {
 			*this = right;
 		}
-		~astring() {
-			if (is_long()) {
-			    typedef std::vector<char> vchar;
-				str().~vchar();
-			}
-		}
+
 		astring& operator=(const astring& right) {
-			if (!right.is_long()) {
-				set_data(right.sequence, right.l);
-			}
-			else {
-				set_data(right.data(), right.size());
-			}
+			set_data(right.data(), right.size());
+
 			return *this;
 		}
 		astring& operator=(const std::string& right) {
@@ -174,6 +131,7 @@ namespace spaces {
 		astring sequence;
 
 	public:
+		MSGPACK_DEFINE_ARRAY(type,sequence)
 		data(const data&r)
 		: 	sequence(r.sequence)
 		, 	type(r.type){
@@ -393,6 +351,7 @@ namespace spaces {
 		data name;
 	
 	public:
+		MSGPACK_DEFINE_ARRAY(context,name)
 		static const bool use_encoding = true;
 		key(const key&r) : context(r.context), name(r.name){
 
@@ -405,13 +364,14 @@ namespace spaces {
 			context = r.context;			
 			return *this;
 		}
-		~key() {
 
-		}
 		bool operator != (const key&r) const {
 			if (context != r.context) return true;
 			if (name != r.name) return true;
 			return false;
+		}
+		bool operator == (const key&r) const {
+			return !(*this != r);
 		}
 		bool operator < (const key&r) const {
 			if (context != r.context) return context < r.context;			
@@ -494,6 +454,7 @@ namespace spaces {
 		data value;
 
 	public:
+		MSGPACK_DEFINE_ARRAY(identity,value)
 		static const bool use_encoding = true;
 		record(const record&r) {
 			*this = r;
@@ -508,9 +469,7 @@ namespace spaces {
 
 			return *this;
 		}
-		~record() {
 
-		}
 		ui8 get_identity() const {
 			return this->identity;
 		}
@@ -571,6 +530,22 @@ namespace spaces {
 
 	};
 	typedef std::pair<key, record> space;
+}
+namespace rabbit{
+	template<>
+	struct rabbit_hash<spaces::key>{
+		size_t operator()(const spaces::key& k) const{
+			return k.hash(); ///
+		};
+	};
+}
+namespace std{
+	template<>
+	struct hash<spaces::key>{
+		size_t operator()(const spaces::key& k) const{
+			return k.hash(); ///
+		};
+	};
 }
 namespace stx{
 	template<>

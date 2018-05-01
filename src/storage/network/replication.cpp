@@ -40,7 +40,7 @@ namespace spaces{
 
         });
 
-        srv.bind("get", [&storage](nst::u64 address) {
+        srv.bind("get", [&storage](nst::u64 address)->std::tuple<bool,nst::version_type,nst::buffer_type> {
             dbg_print("get(%lld)", (nst::fi64)address);
             auto result = std::make_tuple(false,nst::version_type(),nst::buffer_type());
             if(storage==nullptr) {
@@ -60,7 +60,7 @@ namespace spaces{
             dbg_print("get return version(%s)", nst::tostring(std::get<1>(result)));
             return result;
         });
-        srv.bind("is_latest", [&storage](const nst::version_type& version, nst::buffer_type& data, nst::u64 address) {
+        srv.bind("is_latest", [&storage](const nst::version_type& version, nst::buffer_type& data, nst::u64 address)->bool {
             dbg_print("is_latest(%lld,%s)", (nst::fi64)address, nst::tostring(version));
             if(storage==nullptr){
                 return false;
@@ -72,7 +72,7 @@ namespace spaces{
 
 
         });
-        srv.bind("store", [&storage](nst::u64 address, const nst::buffer_type& data) {
+        srv.bind("store", [&storage](nst::u64 address, const nst::buffer_type& data)->bool {
             dbg_print("store(%lld,%lld)", (nst::fi64)address, (nst::fi64)data.size() );
             if(storage==nullptr){
                 dbg_print("store() storage not set");
@@ -89,7 +89,7 @@ namespace spaces{
             dbg_print("complete store(%lld,%lld)", (nst::fi64)address, (nst::fi64)data.size() );
             return true;
         });
-        srv.bind("begin", [&storage](bool write) {
+        srv.bind("begin", [&storage](bool write)->bool {
             dbg_print("begin(%lld)", (nst::fi64)write);
             if(storage==nullptr) {
                 err_print("storage not available to start transaction");
@@ -108,7 +108,7 @@ namespace spaces{
             return false;
 
         });
-        srv.bind("beginVersion", [&storage](bool write,const nst::version_type& version,const nst::version_type& last_version) {
+        srv.bind("beginVersion", [&storage](bool write,const nst::version_type& version,const nst::version_type& last_version)->bool {
             dbg_print("beginVersion(%lld,%s,%s)", (nst::fi64)write, nst::tostring(version), nst::tostring(last_version));
 
             if(storage==nullptr) {
@@ -128,7 +128,7 @@ namespace spaces{
             return false;
 
         });
-        srv.bind("commit", [&storage]() {
+        srv.bind("commit", [&storage]()->bool {
             dbg_print("commit()");
             if(storage==nullptr) {
                 err_print("storage not available to commit transaction");
@@ -166,7 +166,7 @@ namespace spaces{
             return storage->get_max_block_address();
 
         });
-        srv.bind("contains", [&storage](nst::u64 address) {
+        srv.bind("contains", [&storage](nst::u64 address)->bool {
             dbg_print("contains(%lld)", (nst::fi64)address);
             if(storage==nullptr) {
                 err_print("storage not available to verify address");
@@ -182,6 +182,7 @@ namespace spaces{
         });
         inf_print("spaces server listening on port %lld", (nst::fi64)this->port);
         srv.run();
+
     }
     block_replication_server::~block_replication_server(){
 
@@ -311,6 +312,71 @@ namespace spaces{
     }
     repl_client_ptr create_client(const std::string& address, nst::u16 port){
         return std::make_shared<block_replication_client>(address,port);
+    }
+
+    /**
+     *
+     * transaction change notification - to more effectively distribute state
+     */
+
+    /// send changes to observer nodes to invalidate their storage cache
+    block_replication_notifier::block_replication_notifier(const std::string& name, const std::string &ip, nst::u32 port){
+        this->name = name;
+        this->remote = std::make_shared<rpc::client>(this->address, port);
+
+    }
+    bool block_replication_notifier::open(){
+        if(this->remote == nullptr) return false;
+        return this->remote->call("open", nst::create_version(), name).as<bool>();
+    }
+    bool block_replication_notifier::notify_change(const nst::resource_descriptors& descriptors){
+        if(this->remote == nullptr) return false;
+        return this->remote->call("notify_change", descriptors).as<bool>();
+    }
+    block_replication_notifier::~block_replication_notifier(){
+
+    }
+
+    /// create a client
+    extern notifier_ptr create_notifier(const std::string &name, const std::string &ip, nst::u32 port){
+        return std::make_shared<block_replication_notifier>(name,ip,port);
+    }
+
+    /// observer of changes to from nodes to invalidate their storage cache
+    block_replication_observer_server::block_replication_observer_server(const std::string& n, const std::string &ip, nst::u32 port){
+        dbg_print("starting block replication observer [%s] %s:%lld",n.c_str(),ip.c_str(),(nst::fi64) port);
+        std::string name = n;
+        nst::version_type start_version;
+        srv = std::make_shared<rpc::server>(port);
+        srv->bind("open", [&name,&start_version](const nst::version_type& in_start_version,const std::string& nn) {
+
+            nst::version_type sv = nst::create_version();
+            if(in_start_version < sv && nn == name){
+                start_version = in_start_version;
+                dbg_print("open observer %s [%s] OK",nst::tostring(in_start_version),nn.c_str());
+                return true;
+            }else{
+                wrn_print("open observer %s [%s] FAIL",nst::tostring(in_start_version),nn.c_str());
+            }
+            return false;
+
+        });
+        srv->bind("notify_change", [&name,&start_version](const nst::resource_descriptors& descriptors) {
+            stored::get_abstracted_storage(name)->notify_changes(descriptors);
+            return true;
+
+        });
+        srv->async_run(2);
+    }
+    block_replication_observer_server::~block_replication_observer_server(){
+
+    }
+
+    /// start the observer server in a new thread
+    /// this will notify the name storage of any changes
+    /// to remote storages its replicating too
+    void observe(const std::string& name, const std::string& ip, nst::u32 port){
+
     }
 }
 #undef __LOG_NAME__

@@ -18,11 +18,17 @@ namespace spaces{
         void run();
         ~block_replication_server();
     };
+
+    typedef std::shared_ptr<rpc::client> client_ptr;
+    /// block replication client for distributed consistent transactions
+    /// it is based on the RAFT algorithm and synchronizes state using
+    /// absolute time ordering
+    ///
     class block_replication_client{
     private:
         std::string address;
         nst::u16 port;
-        typedef std::shared_ptr<rpc::client> client_ptr;
+
         client_ptr remote;
     public:
         block_replication_client(const std::string& address, nst::u16 port);
@@ -30,19 +36,41 @@ namespace spaces{
         void set_address(const std::string& address);
         const char * get_address() const ;
         nst::fi64 get_port() const ;
+        /// check if the connection is open. if the connection is open the return time
+        /// of the server is compared with the local time - if the returned time is less
+        /// than the initial time or larger that the current time false is returned
         bool is_open() const ;
+        /// DEPRECATED: start a transaction using local versions only -- should really not be used
         bool begin(bool is_write);
+        /// start a transaction given a version and previous version for correlation
         bool begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version);
-
+        /// commit the current transaction returns false if a transaction was not started or
+        /// newer versions of the blocks/resources written already exists
         bool commit();
+        /// reverse the current transaction - will not error if no transaction was started
         void rollback();
+        /// open a connection whilst performing version control handshake
+        /// the handshake will transamit and receive versions of all
+        /// late resources as will as a time check as in the is_open method
         void open(bool is_new,const std::string& name);
+        /// store a block - returns false if no transaction was started or a newer version
+        /// already exists
         bool store(nst::u64 address, const nst::buffer_type& data);
+        /// retrieve a block where the first member of the tuple indicates success
+        ///
         std::tuple<bool, nst::version_type, nst::buffer_type> get(nst::u64 address);
+        /// returns true if the version and address combination is not less than the
+        /// combination on the server
         bool is_latest(const nst::version_type& version, nst::u64 address);
+        /// returns true if the resource exist
         bool contains(nst::u64 address);
+        /// close the connection rolling back any changes in transaction - this is the opposite
+        /// of the locally stored mvcc behaviour which commits open transactions
         void close();
+        /// return the largest known block address without consulting the current writing
+        /// transaction
         nst::u64 max_block_address() const;
+        /// closes connection gracefully rolling back and releases local resources
         ~block_replication_client();
     };
 
@@ -50,7 +78,59 @@ namespace spaces{
 
     typedef std::vector<repl_client_ptr> replication_clients;
     extern repl_client_ptr create_client(const std::string& address, nst::u16 port);
+    /*
+     * The observer client - which sends change notifications to a server
+     * */
+    /// send changes to observer nodes to invalidate their storage cache
+    class block_replication_notifier{
+    private:
+        std::string address;
+        std::string name;
+        nst::u16 port;
+        client_ptr remote;
+    public:
+        block_replication_notifier(const std::string& name, const std::string &ip, nst::u32 port);
+        bool open();
+        bool notify_change(const nst::resource_descriptors& descriptors);
+        ~block_replication_notifier();
+    };
+    typedef std::shared_ptr<spaces::block_replication_notifier> notifier_ptr;
+    typedef std::vector<notifier_ptr> notifier_ptrs;
+    ///
+    static bool notify_change(const notifier_ptrs& notified, const nst::resource_descriptors& resources){
+        nst::u32 count = 0;
+        for(auto r = notified.begin(); r != notified.end(); ++r){
+            if((*r)->notify_change(resources)){
+                ++count;
+            }
+        }
+        if(count < notified.size() / 2){ /// at least half must succeed (democratic)
+            wrn_print("too few replicants could find the data %lld of %lld",(nst::fi64)count ,(nst::fi64)notified.size());
+            return false;
+        }else{
+            return true;
+        }
+    }
+    /// create a client
+    extern notifier_ptr create_notfier(const std::string &name, const std::string &ip, nst::u32 port);
+    typedef std::shared_ptr<rpc::server> rpc_server_ptr;
+    /// observer of changes to from nodes to invalidate their storage cache
+    class block_replication_observer_server{
+    private:
+        rpc_server_ptr srv; // listen on TCP port
+    public:
+        block_replication_observer_server(const std::string& name, const std::string &ip, nst::u32 port);
+        ~block_replication_observer_server();
+    };
+    /// start the observer server in a new thread
+    /// this will notify the name storage of any changes
+    /// to remote storages its replicating too
+    extern void observe(const std::string& name, const std::string& ip, nst::u32 port);
 
+    /*
+     * replication control strategy based on RAFT
+     *
+     */
     class replication_control{
     private:
         std::string name;
@@ -293,11 +373,12 @@ namespace spaces{
                 return result;
             }
         }
+
+
         bool contains(nst::u64 what){
             if(replicated.empty()) return false;
             if(!check_open_replicants(replicated))
                 return false;
-            spaces::replication_clients ok;
             nst::u32 count = 0;
             for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 if((*r)->is_open()){
@@ -307,7 +388,7 @@ namespace spaces{
                 }
             }
             if(count < replicated.size() / 2){ /// at least half must succeed (democratic)
-                wrn_print("too few replicants could find the data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
+                wrn_print("too few replicants could find the data %lld of %lld",(nst::fi64)count ,(nst::fi64)replicated.size());
                 return false;
             }else{
                 return true;

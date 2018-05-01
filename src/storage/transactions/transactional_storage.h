@@ -70,7 +70,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #define __LOG_NAME__ "TXS"
 
 namespace nst = stx::storage;
-inline Poco::UUID create_version(){
+inline nst::version_type create_version(){
 	return Poco::UUIDGenerator::defaultGenerator().create();
 }
 
@@ -107,6 +107,7 @@ namespace storage{
 	extern Poco::UInt64 last_flush_time;		/// last time it released memory to disk
 	extern std::string data_directory;			/// the data directory that can be configured
 	extern std::string remote;
+
 	/// defines a concurrently accessable transactional storage providing ACID properties
 	/// This class should be extended to provide encoding services for a b-tree or other
 	/// storage oriented data structures
@@ -1102,6 +1103,33 @@ namespace storage{
 		void set_version(version_type version){
 			(*this).version = version;
 		}
+		nst::resource_descriptors get_modified_descriptors() const {
+			nst::resource_descriptors descriptors;
+			for(typename _Allocations::iterator a = allocations.begin(); a!=allocations.end(); ++a){
+				if((*a).second->is_modified()){
+					auto descriptor = std::make_pair((*a).first,(*a).second->get_version());
+					descriptors.push_back(descriptor);
+				}
+			}
+			return descriptors;
+		}
+		/// release stale resources states as indicated by resources
+		void release_stale_resource_states(const nst::resource_descriptors& resources){
+			for(auto r = resources.begin(); r!=resources.end(); ++r){
+				auto a = allocations.find((*r).first);
+				if(a != allocations.end()){
+
+					if(a->second && a->second->get_version() != r->second){
+
+						if(!a->second->is_modified()){
+							dbg_print("release stale resource %lld [%s]",(nst::fi64)a->first,std::to_string(a->second->get_version()));
+							recycle_block(a->first,a->second);
+						}
+
+					}
+				}
+			}
+		}
 		/// get the list of addresses stored
 
 		void get_addresses(_Allocations& out){
@@ -1846,7 +1874,7 @@ namespace storage{
 		storage_allocator_type_ptr allocations;	/// the storage for this version
 		version_based_allocator_ptr based;		/// the version on which this storage is base
 		version_based_allocator_ref last_base;
-		version_type version;								/// the version number
+		version_type version;					/// the version number
 		version_type allocated_version;
 		u64 readers;
 		u64 order;
@@ -1919,6 +1947,13 @@ namespace storage{
 		/// move the allocations from this
 		void move(version_based_allocator_ref dest){
 			get_allocator().move(dest->get_allocator());
+		}
+		nst::resource_descriptors get_modified_descriptors() const {
+			return get_allocator().get_modified_descriptors();
+		}
+		/// notify allocator of changed or added resources
+		void release_stale_resource_states(const nst::resource_descriptors& resources){
+			get_allocator().release_stale_resource_states(resources);
 		}
 		/// replicate data to remote
 		void replicate(const spaces::repl_client_ptr &dest){
@@ -2399,7 +2434,9 @@ namespace storage{
 											/// the single writing transaction
 		Poco::FastMutex w_lock;				/// the write lock for single writing transaction
 
-		bool local_writes;						/// do not write anything
+		bool local_writes;					/// do not write anything
+
+		spaces::notifier_ptrs notifiers;
 
 	private:
 
@@ -2986,6 +3023,12 @@ namespace storage{
 				if(storages.empty()){
 					throw WriterConsistencyViolation();
 				}
+				/// get all the written resources currently cached
+				nst::resource_descriptors write_resources = version->get_modified_descriptors();
+				/// and notify all the replication peers of changes
+				if(!spaces::notify_change(this->notifiers,write_resources)){
+					throw ReplicationFailure();
+				}
 
 				dbg_print("move transaction %s on %s",nst::tostring(transaction->get_version()),this->get_name().c_str());
 				last_comitted_version = transaction->get_version();
@@ -3016,6 +3059,17 @@ namespace storage{
 
 		void rollback(version_storage_type* transaction){
 			this->discard(transaction);
+		}
+		/// remove any changed resources from the internal caches here
+		void notify_changes(const nst::resource_descriptors& descriptors){
+			release_stale_resource_states(descriptors);
+		}
+		/// release the stale resource states located in caches
+		void release_stale_resource_states(const nst::resource_descriptors& resources){
+			dbg_print("received change notification [%s]",std::to_string(resources));
+			for(auto s = storages.begin(); s!=storages.end();++s){
+				(*s)->release_stale_resource_states(resources);
+			}
 		}
 		/// discard a new version similar to rollback
 		void discard(version_storage_type* transaction){

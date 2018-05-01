@@ -1,3 +1,4 @@
+jit.off()
 require "packages"
 require "spaces"
 spaces.storage("test")
@@ -54,7 +55,7 @@ if data == nil then
 	data = s.data
 end
 if data == nil then
-	exit(1)
+
 end
 print("data: ", data)
 print("current object count",#data)
@@ -84,7 +85,7 @@ if #data == 0 or #data < u then
 			td=os.clock()
 		end
 
-		data[ss] = i*2;
+		data[ss] = math.random(1, 3e4);
 		--spaces.commit()
 
 	end
@@ -103,20 +104,21 @@ for rr = 1,2 do
 	t = os.clock()
 	td = t
 	if tdata ~= nil then
+		local lt = 0
+		local mt = 0
 		for k,v in ipairs(tdata) do
 			cnt = cnt + 1
 			local dv = data[v]
-
 			if  dv == nil then
-				print("broken keys ",k,v)
-				error("key error",k,v)
-
+				mt = mt + 1
+			else
+				lt = lt +1
 			end
 
 		end
 		local dt = os.clock()-t;
 		local ops = math.floor(cnt/dt)
-		print("end st random read",dt,ops.." keys/s")
+		print("end st random read",dt,ops.." keys/s",lt,mt)
 	end
 end
 cnt = 0
@@ -125,7 +127,7 @@ local last = ""
 for k,v in pairs(data) do
 	cnt = cnt + 1
 	if k < last then
-		error("order error")
+		--error("order error")
 	end
 	last = k
 end
