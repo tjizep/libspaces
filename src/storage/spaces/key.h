@@ -29,13 +29,30 @@ namespace spaces {
 	};
 	class astring {
 	private:
-		nst::u16 l;
-		i1 sequence[22];
+		static const i4 SS = 256;
+		ui4 l;
+		i1 sequence[sizeof(std::vector<char>)];
+		std::vector<char> & make_long() {
+			new (sequence) std::vector<char>();
+			l = SS;
+			return (std::vector<char>&)sequence;
+		}
 
+		std::vector<char>&str() {
+			return (std::vector<char>&)sequence;
+		}
+		const std::vector<char> &str() const {
+			return (std::vector<char>&)sequence;
+		}
 		void resize(ui4 l, const char * data) {
-
-			this->l = std::min<ui4>(l,sizeof(std::vector<char>));
-			memcpy(sequence, data, this->l);
+			if (l >= sizeof(sequence)) {
+				std::vector<char> &s = make_long();
+				s.resize(l);
+				memcpy(&s[0], data, l);
+				return;
+			}
+			this->l = l;
+			memcpy(sequence, data, l);
 
 		}
 		SPACES_NOINLINE_PRE /// assume the comparison of long strings will happen less often 
@@ -64,11 +81,21 @@ namespace spaces {
 			return fnv_1a_bytes(decoded(),size());
 		}
 		void clear() {
-			l = 0;
+			if (is_long()) {
+				str().clear();
+			}
+			else {
+				l = 0;
+			}
 		}
-
+		bool is_long() const {
+			return l == SS;
+		}
 		void resize(ui4 l) {
-
+			if (l >= sizeof(sequence)) {
+				make_long().resize(l);
+				return;
+			}
 			this->l = l;
 		}		
 		void set_data(const char * data,i4 l) {
@@ -79,28 +106,37 @@ namespace spaces {
             resize(data.size(),(const char*)data.data());
         }
 		i4 size() const {
-			return l;
+			return l == SS ? (i4)(str().size()) :
+				l;
 		}
 		const char *data() const {
-			return sequence;
+			return l == SS ? str().data() :
+				sequence;
 		}
 		const char *c_str() const {
-			return sequence;
+			return l == SS ? str().data() :
+				sequence;
 		}
 		char *writable(){
-			return sequence;
+			return l == SS ? &str()[0] :
+				sequence;
 		}
 		const unsigned char *decoded() const {
 			return (const unsigned char *)data();
 		}
 		const char *readable() const {
-			return sequence;
+			return l == SS ? &str()[0] :
+				   sequence;
 		}
 		
 		i4 compare(const astring& right) const {
 			i4 r = 0;
-
-			r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));
+			if (right.l != SS && l != SS) {
+				r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));
+			}
+			else {
+				r = compare_data_long(right);
+			}
 			if (r == 0) {
 				return l - right.l;
 			}
@@ -112,10 +148,19 @@ namespace spaces {
 		astring(const astring& right) : l(0) {
 			*this = right;
 		}
-
+		~astring() {
+			if (is_long()) {
+			    typedef std::vector<char> vchar;
+				str().~vchar();
+			}
+		}
 		astring& operator=(const astring& right) {
-			set_data(right.data(), right.size());
-
+			if (!right.is_long()) {
+				set_data(right.sequence, right.l);
+			}
+			else {
+				set_data(right.data(), right.size());
+			}
 			return *this;
 		}
 		astring& operator=(const std::string& right) {

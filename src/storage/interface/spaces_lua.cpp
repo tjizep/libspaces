@@ -237,8 +237,8 @@ static int spaces_newindex(lua_State *L) {
 	s->to_space(k, 3);
 
 
-	
-	s->insert_or_replace(k);
+	if(!lua_isnil(L,3))
+		s->insert_or_replace(k);
 
 	
 	return 0;

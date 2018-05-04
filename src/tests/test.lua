@@ -1,4 +1,3 @@
-jit.off()
 require "packages"
 require "spaces"
 spaces.storage("test")

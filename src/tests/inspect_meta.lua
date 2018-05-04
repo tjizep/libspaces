@@ -102,28 +102,21 @@ end
 -- For implementation reasons, the behavior of rawlen & # is "undefined" when
 -- tables aren't pure sequences. So we implement our own # operator.
 local function getSequenceLength(t)
-    local len = #t --1
-    return len
---[[
-    local v = rawget(t,len)
-    while v ~= nil do
-        len = len + 1
-        v = rawget(t,len)
-    end
-    return len - 1
-    ]]
+    local len = #t
+    return len -1
 end
 
 local function getNonSequentialKeys(t)
     local keys, keysLength = {}, 0
     local sequenceLength = getSequenceLength(t)
-    for k,_ in rawpairs(t) do
-        if not isSequenceKey(k, sequenceLength) then
+    for k,_ in pairs(t) do
+        --if not isSequenceKey(k, sequenceLength) then
             keysLength = keysLength + 1
             keys[keysLength] = k
-        end
+        --end
     end
-    table.sort(keys, sortKeys)
+    --table.sort(keys, sortKeys)
+
     return keys, keysLength, sequenceLength
 end
 
@@ -133,7 +126,7 @@ local function countTableAppearances(t, tableAppearances)
     if type(t) == 'table' then
         if not tableAppearances[t] then
             tableAppearances[t] = 1
-            for k,v in rawpairs(t) do
+            for k,v in pairs(t) do
                 countTableAppearances(k, tableAppearances)
                 countTableAppearances(v, tableAppearances)
             end
@@ -171,7 +164,7 @@ local function processRecursive(process, item, path, visited)
         visited[item] = processedCopy
         local processedKey
 
-        for k,v in rawpairs(processed) do
+        for k,v in pairs(processed) do
             processedKey = processRecursive(process, k, makePath(path, k, inspect.KEY), visited)
             if processedKey ~= nil then
                 processedCopy[processedKey] = processRecursive(process, v, makePath(path, processedKey), visited)
@@ -251,13 +244,14 @@ function Inspector:putTable(t)
         self:puts('{')
         self:down(function()
             local count = 0
+           --[[
             for i=1, sequenceLength do
                 if count > 0 then self:puts(',') end
                 self:puts(' ')
                 self:putValue(t[i])
                 count = count + 1
             end
-
+            ]]
             for i=1, nonSequentialKeysLength do
                 local k = nonSequentialKeys[i]
                 if count > 0 then self:puts(',') end

@@ -80,8 +80,6 @@ namespace spaces{
 		void commit() {
 
 			if (this->storage.is_transacted()){
-				dbg_print("commit flush %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
-				set.flush_buffers();
 
 				try{
 					if(this->is_reader){
@@ -94,6 +92,7 @@ namespace spaces{
 							start_id = id;
 						}
 						dbg_print("commit final %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
+						this->set.flush_buffers();
 						this->storage.commit();
 						if(this->storage.is_local_writes()){
 							dbg_print("commit synch. to io %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
