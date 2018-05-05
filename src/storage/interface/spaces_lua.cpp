@@ -61,12 +61,11 @@ static int l_space_observe(lua_State* L){
 			const char *ip = lua_tostring(L, 1);
 			nst::u16 port = lua_tointeger(L, 2);
 
-			//stored::get_abstracted_storage(STORAGE_NAME)->set_observer(ip,port);
+			stored::get_abstracted_storage(STORAGE_NAME)->get_replication_control()->set_observer(ip,port);
 		}
 	}catch(std::exception& e){
-		luaL_error(L,"could not set local writes: %s",e.what());
+		luaL_error(L,"could not set observer: %s",e.what());
 	}
-	return 0;
 	return 0;
 }
 static int l_replicate_space(lua_State *L) {

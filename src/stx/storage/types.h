@@ -131,10 +131,11 @@ namespace std {
 		static std::string result;
 		result = "[";
 		for(auto vi = v.begin(); vi != v.end(); ++vi){
-			result += std::to_string((*vi));
 			if(vi != v.begin()){
-				result += ", ";
+				result += ",";
 			}
+			result += std::to_string((*vi));
+
 		}
 		result += "]";
 		return result.c_str();

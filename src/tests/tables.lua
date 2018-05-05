@@ -51,10 +51,10 @@ s.link = s.data
 for k,v in pairs(s.data.family) do
 	print(k)
 end
-print(inspect(s.data))
+print("original=",inspect(s.data))
 s.data = nil
 
---print(inspect(s.data))
+print("linked=",inspect(s.link))
 
 --print(inspect(s))
 spaces.rollback()

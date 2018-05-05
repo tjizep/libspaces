@@ -1,13 +1,9 @@
 require "packages"
 require "spaces"
 local inspect = require('inspect_meta')
-
 local jp = require('jsonpath')
 spaces.storage("jsonp") -- puts data in the jsonp subdirectory
-
 local s = spaces.open(); -- starts a transaction automatically
-
-
 
 if s.cities==nil then
     local cities = {
@@ -57,12 +53,22 @@ if s.cities==nil then
 else
     print("data from storage")
 end
-
-names = jp.query(s.cities, '$..name')
-print(inspect(names))
-
+-- names of cities
+local names = jp.query(s.cities, '$..name')
+print("city names",inspect(names))
+-- The price of everything in the store
+local prices = jp.query(s.stores,'$.store..price')
+print("prices",inspect(prices))
+-- authors of books
 local authors = jp.query(s.stores,'$.store.book[*].author')
-print(inspect(authors))
+print("authors",inspect(authors))
+-- cheap fiction books
+local cheapFiction = jp.query(s.stores,'$..book[?(@.price<10 && @.category=="fiction")]')
+print("cheapFiction",inspect(cheapFiction))
+-- mid price fiction books titles
+local medFiction= jp.query(s.stores,'$..book[?(@.price>=10 && @.price<300 && @.category=="fiction")]')
+print("medFiction",inspect(medFiction))
+-- cheap non fiction books
+local cheapNonFiction = jp.query(s.stores,'$.store.book[?(@.price<10 && @.category!="fiction")]')
+print("cheapNonFiction",inspect(cheapNonFiction))
 
-local cheap = jp.query(s.stores,'$..book[?(@.price<30 && @.category=="fiction")]')
-print(inspect(cheap))

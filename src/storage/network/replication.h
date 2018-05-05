@@ -28,7 +28,7 @@ namespace spaces{
     private:
         std::string address;
         nst::u16 port;
-
+        std::string name;
         client_ptr remote;
     public:
         block_replication_client(const std::string& address, nst::u16 port);
@@ -52,7 +52,10 @@ namespace spaces{
         /// open a connection whilst performing version control handshake
         /// the handshake will transamit and receive versions of all
         /// late resources as will as a time check as in the is_open method
+        /// it also adds an optional observer ip and port combination
         void open(bool is_new,const std::string& name);
+        /// set an observer
+        bool set_observer(const std::string &oip, nst::u32 oport);
         /// store a block - returns false if no transaction was started or a newer version
         /// already exists
         bool store(nst::u64 address, const nst::buffer_type& data);
@@ -112,20 +115,23 @@ namespace spaces{
         }
     }
     /// create a client
-    extern notifier_ptr create_notfier(const std::string &name, const std::string &ip, nst::u32 port);
+    extern notifier_ptr create_notifier(const std::string &name, const std::string &ip, nst::u32 port);
     typedef std::shared_ptr<rpc::server> rpc_server_ptr;
     /// observer of changes to from nodes to invalidate their storage cache
     class block_replication_observer_server{
     private:
         rpc_server_ptr srv; // listen on TCP port
+        nst::version_type start_version;
     public:
         block_replication_observer_server(const std::string& name, const std::string &ip, nst::u32 port);
         ~block_replication_observer_server();
     };
-    /// start the observer server in a new thread
+    typedef std::shared_ptr<block_replication_observer_server> observer_server_ptr;
+    /// start the observer server running on worker threads
+    /// and return it to the caller
     /// this will notify the name storage of any changes
     /// to remote storages its replicating too
-    extern void observe(const std::string& name, const std::string& ip, nst::u32 port);
+    extern observer_server_ptr observe(const std::string& name, const std::string& ip, nst::u32 port);
 
     /*
      * replication control strategy based on RAFT
@@ -137,8 +143,19 @@ namespace spaces{
         replication_clients replicated;
         std::map<nst::version_type, nst::u32> version_count;
         std::map<nst::version_type, nst::buffer_type> version_data;
+        std::string observer_ip;
+        nst::u32 observer_port;
 
+        spaces::observer_server_ptr observer;
+        /// the observer server that will receive change notifications
     public:
+        void set_observer(const std::string &ip, nst::u32 port){
+            this->observer_ip = ip;
+            this->observer_port = port;
+            observer = observe(this->get_name(),ip,port);
+            this->close();
+
+        }
         void add_replicant(const std::string &address, nst::u16 port){
             replicated.push_back(spaces::create_client(address,port));
         }
@@ -148,12 +165,29 @@ namespace spaces{
         replication_control(const std::string& name) : name(name){
 
         }
+        void close(){
+            for(auto r = replicated.begin(); r != replicated.end(); ++r){
+                try{
+                    if((*r)->is_open()){
+                        (*r)->close();
+                    }
+
+                }catch(std::exception& e){
+                    dbg_print("could not close a replicant %s: %s:%lld",e.what(),(*r)->get_address(), (*r)->get_port());
+                }
+
+            }
+        }
+
         bool check_open_replicants(const replication_clients& replicated) const {
             nst::i32 opened = 0;
             for(auto r = replicated.begin(); r != replicated.end(); ++r){
                 try{
                     if(!(*r)->is_open()){
                         (*r)->open(false,this->get_name());
+                        if(this->observer != nullptr){
+                            (*r)->set_observer(this->observer_ip,this->observer_port);
+                        }
                     }
                     ++opened;
                 }catch(std::exception& e){
@@ -215,11 +249,7 @@ namespace spaces{
                     }catch(std::exception& e){
                         dbg_print("error replicating transaction %s", e.what());
                     }
-
-
                 }
-
-
             }
             if(ok.size() < replicated.size() / 2){ /// at least half must succeed (democratic)
                 wrn_print("too few replicants could replicate their data %lld of %lld",(nst::fi64)ok.size() ,(nst::fi64)replicated.size());
@@ -275,7 +305,7 @@ namespace spaces{
             }
             /// read from youngest to oldest version - use the first one (resource) that
             /// is contained by at least half the nodes - it should usually not take too long
-            ///
+            ///spaces::o
             for(auto vc = version_count.rbegin(); vc != version_count.rend(); ++vc){
                 if(vc->second >= replicated.size() / 2){
                     version = vc->first;

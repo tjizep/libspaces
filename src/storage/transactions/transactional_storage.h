@@ -2438,6 +2438,7 @@ namespace storage{
 
 		spaces::notifier_ptrs notifiers;
 
+
 	private:
 
 	public:
@@ -2557,7 +2558,7 @@ namespace storage{
 					throw InvalidVersion();
 				};
 
-				/// algorithm error
+				/// algorithm errorstopped
 				//if((*storages.begin()) != initial) {}; ///algorithm error
 
 			}
@@ -2593,6 +2594,8 @@ namespace storage{
 		}
 
 		virtual ~mvcc_coordinator(){
+			dbg_print("Stopping observer %s",this->get_name().c_str());
+			dbg_print("observer finalized");
 			if(references != 0)
 				err_print("non zero references on destruction");
 
@@ -2717,8 +2720,6 @@ namespace storage{
 				(*c)->get_allocator().reduce_perm();
 
 			}
-
-
 		}
 
 		public:
@@ -2855,6 +2856,17 @@ namespace storage{
 			return initial->contains(which);
 		}
 
+		bool add_notifier(const std::string& ip, nst::u32 port){
+			auto n = spaces::create_notifier(this->get_name(),ip,port);
+			if(n!=nullptr){
+				if(n->open()){
+					this->notifiers.push_back(n);
+				}
+
+			}
+
+			return (n!=nullptr);
+		}
 		/// finish a version and commit it to storage, replicated
 		/// the commit is coordinated with other mvcc storages
 		/// via the journal
@@ -2873,7 +2885,7 @@ namespace storage{
 				throw InvalidTransactionType();
 			}
 			if(transaction->get_version() <= last_comitted_version){
-				err_print("the transaction version is less than the last comitted, resetting");
+				err_print("the transaction version is less than the last committed, resetting");
 				last_comitted_version = version_type();
 				throw InvalidVersion();
 			}
