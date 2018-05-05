@@ -1885,6 +1885,7 @@ namespace stx
             }
 
             void erase_d(int slot) {
+                node::context->erase_hash(get_key(slot));
                 for (int i = slot; i < this->get_occupants() - 1; i++)
                 {
                     get_key(i) = get_key(i + 1);
