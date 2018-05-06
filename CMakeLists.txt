@@ -1,17 +1,17 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces VERSION 0.0.1 )
+project(spaces VERSION 0.3.0 )
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 11)
 set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
-#set(LUAJIT_PATH ${LUAJIT_PATH_TMP} CACHE PATH "Path to torch or luajit")
-set(LUAJIT_PATH "~/torch/install" CACHE PATH "Path to torch or luajit")
-#set(LUAJIT_PATH_TMP)
 
-link_directories(${LUAJIT_PATH}/lib ${RPC_LIB_PATH}/build)
+set(LUAJIT_PATH ~/torch/install CACHE PATH "Path to torch or luajit")
+
+
+link_directories(${LUAJIT_PATH}/lib)
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
