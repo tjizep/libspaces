@@ -143,6 +143,7 @@ namespace spaces {
 			return r;		
 		}
 		astring() : l(0){
+            *((nst::u64*)sequence) = 0ull;
 
 		}
 		astring(const astring& right) : l(0) {

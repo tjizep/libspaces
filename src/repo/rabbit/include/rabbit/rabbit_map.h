@@ -671,17 +671,17 @@ namespace rabbit{
 			}
 
 			hash_kernel(const key_compare& compare,const allocator_type& allocator)
-					:	clusters(nullptr), eq_f(compare), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR), allocator(allocator),logarithmic(config.LOGARITHMIC)
+					:	clusters(nullptr), eq_f(compare), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR), allocator(allocator),logarithmic(config.LOGARITHMIC), rand_probes(0)
 			{
 				resize_clear(config.MIN_EXTENT);
 			}
 
-			hash_kernel() : clusters(nullptr), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR),logarithmic(config.LOGARITHMIC)
+			hash_kernel() : clusters(nullptr), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR),logarithmic(config.LOGARITHMIC), rand_probes(0)
 			{
 				resize_clear(config.MIN_EXTENT);
 			}
 
-			hash_kernel(const hash_kernel& right) : clusters(nullptr), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR),logarithmic(config.LOGARITHMIC)
+			hash_kernel(const hash_kernel& right) : clusters(nullptr), mf(1.0f), min_lf(config.DEFAULT_MIN_LOAD_FACTOR),logarithmic(config.LOGARITHMIC), rand_probes(0)
 			{
 				*this = right;
 			}

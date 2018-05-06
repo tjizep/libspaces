@@ -8,10 +8,10 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
 
-set(LUAJIT_PATH ~/torch/install CACHE PATH "Path to torch or luajit")
+set(LUA_PATH ~/torch/install CACHE PATH "Path to torch, lua or luajit")
 
 
-link_directories(${LUAJIT_PATH}/lib)
+link_directories(${LUA_PATH}/lib)
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
@@ -26,7 +26,7 @@ src/repo/lz4-r101
 ${Boost_INCLUDE_DIRS}
 src/repo/rpclib/include
 src/repo/rpclib/dependencies/include
-${LUAJIT_PATH}/include
+${LUA_PATH}/include
 src)
 
 file(GLOB TESTS 
@@ -113,7 +113,7 @@ file(GLOB POCO_DATA_SQLITE
 file(GLOB_RECURSE POCO_DATA_SQLITE_H
 "src/poco-1.4.6p1-all/Data/SQLite/include/*.h")
 
-file(GLOB LUAJIT ${LUAJIT_PATH}/include/*.h)
+file(GLOB LUA ${LUA_PATH}/include/*.h)
 if (WIN32)
     add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack)
 else()
@@ -134,7 +134,7 @@ ${REPO_H}
 ${STX_H}
 ${SPACES} 
 ${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
-#LINK_LIBRARIES( src/repo/rpclib/build/librpc.a )
+
 target_link_libraries(spaces PRIVATE luajit ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})
@@ -145,10 +145,10 @@ source_group("Poco/Data" FILES ${POCO_DATA})
 source_group("Poco/Data/headers" FILES ${POCO_DATA_H})
 source_group("Poco/Data/SQLite" FILES ${POCO_DATA_SQLITE})
 source_group("Poco/Data/SQLite/headers" FILES ${POCO_DATA_SQLITE_H})
-source_group("LuaJIT" FILES ${LUAJIT})
+source_group("Lua" FILES ${LUA})
 source_group("Repo" FILES ${REPO})
 source_group("Repo/headers" FILES ${REPO_H})
 source_group("Tests" FILES ${TESTS})
 source_group("Stx" FILES ${STX_H})
 
-INSTALL_TARGETS(${LUAJIT_PATH}/lib spaces)
+INSTALL_TARGETS(${LUA_PATH}/lib spaces)
