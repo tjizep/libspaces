@@ -219,17 +219,14 @@ static int spaces_equal(lua_State *L) {
 	return 1;
 }
 
-
 static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
     s->set_mode(false); /// must write
     s->begin(); /// will start the writing transaction
 	spaces::space k;
-
 	spaces::space* p = s->get_space(1);
 
-	
 	s->resolve_id(p);
     k.first.set_context(p->second.get_identity());
 	s->to_space_data( k.first.get_name(), 2);
@@ -371,7 +368,29 @@ static int spaces_call_environment(lua_State *L) {
 						return 1;
 					}
 				}
-				else {
+				else {auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+	s->begin(); /// will start a transaction
+	spaces::space* p = s->get_space();// its at stack 1 because the function is called
+	spaces::key f,e ;
+	f.set_context(p->second.get_identity());
+	e.set_context(p->second.get_identity());
+	e.get_name().make_infinity();
+
+	// create the lua iterator
+	lua_iterator_t * pi = s->create_iterator();
+	pi->i = s->get_set().lower_bound(f);
+	pi->e = s->get_set().lower_bound(e);
+
+	// set its metatable
+	luaL_getmetatable(L, SPACES_ITERATOR_LUA_TYPE_NAME);
+	if (lua_isnil(L, -1)) {
+		luaL_error(L, "no meta table of type %s", SPACES_ITERATOR_LUA_TYPE_NAME);
+	}
+	lua_setmetatable(L, -2);
+
+	lua_pushcclosure(L, l_pairs_iter, 1);//i
+	///
+	return 1; // its adding something to the stack
 					return push_key(L, lk, ipValue());
 				}
 			}
@@ -488,31 +507,63 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 	
 	return 0;
 }
-static int spaces___pairs(lua_State* L) {
-	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	s->begin(); /// will start a transaction
-	spaces::space* p = s->get_space();// its at stack 1 because the function is called
+static int push_iterator(lua_State* L, session_t* s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
+
+
 	spaces::key f,e ;
+
 	f.set_context(p->second.get_identity());
 	e.set_context(p->second.get_identity());
-	e.get_name().make_infinity();	
-	
+	f.set_name(lower);
+	e.set_name(upper);
+
 	// create the lua iterator
 	lua_iterator_t * pi = s->create_iterator();
 	pi->i = s->get_set().lower_bound(f);
 	pi->e = s->get_set().lower_bound(e);
 
-	// set its metatable 
+	// set its metatable
 	luaL_getmetatable(L, SPACES_ITERATOR_LUA_TYPE_NAME);
 	if (lua_isnil(L, -1)) {
 		luaL_error(L, "no meta table of type %s", SPACES_ITERATOR_LUA_TYPE_NAME);
 	}
 	lua_setmetatable(L, -2);
-	
+
 	lua_pushcclosure(L, l_pairs_iter, 1);//i
-	/// 
-	return 1; // its adding something to the stack
+	///
+	return 1;
 }
+inline const spaces::data make_inf(){
+	spaces::data inf;
+	inf.make_infinity();
+	return inf;
+}
+static int spaces___pairs(lua_State* L) {
+
+	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+	s->begin(); /// will start a transaction
+	spaces::space* p = s->get_space();// its at stack 1 because the function is called
+	return push_iterator(L, s, p, spaces::data(),make_inf());
+}
+static std::string range = "range";
+static int spaces_call(lua_State *L) {
+	int t = lua_gettop(L);
+
+	int o = (t >= 4) ? 1: 0;
+	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
+	s->begin(); /// will start a transaction
+	spaces::space* p = s->get_space();// its at stack 1 because the function is called
+	spaces::data lower;
+	spaces::data upper = make_inf();
+	if(t >= o + 2)
+		s->to_space_data(lower, o + 2);
+	if(t >= o + 3)
+		s->to_space_data(upper, o + 3);
+	return push_iterator(L, s, p, lower, upper);
+
+
+}
+
 // meta table for spaces
 const struct luaL_Reg spaces_m[] = {
 	{ "__index", spaces_index },
@@ -520,7 +571,7 @@ const struct luaL_Reg spaces_m[] = {
 	{ "__newindex", spaces_newindex },
 	//{ "__tostring", spaces_tostring },
 	{ "__metatable", spaces_metatable },
-	//{ "__call", spaces_call },
+	{ "__call", spaces_call },
 	//{ "__type", spaces_type },
 	//{ "__add",spaces_add },
 	//{ "__sub",spaces_sub },

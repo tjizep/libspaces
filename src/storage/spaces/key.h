@@ -276,7 +276,8 @@ namespace spaces {
 			if (is_text()) {				
 				return sequence.compare(right.sequence);
 			}else {			
-				return (int)(get_number() - right.get_number());
+				if(get_number() < right.get_number()) return -1;
+				if(get_number() > right.get_number()) return 1;
 			}
 			return 0;
 		}
@@ -438,6 +439,9 @@ namespace spaces {
 		data& get_name() {
 			return name;
 		}
+		void set_name(const data& name){
+			this->name = name;
+		}
 		const data& get_name() const{
 			return name;
 		}
@@ -574,7 +578,19 @@ namespace spaces {
 		}
 
 	};
-	typedef std::pair<key, record> space;
+	typedef struct lua_space{
+		lua_space(){
+
+		}
+		lua_space(key k, record r) : first(k),second(r){
+
+		}
+		~lua_space(){
+
+		}
+		key first;
+		record second;
+	} space;
 }
 namespace rabbit{
 	template<>
