@@ -13,16 +13,14 @@ description = {
 dependencies = {}
 
 build = {
-   type = "command",
-   build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA=$(LUA) -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBDIR="$(LUA_LIBDIR)" -DLUADIR="$(LUADIR)" -DLIBDIR="$(LIBDIR)" -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE) -j$(getconf _NPROCESSORS_ONLN)
-]],
-	 platforms = {
-      windows = {
-           build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA=$(LUA) -DLUA_INCDIR=$(LUA_INCDIR) -DLUA_LIBDIR="$(LUA_LIBDIR)" -DLUADIR="$(LUADIR)" -DLIBDIR="$(LIBDIR)" -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
-]]
-      }
-   },
-   install_command = "cd build && $(MAKE) install"
+   type = "cmake",
+   variables={
+     LUA="$(LUA)",
+     LUA_INCDIR="$(LUA_INCDIR)",
+     LUA_LIBDIR="$(LUA_LIBDIR)",
+     LUADIR="$(LUADIR)",
+     LIBDIR="$(LIBDIR)",
+     CMAKE_INSTALL_PREFIX="$(PREFIX)"
+   }
+
 }
