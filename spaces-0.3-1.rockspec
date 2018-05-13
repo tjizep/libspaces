@@ -8,7 +8,7 @@ description = {
    summary = "Lib(eration) spaces is a library and server for transactional graph and key value storage/persistence. ",
    detailed = "Lib(eration) spaces is a library and server for transactional graph and key value storage/persistence. ",
    homepage = "https://github.com/tjizep/libspaces",
-   license = "LGPL 2.1
+   license = "LGPL 2.1"
 }
 dependencies = {}
 
