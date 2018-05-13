@@ -9,10 +9,10 @@ find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
 
 set(LUA_INCLUDE ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
-set(LUA_LIBRARIES ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit")
-
-
-link_directories(${LUA_PATH}/lib)
+set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit shared libaries")
+set(LIBDIR ~/torch/install/lib CACHE PATH "path where installation will occur")
+set(LUA luajit "lua or luajit")
+link_directories(${LUA_LIBDIR} ${LIBDIR})
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
@@ -76,12 +76,12 @@ src/repo/rpclib/lib/rpc/this_session.cc
 src/repo/rpclib/lib/rpc/this_server.cc
 src/repo/rpclib/lib/rpc/rpc_error.cc
 src/repo/rpclib/lib/rpc/detail/server_session.cc
-src/repo/rpclib/lib/rpc/detail/response.cc
+src/repo/rpclib/lib/rpc/detail/response.cclua
 src/repo/rpclib/lib/rpc/detail/client_error.cc
 src/repo/rpclib/lib/rpc/nonstd/optional.cc
 src/repo/rpclib/dependencies/src/format.cc
 src/repo/rpclib/dependencies/src/posix.cc
-)lua
+)
 
 file(GLOB REPO_H
 "src/repo/rabbit/*.h"
@@ -120,7 +120,7 @@ if (WIN32)
 else()
     add_definitions(-DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 endif ()
-lua
+
 
 add_library(spaces SHARED
 ${REPO_RPC_LIB}
@@ -136,7 +136,7 @@ ${STX_H}
 ${SPACES} 
 ${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
 
-target_link_libraries(spaces PRIVATE lua ${Boost_LIBRARIES})
+target_link_libraries(spaces PRIVATE ${LUA} ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})
 source_group("Spaces/headers" FILES ${SPACES_H})
@@ -152,4 +152,4 @@ source_group("Repo/headers" FILES ${REPO_H})
 source_group("Tests" FILES ${TESTS})
 source_group("Stx" FILES ${STX_H})
 
-INSTALL_TARGETS(${LUA_INSTALL} spaces)
+INSTALL_TARGETS(${LIBDIR} spaces)
