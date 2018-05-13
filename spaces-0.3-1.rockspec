@@ -2,7 +2,7 @@ package = "spaces"
 version = "0.3-1"
 source = {
    url = "git://github.com/tjizep/libspaces.git",
-   tag = "v0.3"
+   tag = "v0.3.1"
 }
 description = {
    summary = "Lib(eration) spaces is a library and server for transactional graph and key value storage/persistence. ",

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces VERSION 0.3.0 )
+project(spaces VERSION 0.3.1 )
 
 set(CMAKE_CXX_STANDARD 11)
 set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
