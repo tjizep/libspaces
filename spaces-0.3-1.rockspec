@@ -1,7 +1,7 @@
 package = "spaces"
 version = "0.3-1"
 source = {
-   url = "https://github.com/tjizep/libspaces",
+   url = "git://github.com/tjizep/libspaces.git",
    tag = "v0.3"
 }
 description = {
@@ -11,17 +11,18 @@ description = {
    license = "LGPL 2.1
 }
 dependencies = {}
+
 build = {
-   type = "cmake",
-   variables={
-     LUA_INCLUDE="$(LUA_INCDIR)",
-     LUA_LIBRARIES="$(LUA_LIBDIR)",
-     LUA_INSTALL="$(LIBDIR)"
-   }
-   modules = {
-      ["spaces"] = "libspaces.so"
+   type = "command",
+   build_command = [[
+cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LUALIB)
+]],
+	 platforms = {
+      windows = {
+           build_command = [[
+cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LUALIB) -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
+]]
+      }
    },
-   copy_directories = {
-      "examples", "docs"
-   }
+   install_command = "cd build && $(MAKE) install"
 }

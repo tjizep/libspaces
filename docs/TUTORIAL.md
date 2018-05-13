@@ -44,9 +44,11 @@ This data is not saved yet...
  Printing the population of 'London'...
  
     print(s.cities.London.population)
+ 
  Iterating through all the cities and print their population
     
     for k,v in pairs(s.cities) do
-        print(k, v.population)
+        print(k, s.cities[k].population)
     end
-dd
+
+The code for this tutorial can be found [here](src/examples/tutorial.lua) 

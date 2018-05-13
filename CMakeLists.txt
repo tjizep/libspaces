@@ -8,7 +8,8 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
 
-set(LUA_PATH ~/torch/install CACHE PATH "Path to torch, lua or luajit")
+set(LUA_INCLUDE ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
+set(LUA_LIBRARIES ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit")
 
 
 link_directories(${LUA_PATH}/lib)
@@ -26,7 +27,7 @@ src/repo/lz4-r101
 ${Boost_INCLUDE_DIRS}
 src/repo/rpclib/include
 src/repo/rpclib/dependencies/include
-${LUA_PATH}/include
+${LUA_INCLUDE}
 src)
 
 file(GLOB TESTS 
@@ -80,7 +81,7 @@ src/repo/rpclib/lib/rpc/detail/client_error.cc
 src/repo/rpclib/lib/rpc/nonstd/optional.cc
 src/repo/rpclib/dependencies/src/format.cc
 src/repo/rpclib/dependencies/src/posix.cc
-)
+)lua
 
 file(GLOB REPO_H
 "src/repo/rabbit/*.h"
@@ -101,7 +102,7 @@ file(GLOB_RECURSE POCO_FOUNDATION_H
 
 file(GLOB POCO_DATA 
 "src/poco-1.4.6p1-all/Data/src/*.cpp"
-"src/poco-1.4.6p1-all/Data/src/*.c")
+"src/poco-1.4.6p1-all/Data/luasrc/*.c")
 
 file(GLOB_RECURSE POCO_DATA_H
 "src/poco-1.4.6p1-all/Data/include/*.h")
@@ -113,13 +114,13 @@ file(GLOB POCO_DATA_SQLITE
 file(GLOB_RECURSE POCO_DATA_SQLITE_H
 "src/poco-1.4.6p1-all/Data/SQLite/include/*.h")
 
-file(GLOB LUA ${LUA_PATH}/include/*.h)
+file(GLOB LUA ${LUA_INCLUDE}/*.h)
 if (WIN32)
     add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack)
 else()
     add_definitions(-DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 endif ()
-
+lua
 
 add_library(spaces SHARED
 ${REPO_RPC_LIB}
@@ -135,7 +136,7 @@ ${STX_H}
 ${SPACES} 
 ${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
 
-target_link_libraries(spaces PRIVATE luajit ${Boost_LIBRARIES})
+target_link_libraries(spaces PRIVATE lua ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})
 source_group("Spaces/headers" FILES ${SPACES_H})
@@ -151,4 +152,4 @@ source_group("Repo/headers" FILES ${REPO_H})
 source_group("Tests" FILES ${TESTS})
 source_group("Stx" FILES ${STX_H})
 
-INSTALL_TARGETS(${LUA_PATH}/lib spaces)
+INSTALL_TARGETS(${LUA_INSTALL} spaces)
