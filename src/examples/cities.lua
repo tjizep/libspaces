@@ -1,8 +1,8 @@
 require "packages"
-require "libspaces"
+require "spaces"
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
-spaces.storage("jsonp") -- puts data in the jsonp subdirectory
+spaces.storage("cities") -- puts data in the cities subdirectory
 local s = spaces.open(); -- starts a transaction automatically
 
 if s.cities==nil then

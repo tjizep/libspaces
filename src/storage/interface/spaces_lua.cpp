@@ -255,16 +255,18 @@ static int spaces_index(lua_State *L) {
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
 
-		auto i = s->get_set().find(k.first);
-		if (i != s->get_set().end()) {
+		//auto i = s->get_set().find(k.first);
+		auto value = s->get_set().direct(k.first);
 
-			if (spaces::get_data(i).get_identity() != 0) {
-				r = s->open_space(spaces::get_data(i).get_identity());
-				r->first = spaces::get_key(i);
-				r->second = spaces::get_data(i);
+		if (value != nullptr) {
+
+			if (value->get_identity() != 0) {
+				r = s->open_space(value->get_identity());
+				r->first = k.first;
+				r->second = *value;
 
 			} else {
-				s->push_data(spaces::get_data(i).get_value());
+				s->push_data(value->get_value());
 			}
 
 		} else {

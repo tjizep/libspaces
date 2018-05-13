@@ -2058,7 +2058,7 @@ namespace stx
                         for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                             key_type & key = get_key(k);
                             storage.retrieve(buffer, reader, key);
-                            context->add_hash(key,this,k);
+
                         }
                     }
 
@@ -2068,6 +2068,7 @@ namespace stx
 
                         for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                             storage.retrieve(buffer, reader, get_value(k));
+                            context->add_hash(this,k);
                         }
                     }
                 }
@@ -2215,7 +2216,6 @@ namespace stx
         typedef std::pair<stream_address, ::stx::storage::version_type> _AddressPair;
         typedef std::pair<stream_address, node*> _AllocatedNode;
         typedef std::vector< _AllocatedNode> _AllocatedNodes; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
-        typedef rabbit::unordered_map<size_t, _HashKey > _NodeHash; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
 
         /// provides register for currently loaded/decoded nodes
         /// used to prevent reinstantiation of existing nodes
@@ -2226,17 +2226,7 @@ namespace stx
         _AddressedNodes		interiors_loaded;
         _AddressedNodes		surfaces_loaded;
         _AllocatedNodes		modified;
-        /// a fast lookup table to speedup finds in constant time
-        mutable
-        _NodeHash           key_lookup;
-        /// add a hashed key to the lookup table
-        void add_hash(const key_type& key,surface_node* node, int at){
-            size_t h = stx::btree_hash<key_type>()(key);
-            if(h){
 
-                key_lookup[h] = std::make_pair(node,at);
-            }
-        }
         void erase_hash(const key_type& key){
             size_t h = stx::btree_hash<key_type>()(key);
             if(h){
@@ -2442,7 +2432,9 @@ namespace stx
             }
             return load(w, nullptr, loader, slot);
         }
-
+        bool is_valid(const node* page) const {
+            return is_valid(page,page->get_address());
+        }
         bool is_valid(const node* page, stream_address w) const {
 
             if (selfverify) {
@@ -4898,17 +4890,68 @@ namespace stx
         return (slot < surface->get_occupants() && key_equal(key, surface->keys()[slot]));
     }
 
+    struct cache_data {
+        cache_data() {}
+
+        cache_data(const cache_data &right)
+        :   node(right.node)
+        ,   key(right.key)
+        ,   value(right.value) {}
+
+        cache_data(surface_node* node,key_type* key,data_type* value)
+        :   node(node)
+        ,   key(key)
+        ,   value(value)
+        {
+
+        }
+        cache_data& operator=(const cache_data& right){
+            node = right.node;
+            key = right.key;
+            value = right.value;
+        }
+        surface_node* node;
+        key_type* key;
+        data_type* value;
+    } ;
+    /// a fast lookup table to speedup finds in constant time
+    typedef rabbit::unordered_map<size_t, cache_data> _NodeHash; //, ::sta::tracker<_AllocatedSurfaceNode,::sta::bt_counter>
+
+    mutable
+    _NodeHash           key_lookup;
+    /// add a hashed key to the lookup table
+    void add_hash(surface_node* node, int at){
+
+        key_type& key = node->get_key(at);
+        size_t h = stx::btree_hash<key_type>()(key);
+        if(h){
+
+            key_lookup[h] = cache_data(node,&key,&node->get_value(at));
+        }
+    }
+
+
     /// fast lookup that does not always succeed
-    _HashKey lookup(const key_type& key) const {
+    const data_type * direct(const key_type& key) const {
 
         size_t h = stx::btree_hash<key_type>()(key);
         if(h && !key_lookup.empty()){
-            auto r = key_lookup[h];
-            if(r.first!= nullptr && key_equal(key, r.first->get_key(r.second))){
-                return r;
+            auto& r = key_lookup[h];
+            if(r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)){
+                return r.value;
             }
         }
-        return _HashKey();
+        return nullptr;
+    }
+    data_type * direct(const key_type& key) {
+        size_t h = stx::btree_hash<key_type>()(key);
+        if(h && !key_lookup.empty()){
+            auto& r = key_lookup[h];
+            if(r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)){
+                return r.value;
+            }
+        }
+        return nullptr;
     }
     /// Tries to locate a key in the B+ tree and returns an iterator to the
     /// key/data slot if found. If unsuccessful it returns end().
@@ -4919,10 +4962,6 @@ namespace stx
         typename node::ptr n = root;
         if (n == NULL_REF) return end();
         int slot = 0;
-        _HashKey kl = lookup(key);
-        if(kl.first!=nullptr){
-            return  iterator(kl.first,kl.second);
-        }
         stream_address loader = 0;
         while (!n->issurfacenode())
         {

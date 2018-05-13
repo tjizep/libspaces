@@ -350,6 +350,29 @@ public:
     {
         return tree.find(key);
     }
+    /// Tries to locate a key in the B+ tree and returns a pointer to the
+    /// key/data slot if found. If unsuccessful it returns nullptr.
+
+    const data_type* direct(const key_type &key) const
+    {
+        const data_type* dp = tree.direct(key);
+        if(dp!= nullptr)
+            return dp;
+        const_iterator i = find( key );
+        return i != end() ? &(i.data()) : nullptr;
+    }
+    /// Tries to locate a key in the B+ tree and returns a pointer to the
+    /// key/data slot if found. If unsuccessful it returns nullptr.
+
+    data_type* direct(const key_type &key)
+    {
+
+        data_type* dp = tree.direct(key);
+        if(dp!= nullptr)
+            return dp;
+        iterator i = find( key );
+        return i != end() ? &(i.data()) : nullptr;
+    }
 
     /// Tries to locate a key in the B+ tree and returns an constant iterator
     /// to the key/data slot if found. If unsuccessful it returns end().
@@ -516,6 +539,9 @@ public:
     /// inserts the default object data_type().
     inline data_type& operator[](const key_type& key)
     {
+        data_type* dp = tree.direct(key);
+        if(dp!= nullptr)
+            return *dp;
         iterator i = insert( value_type(key, data_type()) ).first;
         return i.data();
     }
@@ -525,6 +551,9 @@ public:
     /// returns the object at the end.
 	inline const data_type& operator[](const key_type& key) const
     {
+        const data_type* dp = tree.direct(key);
+        if(dp!= nullptr)
+            return *dp;
         const_iterator i = find( key );
         return i.data();
     }

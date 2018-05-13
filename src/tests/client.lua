@@ -1,5 +1,5 @@
 require "packages"
-require "spaces"
+require "libspaces"
 spaces.storage("client")
 spaces.replicate("127.0.0.1",16003)
 local s = spaces.open()

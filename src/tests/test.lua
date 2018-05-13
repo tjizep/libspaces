@@ -2,9 +2,9 @@ require "packages"
 require "spaces"
 --spaces.debug()
 spaces.storage("test")
-spaces.observe("localhost",15003)
-spaces.replicate("localhost",16003)
-spaces.localWrites(false)
+--spaces.observe("localhost",15003)
+--spaces.replicate("localhost",16003)
+--spaces.localWrites(false)
 local u = 1e6
 local MAX_GEN =3e6
 local kl = 8
