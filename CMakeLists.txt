@@ -8,11 +8,11 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
 
-set(LUA_INCLUDE ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
-set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit shared libaries")
-set(LIBDIR ~/torch/install/lib CACHE PATH "path where installation will occur")
-set(LUA luajit "lua or luajit")
-link_directories(${LUA_LIBDIR} ${LIBDIR})
+set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
+set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
+set(LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
+set(LUA luajit "lua or luajit interpreter name")
+link_directories(${LUA_LIBDIR})
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
@@ -27,7 +27,7 @@ src/repo/lz4-r101
 ${Boost_INCLUDE_DIRS}
 src/repo/rpclib/include
 src/repo/rpclib/dependencies/include
-${LUA_INCLUDE}
+${LUA_INCDIR}
 src)
 
 file(GLOB TESTS 

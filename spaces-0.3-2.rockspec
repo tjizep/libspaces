@@ -1,5 +1,5 @@
 package = "spaces"
-version = "0.3-1"
+version = "0.3-2"
 source = {
    url = "git://github.com/tjizep/libspaces.git",
    tag = "v0.3.1"
@@ -20,7 +20,7 @@ cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release
 	 platforms = {
       windows = {
            build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA=$(LUA) -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBDIR="$(LUA_LIBDIR)" -DLUADIR="$(LUADIR)" -DLIBDIR="$(LIBDIR)" -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
+cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA=$(LUA) -DLUA_INCDIR=$(LUA_INCDIR) -DLUA_LIBDIR="$(LUA_LIBDIR)" -DLUADIR="$(LUADIR)" -DLIBDIR="$(LIBDIR)" -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
 ]]
       }
    },
