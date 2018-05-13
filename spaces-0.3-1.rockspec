@@ -15,12 +15,12 @@ dependencies = {}
 build = {
    type = "command",
    build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LUALIB)
+cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LIBDIR)
 ]],
 	 platforms = {
       windows = {
            build_command = [[
-cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LUALIB) -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
+cmake -E make_directory build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DLUA_INCLUDE=$(LUA_INCDIR) -DLUA_LIBRARIES=$(LIBDIR) -DCMAKE_INSTALL_PREFIX="$(PREFIX)" && $(MAKE)
 ]]
       }
    },
