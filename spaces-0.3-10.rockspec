@@ -19,6 +19,7 @@ build = {
      LUA_INCDIR="$(LUA_INCDIR)",
      LUA_LIBDIR="$(LUA_LIBDIR)",
      INST_LIBDIR="$(LIBDIR)",
+     CMAKE_BUILD_TYPE="Release",
      CMAKE_INSTALL_PREFIX=""
    }
 
