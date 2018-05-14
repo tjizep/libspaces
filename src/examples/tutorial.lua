@@ -22,5 +22,5 @@ for k,v in pairs(s.cities) do
 end
 
 for k,v in pairs(s.cities) do
-    print(k, v.population)
+    print(k, v.population, v.area)
 end

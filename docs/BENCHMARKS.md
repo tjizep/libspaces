@@ -3,7 +3,7 @@
 
 _BENCHMARK(eting) UNDER CONSTRUCTION_
 
-Here are some initial values for a benchmark run
+Here are some initial values for a benchmark run.
 
 Data Set
     
@@ -13,6 +13,7 @@ Platform
 
     linux mint 18.3 64-bit
     GCC 4.6
+    luajit 2.1-torch
     Intel core i7 8700 @ 3.6 GHz x 6
     16 Gb RAM
     ADATA SSD 512 Gb
