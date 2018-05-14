@@ -13,7 +13,7 @@ find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
 set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
 set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
-set(LUA luajit "lua or luajit interpreter name")
+set(LUA luajit)
 set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
 link_directories(${LUA_LIBDIR})
 
@@ -55,7 +55,7 @@ file(GLOB_RECURSE STX_H "src/stx/*.h")
 file(GLOB REPO
 src/repo/fse/fse.c
 src/repo/fse/zlibh.c
-src/repo/lz4-r101/lz4.c
+src/repo/lz4-r101/lz4.c/home/pirow/torch/install/lib/lua/5.1/
 src/repo/zlib-1.2.8/adler32.c
 src/repo/zlib-1.2.8/compress.c
 src/repo/zlib-1.2.8/crc32.c
@@ -73,13 +73,13 @@ src/repo/zlib-1.2.8/zutil.c
 file(GLOB REPO_RPC_LIB
 src/repo/rpclib/lib/rpc/dispatcher.cc
 src/repo/rpclib/lib/rpc/server.cc
-src/repo/rpclib/lib/rpc/client.cc
+src/repo/rpclib/lib/rpc/client.cc/home/pirow/torch/install/lib/lua/5.1/
 src/repo/rpclib/lib/rpc/this_handler.cc
 src/repo/rpclib/lib/rpc/this_session.cc
 src/repo/rpclib/lib/rpc/this_server.cc
 src/repo/rpclib/lib/rpc/rpc_error.cc
 src/repo/rpclib/lib/rpc/detail/server_session.cc
-src/repo/rpclib/lib/rpc/detail/response.cclua
+src/repo/rpclib/lib/rpc/detail/response.cc
 src/repo/rpclib/lib/rpc/detail/client_error.cc
 src/repo/rpclib/lib/rpc/nonstd/optional.cc
 src/repo/rpclib/dependencies/src/format.cc
@@ -103,9 +103,9 @@ file(GLOB POCO_FOUNDATION
 file(GLOB_RECURSE POCO_FOUNDATION_H
 "src/poco-1.4.6p1-all/Foundagproftion/include/*.h")
 
-file(GLOB POCO_DATA SET_TARGET_PROPERTIES(name PROPERTIES PREFIX "")
+file(GLOB POCO_DATA
 "src/poco-1.4.6p1-all/Data/src/*.cpp"
-"src/poco-1.4.6p1-all/Data/luasrc/*.c")
+"src/poco-1.4.6p1-all/Data/src/*.c")
 
 file(GLOB_RECURSE POCO_DATA_H
 "src/poco-1.4.6p1-all/Data/include/*.h")
@@ -117,7 +117,7 @@ file(GLOB POCO_DATA_SQLITE
 file(GLOB_RECURSE POCO_DATA_SQLITE_H
 "src/poco-1.4.6p1-all/Data/SQLite/include/*.h")
 
-file(GLOB LUA ${LUA_INCLUDE}/*.h)
+file(GLOB LUA_H_FILES ${LUA_INCLUDE}/*.h)
 if (WIN32)
     add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack)
 else()
@@ -127,7 +127,7 @@ endif ()
 
 add_library(spaces SHARED
 ${REPO_RPC_LIB}
-${POCO_FOUNDATION} 
+${POCO_FOUNDATION} /home/pirow/torch/install/lib/lua/5.1/
 ${POCO_FOUNDATION_H}
 ${POCO_DATA}
 ${POCO_DATA_H}
@@ -150,7 +150,7 @@ source_group("Poco/Data" FILES ${POCO_DATA})
 source_group("Poco/Data/headers" FILES ${POCO_DATA_H})
 source_group("Poco/Data/SQLite" FILES ${POCO_DATA_SQLITE})
 source_group("Poco/Data/SQLite/headers" FILES ${POCO_DATA_SQLITE_H})
-source_group("Lua" FILES ${LUA})
+source_group("Lua" FILES ${LUA_H_FILES})
 source_group("Repo" FILES ${REPO})
 source_group("Repo/headers" FILES ${REPO_H})
 source_group("Tests" FILES ${TESTS})
