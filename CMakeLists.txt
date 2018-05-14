@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.1.0)
 project(spaces VERSION 0.3.1 )
 
+
+
 set(CMAKE_CXX_STANDARD 11)
 set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
 set(Boost_USE_MULTITHREADED      ON)
@@ -100,7 +102,7 @@ file(GLOB POCO_FOUNDATION
 file(GLOB_RECURSE POCO_FOUNDATION_H
 "src/poco-1.4.6p1-all/Foundagproftion/include/*.h")
 
-file(GLOB POCO_DATA 
+file(GLOB POCO_DATA SET_TARGET_PROPERTIES(name PROPERTIES PREFIX "")
 "src/poco-1.4.6p1-all/Data/src/*.cpp"
 "src/poco-1.4.6p1-all/Data/luasrc/*.c")
 
@@ -136,6 +138,7 @@ ${STX_H}
 ${SPACES} 
 ${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
 
+set_target_properties(spaces PROPERTIES PREFIX "")
 target_link_libraries(spaces PRIVATE ${LUA} ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})
