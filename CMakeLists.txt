@@ -14,7 +14,7 @@ set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit"
 set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
 set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
 set(LUA luajit "lua or luajit interpreter name")
-set(LUADIR LUADIR "where to put lua scripts that may be assiociated")
+set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
 link_directories(${LUA_LIBDIR})
 
 include_directories(
