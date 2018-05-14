@@ -1,5 +1,5 @@
 package = "spaces"
-version = "0.3-8"
+version = "0.3-9"
 source = {
    url = "git://github.com/tjizep/libspaces.git",
    tag = "v0.3.1"
@@ -20,7 +20,7 @@ build = {
      LUA_LIBDIR="$(LUA_LIBDIR)",
      LUADIR="$(LUADIR)",
      INST_LIBDIR="$(LIBDIR)",
-     CMAKE_INSTALL_PREFIX="$(PREFIX)"
+     CMAKE_INSTALL_PREFIX=""
    }
 
 }
