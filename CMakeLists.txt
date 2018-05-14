@@ -55,7 +55,7 @@ file(GLOB_RECURSE STX_H "src/stx/*.h")
 file(GLOB REPO
 src/repo/fse/fse.c
 src/repo/fse/zlibh.c
-src/repo/lz4-r101/lz4.c/home/pirow/torch/install/lib/lua/5.1/
+src/repo/lz4-r101/lz4.c
 src/repo/zlib-1.2.8/adler32.c
 src/repo/zlib-1.2.8/compress.c
 src/repo/zlib-1.2.8/crc32.c
@@ -73,7 +73,7 @@ src/repo/zlib-1.2.8/zutil.c
 file(GLOB REPO_RPC_LIB
 src/repo/rpclib/lib/rpc/dispatcher.cc
 src/repo/rpclib/lib/rpc/server.cc
-src/repo/rpclib/lib/rpc/client.cc/home/pirow/torch/install/lib/lua/5.1/
+src/repo/rpclib/lib/rpc/client.cc
 src/repo/rpclib/lib/rpc/this_handler.cc
 src/repo/rpclib/lib/rpc/this_session.cc
 src/repo/rpclib/lib/rpc/this_server.cc
