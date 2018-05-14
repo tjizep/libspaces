@@ -29,8 +29,12 @@ You can also check out the performances at
 [benchmarks](docs/BENCHMARKS.md) 
 
     Ok thats great how can I install it
-Install via luarocks (npm will be available soon)
+Install via luarocks (npm will be available soon) [luarocks](https://luarocks.org/)
     
     > luarocks install --server=http://luarocks.org/manifests/tjizep spaces
   
+ The only further requirements are for boost min version =? 1.58 to be installed 
+ and cmake i.e.
+ 
+    > apt-get install libboost-all-dev 
 
