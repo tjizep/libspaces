@@ -26,7 +26,7 @@ to **_apart from_** your code.
 3. [api reference](docs/API.md)
  
 You can also check out the performances at
-[benchmarks](BENCHMARKS.md) 
+[benchmarks](docs/BENCHMARKS.md) 
 
     Ok thats great how can I install it
 Install via luarocks (npm will be available soon)
