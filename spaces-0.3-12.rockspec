@@ -1,5 +1,5 @@
 package = "spaces"
-version = "0.3-11"
+version = "0.3-12"
 source = {
    url = "git://github.com/tjizep/libspaces.git",
    tag = "v0.3.1"
