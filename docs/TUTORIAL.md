@@ -51,4 +51,10 @@ This data is not saved yet...
         print(k, s.cities[k].population)
     end
 
-The code for this tutorial can be found [here](src/examples/tutorial.lua) 
+Alternative iteration
+
+    for k,v in pairs(s.cities) do
+        print(k, v.population)
+    end
+
+The code for this tutorial can be found [here](../src/examples/tutorial.lua) 

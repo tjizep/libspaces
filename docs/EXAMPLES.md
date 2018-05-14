@@ -9,4 +9,8 @@ Contains an example of using json path queries to return subsets of data in a gr
 
 **CLIENT/SERVER**
 
-Running a server and its storage -less client 
+Running a [server](../src/examples/server.lua) and its storage -less [client](../src/examples/)
+
+**GRAPH QUERIES**
+
+See the [jason path](../src/examples/cities.lua) example for querying a simple graph

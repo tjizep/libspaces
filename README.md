@@ -20,6 +20,7 @@ lua and groovy (*Only* the ones I like **{he,he}**)
 ****Yes!**** please follow the examples and tutorial links 
 1. [tutorial](docs/TUTORIAL.md) 
 2. [examples](docs/EXAMPLES.md)
+3. [api reference](docs/API.md)
  
 You can also check out the performances at
 [benchmarks](BENCHMARKS.md) 

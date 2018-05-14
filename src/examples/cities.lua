@@ -1,4 +1,3 @@
-require "packages"
 require "spaces"
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
