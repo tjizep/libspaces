@@ -27,25 +27,6 @@ You can also check out the performances at
     Ok thats great how can I install it
 Install via luarocks (npm will be available soon)
     
-    > luarocks install libspaces  
+    > luarocks install --server=http://luarocks.org/manifests/tjizep spaces
+  
 
-you should now be able to access it in your lua scripts 
-
-    Theres something I want to change, But does it build?
-
-
-Indeed, the following commands will *probably* work for you
-
-Start in your home or other directory with read,write and create access privileges
-    
-    > wget ..libspaces...
-    > unzip ..
-    > cd libspaces
-    > mkdir build
-    > cd build
-    > cmake .. -DLUA_PATH=**path to lua
-    
- NOTE: the lua path should contain include and lib (sic) directories
- 
- The resulting shared object 'libspaces.so' should then be available 
- for your consumption
