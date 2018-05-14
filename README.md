@@ -15,6 +15,9 @@ replication and the traditional client server mode.
 It is designed to be accessed in a non schema oriented way and lends itself to dynamic languages like javascript, 
 lua and groovy (*Only* the ones I like **{he,he}**)
 
+Some would describe the interface as natural and permits the database as a first class citizen to your code as opposed 
+to **_apart from_** your code.
+
     Any examples or tutorials ?
 
 ****Yes!**** please follow the examples and tutorial links 
