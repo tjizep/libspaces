@@ -9,7 +9,7 @@ Contains an example of using json path queries to return subsets of data in a gr
 
 **CLIENT/SERVER**
 
-Running a [server](../src/examples/server.lua) and its storage -less [client](../src/examples/)
+Running a [server](../src/examples/server.lua) and its storage -less [client](../src/examples/client.lua)
 
 **GRAPH QUERIES**
 
