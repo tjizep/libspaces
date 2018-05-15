@@ -2,9 +2,9 @@
 ==================
 
 spaces namespace
----
-**Initialization**
 ***
+**Initialization**
+---
 open()
 
 usage
@@ -20,7 +20,7 @@ file system is created. It will be initialized the moment the first child object
         spaces.commit()
     end    
 
-
+---
 storage(name)
 
 usage
@@ -30,7 +30,7 @@ usage
 creates the data files in the _client_ directory. This directory should exist. If it does not then
 the dbms will proceed in memory only mode.
 
-***
+---
 serve(port)
 
 usage
@@ -40,7 +40,7 @@ usage
 will start a server on *port* and block the calling thread. The server will service block requests only while the client 
 will translate these blocks into
 
-***
+---
 observe(ip address, port)
 
 usage
@@ -52,7 +52,7 @@ when a server connection is established each client becomes part of the replicat
 a callback destination after the first handshake so that any changes made to blocks by other clients
 will notify this client so that it may invalidate the appropriate caches locally.
 
-***
+---
 replicate(ip address, port)
 
 usage
@@ -82,6 +82,60 @@ Starting an embedded server would simply be
         initialize ...
         spaces.commit()
     end
-***
 
+***
+graph structure manipulation operators
+---
+
+let a the container _graph_ be defined as follows:
+
+    local graph = spaces.open()
+
+we can add a node **n1** to container _graph_ 
+
+    graph.n1 = {}
+    
+we can create another node in _graph_ called **n2**
+
+    graph.n2 = {}
+
+adding an edge named _e1_ from **n1** to **n2**
+    
+    graph.n1.e1 = graph.n2
+   
+the node *n1* can also have properties p1 and p2
+
+    graph.n1.p1 = 'v1'
+    graph.n1.p2 = 'v2'
+
+It follows that a graph and a node is equivalent and _n1_ 
+is a subgraph of _graph_
+
+Properties are neither nodes nor edges.
+
+To remove the path to a subgraph **n2** from **graph**
+
+    graph.n2 = nil
+  
+***
+range queries on nodes
+the edges and properties on a node can be queried in order with the range functor
+assuming that graph is popuated as follows
+
+    graph = {n1={},n2={},n3={},n4={},n5={},n6={}}
+
+    graph('n3',n5')
+
+returns a closure such that
+    
+    for k,v in graph('n3', 'n5') do
+        print(k)
+    end
  
+produces
+    
+    n3
+    n4
+    n5
+
+
