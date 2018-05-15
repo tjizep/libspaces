@@ -1,12 +1,10 @@
-****LIB SPACES****
------------------
+****LIB SPACES API GUIDE****
+==================
 
-****API GUIDE****
-
-spaces
---
+spaces namespace
+---
 **Initialization**
-
+***
 open()
 
 usage
@@ -32,6 +30,7 @@ usage
 creates the data files in the _client_ directory. This directory should exist. If it does not then
 the dbms will proceed in memory only mode.
 
+***
 serve(port)
 
 usage
@@ -41,6 +40,7 @@ usage
 will start a server on *port* and block the calling thread. The server will service block requests only while the client 
 will translate these blocks into
 
+***
 observe(ip address, port)
 
 usage
@@ -52,6 +52,7 @@ when a server connection is established each client becomes part of the replicat
 a callback destination after the first handshake so that any changes made to blocks by other clients
 will notify this client so that it may invalidate the appropriate caches locally.
 
+***
 replicate(ip address, port)
 
 usage
@@ -81,5 +82,6 @@ Starting an embedded server would simply be
         initialize ...
         spaces.commit()
     end
-    
+***
+
  
