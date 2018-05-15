@@ -5,7 +5,7 @@ In the examples directory you can find the following lua code:
 
 **CITIES**
 
-Contains an example of using json path queries to return subsets of data in a graph like structure
+Contains an example of using [jason path](../src/examples/cities.lua) queries to return subsets of data in a graph like structure
 
 **CLIENT/SERVER**
 
