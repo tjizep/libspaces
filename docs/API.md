@@ -119,6 +119,7 @@ To remove the path to a subgraph **n2** from **graph**
   
 ***
 range queries on nodes
+---
 the edges and properties on a node can be queried in order with the range functor
 assuming that graph is popuated as follows
 
