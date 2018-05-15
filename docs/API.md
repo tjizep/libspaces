@@ -38,7 +38,7 @@ usage
     spaces.serve(16003)
 
 will start a server on *port* and block the calling thread. The server will service block requests only while the client 
-will translate these blocks into
+will translate these blocks into a tree and hashtable structures.
 
 ---
 observe(ip address, port)
