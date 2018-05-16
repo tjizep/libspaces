@@ -14,7 +14,7 @@ usage
 **description**
 
 Opens the root persisted object. It is not initialized the first time the 
-file system is created. It will be initialized the moment the first child object is created.
+file system is created. It will be initialized the moment the first object/node is created.
 
 
     if s.child == nil then
