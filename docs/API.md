@@ -130,6 +130,7 @@ usage
 **description**   
 
 Starts a read/write transaction that will lock resources. Isolation is serializable. use commit to persist changes.
+
 **NOTE: a write transaction is also started and any existing readstate is expelled if an assignment takes place during
 a read transaction.**
 
