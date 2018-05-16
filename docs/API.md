@@ -43,7 +43,7 @@ usage
     
 **description**
 
-If the parameter is falls  any writes to local storage including journalling entries are suppressed.
+If the parameter is __false__ any writes to local storage including journalling entries are suppressed. __true__ will start writing again.
 
 ---
 serve(port)
