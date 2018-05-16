@@ -106,6 +106,7 @@ Starting an embedded server would simply be
 **transaction api's**
 ---------------------
 
+
 read()
 
 usage
@@ -129,10 +130,18 @@ usage
 **description**   
 
 Starts a read/write transaction that will lock resources. Isolation is serializable. use commit to persist changes.
+**NOTE: a write transaction is also started and any existing readstate is expelled if an assignment takes place during
+a read transaction.**
 
-commit()
+i.e. 
+    s.name = 'test'
+    
+**if there are only reads then no transactional state change takes place so a write will remain write and 
+commit will have no effect.**
 
 ---
+
+commit()
 
 usage
     
@@ -141,6 +150,19 @@ usage
 **description**   
 
 Commits a read/write transaction that will persist modified resources. Isolation is serializable.
+
+---
+
+rollback()
+
+usage
+    
+    spaces.rollback()
+
+**description**   
+
+Reverses changes during a read/write transaction or starts a readonly transaction on the latest version if the current one is stale. Isolation is serializable.
+
 
 ***
 graph structure manipulation operators
