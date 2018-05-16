@@ -11,6 +11,8 @@ usage
 
     local s = spaces.open()
 
+**description**
+
 Opens the root persisted object. It is not initialized the first time the 
 file system is created. It will be initialized the moment the first child object is created.
 
@@ -27,8 +29,21 @@ usage
 
     spaces.storage("client")
 
+**description**
+
 creates the data files in the _client_ directory. This directory should exist. If it does not then
 the dbms will proceed in memory only mode.
+
+---
+localWrites(on)
+
+usage
+    
+    spaces.localWrites(false)
+    
+**description**
+
+If the parameter is falls  any writes to local storage including journalling entries are suppressed.
 
 ---
 serve(port)
@@ -36,6 +51,8 @@ serve(port)
 usage
 
     spaces.serve(16003)
+
+**description**
 
 will start a server on *port* and block the calling thread. The server will service block requests only while the client 
 will translate these blocks into a tree and hashtable structures.
@@ -47,6 +64,7 @@ usage
     
     spaces.observe("192.168.0.10", 15003)
     
+**description**
 
 when a server connection is established each client becomes part of the replication cluster. This will give the server 
 a callback destination after the first handshake so that any changes made to blocks by other clients
@@ -58,7 +76,9 @@ replicate(ip address, port)
 usage
     
     spaces.replicate("192.168.0.11", 16003)
-   
+
+**description**   
+
 Connects to a server and send all changed and or new blocks to the server listening at that
 ip port combination.
 
@@ -82,10 +102,49 @@ Starting an embedded server would simply be
         initialize ...
         spaces.commit()
     end
+---
+**transaction api's**
+---------------------
+
+read()
+
+usage
+    
+    spaces.read()
+
+**description**   
+
+Starts a read obly transaction. A version on the internal MVCC (Multi Version Concurency Control) stack is locked 
+and all reads are issued using those blocks. if replicate(...) was configured all blocks are retrieved from the 
+specified server/s. Any previous transactional state is discarded if it was **write** mode. isolation is serializable
+
+---
+
+write()
+
+usage
+    
+    spaces.write()
+
+**description**   
+
+Starts a read/write transaction that will lock resources. Isolation is serializable. use commit to persist changes.
+
+commit()
+
+---
+
+usage
+    
+    spaces.commit()
+
+**description**   
+
+Commits a read/write transaction that will persist modified resources. Isolation is serializable.
 
 ***
 graph structure manipulation operators
----
+--------------------------------------
 
 let a the container _graph_ be defined as follows:
 
@@ -125,7 +184,7 @@ assuming that graph is popuated as follows
 
     graph = {n1={},n2={},n3={},n4={},n5={},n6={}}
 
-    graph('n3',n5')
+    graph('n3','n5')
 
 returns a closure such that
     
