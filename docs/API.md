@@ -162,7 +162,7 @@ usage
 
 **description**   
 
-Reverses changes during a read/write transaction or starts a readonly transaction on the latest version if the current one is stale. Isolation is serializable.
+Reverse changes during a read/write transaction or starts a readonly transaction on the latest version if the current one is stale. Isolation is serializable.
 
 
 ***
