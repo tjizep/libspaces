@@ -11,7 +11,7 @@ Contains an example of using [jason path](../src/examples/cities.lua) queries to
 
 Running a [server](../src/examples/server.lua) and its storage -less [client](../src/examples/client.lua)
 
-**GRAPH QUERIES ON STORES**
+**GRAPH QUERIES ON SHOE STORES**
 
 See the [jason path](../src/examples/cities.lua) example for querying a simple graph of a bookstore
 
