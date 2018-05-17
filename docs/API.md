@@ -115,7 +115,7 @@ usage
 
 **description**   
 
-Starts a read obly transaction. A version on the internal MVCC (Multi Version Concurency Control) stack is locked 
+Starts a read only transaction. A version on the internal MVCC (Multi Version Concurency Control) stack is locked 
 and all reads are issued using those blocks. if replicate(...) was configured all blocks are retrieved from the 
 specified server/s. Any previous transactional state is discarded if it was **write** mode. isolation is serializable
 
