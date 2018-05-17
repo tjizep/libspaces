@@ -220,5 +220,13 @@ produces
     n3
     n4
     n5
+ 
+ It should be noted that the initial value of graph could have been 
+    
+    graph = {n1='v1', n2='v2', n3='v3', n4='v4'...}
+    
+With the same output as above.
+
+---
 
 
