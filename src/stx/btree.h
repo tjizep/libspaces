@@ -4891,7 +4891,7 @@ namespace stx
     }
 
     struct cache_data {
-        cache_data() {}
+        cache_data():key(nullptr),value(nullptr),node(nullptr) {}
 
         cache_data(const cache_data &right)
         :   node(right.node)

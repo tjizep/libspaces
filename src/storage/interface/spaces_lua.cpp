@@ -16,9 +16,9 @@ extern "C" {
 #include <storage/transactions/abstracted_storage.h>
 
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
-typedef spaces::lua_session<spaces::lua_db_session> session_t;
-//typedef spaces::lua_session<spaces::lua_mem_session> session_t;
-typedef spaces::lua_iterator<session_t::_Set> lua_iterator_t;
+typedef spaces::lua_session<spaces::db_session> session_t;
+//typedef spaces::lua_session<spaces::mem_session> session_t;
+typedef spaces::spaces_iterator<session_t::_Set> lua_iterator_t;
 typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
 
 static int l_serve_space(lua_State *L) {
@@ -260,13 +260,13 @@ static int spaces_index(lua_State *L) {
 
 		if (value != nullptr) {
 
-			if (value->get_identity() != 0) {
+			if (!value->is_flag(spaces::record::FLAG_LARGE) && value->get_identity() != 0) {
 				r = s->open_space(value->get_identity());
 				r->first = k.first;
 				r->second = *value;
 
 			} else {
-				s->push_data(value->get_value());
+				s->push_data(s->map_data(*value).get_value());
 			}
 
 		} else {

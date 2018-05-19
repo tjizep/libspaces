@@ -127,7 +127,7 @@ endif ()
 
 add_library(spaces SHARED
 ${REPO_RPC_LIB}
-${POCO_FOUNDATION} /home/pirow/torch/install/lib/lua/5.1/
+${POCO_FOUNDATION}
 ${POCO_FOUNDATION_H}
 ${POCO_DATA}
 ${POCO_DATA_H}
@@ -137,7 +137,7 @@ ${REPO}
 ${REPO_H}
 ${STX_H}
 ${SPACES} 
-${SPACES_H} src/storage/network/replication.cpp src/storage/network/replication.h)
+${SPACES_H})
 
 set_target_properties(spaces PROPERTIES PREFIX "")
 target_link_libraries(spaces PRIVATE ${LUA} ${Boost_LIBRARIES})

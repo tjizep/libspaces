@@ -4,13 +4,7 @@ extern "C" {
 	#include <lauxlib.h>
 	#include <lua.h>	
 };
-#include <limits>
-#include <vector>
-#include <string>
-#include <set>
-#include <storage/spaces/key.h>
-#include <storage/spaces/dbms.h>
-#include <rabbit/unordered_map>
+#include "spaces_session.h"
 
 INCLUDE_SESSION_KEY(SPACES_SESSION_KEY);
 INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
@@ -25,94 +19,6 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 #define SPACES_WRAP_KEY "__$"
 
 namespace spaces{
-	typedef rabbit::unordered_map<ptrdiff_t, spaces::space*> _LuaKeyMap;
-	//typedef spaces::dbms::_Set _SSet;
-	//typedef _SSet::iterator iterator;
-	typedef std::map<key,record> _MMap;
-
-
-	struct lua_db_session {
-		typedef spaces::dbms::_Set _Set;		
-		//spaces::_SSet s;
-		std::shared_ptr<spaces::dbms> d;
-		bool is_reader;
-		lua_db_session(bool is_reader = false) : is_reader(is_reader){
-			this->create();
-
-		}
-		~lua_db_session(){
-
-		}
-		void create(){
-			if(is_reader){
-				d =spaces::create_reader();
-			}else{
-				d = spaces::get_writer();
-			}
-		}
-		_Set &get_set() {
-			return d->get_set();
-		}
-		nst::u64 gen_id(){
-		    return d->gen_id();
-		}
-		void check(){
-		    d->check_resources();
-		}
-		void set_mode(bool reader){
-		    if(is_reader != reader){
-		        if(d!= nullptr) d->rollback();
-                d = nullptr;
-                is_reader = reader;
-                create();
-		    }
-		}
-		void begin() {
-			d->begin();
-		}
-		void commit() {
-			d->commit();
-		}
-
-	};
-	struct lua_mem_session {
-		spaces::_MMap s;
-		typedef spaces::_MMap _Set;
-		nst::u64 id;
-		lua_mem_session(bool) : id(1) {
-		}
-
-		_Set &get_set() {
-			return s;
-		}
-        nst::u64 gen_id(){
-            return id++;
-        }
-		void set_mode(bool) {
-
-		}
-		void check(){
-
-		}
-		void begin() {
-			
-		}
-		void commit() {			
-		}
-
-	};
-	template<typename _Set>
-	struct lua_iterator {
-		typename _Set::iterator i;
-		typename _Set::iterator e;
-		bool end() const {
-			return i == e;
-		}
-		void next() {
-			++i;
-		}
-	};
-	
 
 	static int luaopen_plib_any(lua_State *L, const luaL_Reg *m,
 					 const char *object_name, 
@@ -179,6 +85,7 @@ namespace spaces{
 			luaL_getmetatable(L, SPACES_SESSION_LUA_TYPE_NAME);
 			if (lua_isnil(L, -1)) {
 				luaL_error(L, "no meta table of type %s", SPACES_SESSION_LUA_TYPE_NAME);
+				return nullptr;
 			}
 			lua_setmetatable(L, -2);
 			lua_settable(L, LUA_GLOBALSINDEX);/// put it in globals
@@ -197,91 +104,40 @@ namespace spaces{
 
 		if (lua_isnil(L, -1)) {
 			luaL_error(L,"session not created: use .read() or .write()");
+			return nullptr;
 		}else{
 			r = err_checkudata<_SessionType>(L, "", -1);
 		}
+
 		r->check();
 		return r;
 	}
 	
 	#define tofilep(L)	((FILE **)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
-	static const spaces::record& get_data(const spaces::lua_mem_session::_Set::iterator& i){
-		return (*i).second;
-	}
-	static spaces::record& get_data(spaces::lua_mem_session::_Set::iterator& i){
-		return (*i).second;
-	}
-//static const spaces::record& get_data(const spaces::lua_db_session::_Set::iterator& i){
-//	return i.data();
-//}
-	static spaces::record& get_data(spaces::lua_db_session::_Set::iterator& i){
-		return i.data();
-	}
 
 
-	static const spaces::key& get_key(const spaces::lua_mem_session::_Set::iterator& i){
-		return (*i).first;
-	}
-//static spaces::key& get_key(spaces::lua_mem_session::_Set::iterator& i){
-//	return (*i).first;
-//}
-	static const spaces::key& get_key(const spaces::lua_db_session::_Set::iterator& i){
-		return i.key();
-	}
-	static spaces::key& get_key(spaces::lua_db_session::_Set::iterator& i) {
-		return i.key();
-	}
-	static ptrdiff_t get_count(const spaces::lua_db_session::_Set::iterator& i, const spaces::lua_db_session::_Set::iterator& j) {
-		return i.count(j);
-	}
-	static ptrdiff_t get_count(const spaces::lua_mem_session::_Set::iterator& i, const spaces::lua_mem_session::_Set::iterator& j) {
-		ptrdiff_t cnt = 0;
-		spaces::lua_mem_session::_Set::iterator ii = i;
-
-		while(ii != j){
-			++cnt;
-			++ii;
-		}
-		return cnt;
-
-	}
-	template<typename _SessionType>
-	class lua_session {
-	private:
-		_LuaKeyMap keys;
-		_SessionType session;
-		lua_State *L;
+    template<typename _SessionType>
+    class lua_session : public spaces_session<_SessionType>{
 	public:
-		typedef typename _SessionType::_Set _Set;
-		lua_session(bool reader) : L(nullptr),session(reader) {
+		typedef spaces_session<_SessionType> session_type;
+		typedef std::vector<i1> _DumpVector;
+		/// despite improvements
+		/// sometimes the type system still gets lost without
+		/// a hint
+		typedef lua_session<_SessionType> _Self;
+    private:
+		lua_State *L;
+		_LuaKeyMap keys;
+	public:
+		typedef typename spaces_session<_SessionType>::_Set _Set;
+		lua_session(bool reader) : L(nullptr),spaces_session<_SessionType>(reader) {
 
 		}
-        ~lua_session() {
-            for(auto k = keys.begin(); k != keys.end(); ++k){
-                delete k->second;
-            }
-        }
-		void set_max_memory_mb(const ui8& mm){
-			session.set_max_memory_mb(mm);
-		}
-		void set_state(lua_State *L) {
-			this->L = L;
-		}
-		void set_mode(bool readr){
-			session.set_mode(readr);
-		}
-		void check(){
-		    session.check();
-		}
-		void begin() {
-			session.begin();
-		}
-		void commit() {
-			session.commit();
-		}
-		void rollback() {
-
+		~lua_session() {
+			for(auto k = keys.begin(); k != keys.end(); ++k){
+				delete k->second;
+			}
 		}
 		void close(ptrdiff_t pt) {
 			std::cout << "Closing spaces key " << std::endl;
@@ -290,43 +146,23 @@ namespace spaces{
 				keys.erase(pt);
 			}
 		}
-		typename _SessionType::_Set& get_set() {
-			return session.get_set();
+		void set_state(lua_State *L) {
+			this->L = L;
 		}
-
-		nst::u64 len(const space* p) {
-			if (p->second.get_identity() > 0) {
-				spaces::key f, e;
-				f.set_context(p->second.get_identity());
-				e.set_context(p->second.get_identity());
-				e.get_name().make_infinity();
-				///.set_identity(std::numeric_limits<ui8>::max());
-				auto& s = get_set();
-				// create the lua iterator		
-				typename _Set::iterator fi = s.lower_bound(f);
-				if (fi != s.end()) {
-					return get_count(fi,s.upper_bound(e));
-
-				}
-				
-			}
-			return 0;
+        bool is_integer(double n) {
+			return (n - (i8)n == 0);
 		}
-		spaces::lua_iterator<_Set>* create_iterator() {
-			return create_instance_from_nothing<spaces::lua_iterator< _Set>>(L); /* new userdatum is already on the stack */
+		spaces::spaces_iterator<_Set>* create_iterator() {
+			return create_instance_from_nothing<spaces::spaces_iterator< _Set>>(L); /* new userdatum is already on the stack */
 		}
-		spaces::lua_iterator<_Set>*  get_iterator(int at = 1) {
-			spaces::lua_iterator<_Set> * i = err_checkudata<spaces::lua_iterator<_Set>>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
+		spaces::spaces_iterator<_Set>*  get_iterator(int at = 1) {
+			spaces::spaces_iterator<_Set> * i = err_checkudata<spaces::spaces_iterator<_Set>>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
 			return i;
 
 		}
 		spaces::space* create_space_from_nothing() {
 			return create_instance_from_nothing<spaces::space>(L);  /* new userdatum is already on the stack */
 
-		}
-
-		bool is_integer(double n) {
-			return (n - (i8)n == 0);
 		}
 		umi table_clustered_type(int at) {
 			umi n = 0;
@@ -381,32 +217,6 @@ namespace spaces{
 			return rv;
 		}
 
-		void insert_or_replace(spaces::key& k, spaces::record& v) {
-			session.get_set()[k] = v;
-		}
-		void insert_or_replace(spaces::space& p) {
-			insert_or_replace(p.first,p.second);
-		}
-		void resolve_id(spaces::space* p, bool override = false) {
-			resolve_id(p->first, p->second,override);
-		}
-		void resolve_id(spaces::key& first, spaces::record& second, bool override = false) {
-			if (override || second.get_identity() == 0) {
-				auto& s = session.get_set();
-				auto i = s.find(first);
-				if (i != s.end()) {
-					second = get_data(i);
-				}
-				if (override || second.get_identity() == 0) {
-					second.set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity
-					insert_or_replace(first,second);
-				}
-			}
-		}
-
-		void resolve_id(spaces::space& p, bool override = false) {
-			resolve_id(&p);
-		}
 
 		spaces::space * is_space(int at = 1) {
 			if (lua_istable(L, at)) {
@@ -432,6 +242,7 @@ namespace spaces{
 				luaL_error(L, "spaces global reference table does not exist %s", SPACES_G);
 				return nullptr;
 			}
+			/// TODO: shouldn't be using id + 1; its 64 bit and int can potentially be 16 bit on some architectures
 			lua_rawgeti(L, -1, id + 1);
 			if (lua_isnil(L, -1)) {
 				lua_pop(L, 2); /// pop nil and global table of top should be the initial value again
@@ -460,10 +271,12 @@ namespace spaces{
 
 
 		}
-		typedef std::vector<i1> _DumpVector;
+
+
+
 		template<typename _VectorType>
 		static int vector_writer(lua_State *L, const void* p, size_t sz, void* ud) {
-			_DumpVector* v = (_DumpVector*)ud;
+			auto* v = (_DumpVector*)ud;
 			v->insert(v->end(), (const _DumpVector::value_type*)p, ((const _DumpVector::value_type*)(p)) + sz);
 			return 0;
 		}
@@ -501,10 +314,10 @@ namespace spaces{
 			}break;
 			case LUA_TFUNCTION: {
 
-				_DumpVector dv;
+				typename _Self::_DumpVector dv;
 
 				lua_pushvalue(L, at);
-				if (0 != lua_dump(L, vector_writer<_DumpVector>, &dv)) {
+				if (0 != lua_dump(L, vector_writer<typename _Self::_DumpVector>, &dv)) {
 					lua_error(L);
 				}
 				lua_pop(L, 1);
@@ -544,12 +357,11 @@ namespace spaces{
 			return 1;
 		}
 		int push_data(const spaces::record& d) {
-			return push_data(d.get_value());
+			return push_data(this->map_data(d).get_value());
 		}
+
 		void to_space
-		(
-			//, spaces::key& p // be might become a context so it will need an identity
-			    spaces::key& d
+		(	spaces::key& d
             ,   spaces::record& r
 			, int _at = 2
 		) {
@@ -566,7 +378,8 @@ namespace spaces{
 					}
 					break;
 				}
-				resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
+				/// Seems like a compiler bug if this-> isn't used then all sorts of errors
+				this->resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
 				lua_pushnil(L);
 				/// will push the name and value of the current item (as returned by closure) 
 				/// on the stack
@@ -576,7 +389,8 @@ namespace spaces{
 					to_space_data(s.first.get_name(), -2);	// just set the key part
 					to_space(s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
 										/// add new key to table
-					insert_or_replace(s);
+					/// Seems like a compiler bug if this-> isn't used then all sorts of errors
+					this->insert_or_replace(s);
 					lua_pop(L, 1);
 				}
 
@@ -592,10 +406,10 @@ namespace spaces{
 			}break;
 			case LUA_TFUNCTION: {
 
-				_DumpVector dv;
+				typename _Self::_DumpVector dv;
 
 				lua_pushvalue(L, at);
-				if (0 != lua_dump(L, vector_writer<_DumpVector>, &dv)) {
+				if (0 != lua_dump(L, vector_writer<_Self::_DumpVector>, &dv)) {
 					lua_error(L);
 				}
 				lua_pop(L, 1);
@@ -606,7 +420,7 @@ namespace spaces{
 				/// delete space under parent using name
 			{
 				//d.set_context(p.get_identity());
-				session.get_set().erase(d);
+				session_type::session.get_set().erase(d);
 				/// TODO: collect garbage anyone, its wednesday
 			}break;
 			default:
@@ -624,7 +438,7 @@ namespace spaces{
 		int push_pair(const spaces::key& k,const spaces::record& v) {
 			push_data(k.get_name());
 			if (v.get_identity() != 0) {
-				spaces::space * r = open_space(v.get_identity());
+				spaces::space * r = this->open_space(v.get_identity());
 				r->first = k;
 				r->second = v;
 			}

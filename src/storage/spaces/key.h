@@ -98,15 +98,15 @@ namespace spaces {
 			}
 			this->l = l;
 		}		
-		void set_data(const char * data,i4 l) {
+		void set_data(const char * data,ui4 l) {
 			resize(l,data);			
 		}
 		template<typename _tT>
         void set_data(const std::vector<_tT>& data) {
             resize(data.size(),(const char*)data.data());
         }
-		i4 size() const {
-			return l == SS ? (i4)(str().size()) :
+		ui4 size() const {
+			return l == SS ? (ui4)(str().size()) :
 				l;
 		}
 		const char *data() const {
@@ -265,6 +265,12 @@ namespace spaces {
 			sequence.set_data(s, (i4)l);
 			
 		}
+		void set_string(const std::string& s) {
+			clear();
+			type = data_type::text;
+			sequence.set_data(s.data(), (ui4)s.size());
+
+		}
 		template<typename _VectorType>
 		void set_function(const _VectorType& vt) {
 			clear();
@@ -289,10 +295,10 @@ namespace spaces {
 			return compare(r) < 0;
 			
 		}
-		char* get_sequence() {
-			return sequence.writable();
-		}
 
+		astring& get_sequence(){
+			return sequence;
+		}
 		const astring& get_sequence() const {
 			return sequence;
 		}
@@ -315,6 +321,24 @@ namespace spaces {
 				break;
 			}
 			return std::numeric_limits<f8>::quiet_NaN();
+		}
+
+		ui4 size() const {
+			char* end;
+			switch (type) {
+				case data_type::numeric:
+					return 8;
+				case data_type::boolean:
+					return 8;
+				case data_type::text:
+					return this->sequence.size();
+				case data_type::function:
+				case data_type::multi:
+				case data_type::infinity:
+				default:
+					break;
+			}
+			return 8;
 		}
 		i4 get_type() const {
 			return this->type;
@@ -498,25 +522,42 @@ namespace spaces {
 	};
 	class record {
 	private:
-
+		ui4 flags;
 		ui8 identity;
 		// value section
 		data value;
 
 	public:
-		MSGPACK_DEFINE_ARRAY(identity,value)
+		MSGPACK_DEFINE_ARRAY(flags,identity,value)
+
+		enum FLAGS{
+			FLAG_LARGE = 0,
+			FLAG_ROUTE = 1
+		};
+
 		static const bool use_encoding = true;
 		record(const record&r) {
 			*this = r;
 		}
 		record() {
 			identity = 0;
+			flags = 0;
+		}
+		void set_flag(FLAGS flag){
+			this->flags |= (1ul << (ui4)flag);
+		}
+		void clear_flag(FLAGS flag){
+			this->flags |= ~(1ul << (ui4)flag) ;
+
+		}
+		bool is_flag(FLAGS flag) const {
+			return (this->flags & (1ul << (ui4)flag)) != 0;
 		}
 		record& operator=(const record& r) {
 
 			value = r.value;
 			identity = r.identity;
-
+            flags = r.flags;
 			return *this;
 		}
 
@@ -534,16 +575,24 @@ namespace spaces {
 			return value;
 		}
 
+		ui4 size() const{
+			return value.size();
+		}
+
 	public:
+
 		/// persistence functions
 		nst::buffer_type::const_iterator read(const nst::buffer_type& buffer, typename nst::buffer_type::const_iterator& r) {
 			nst::buffer_type::const_iterator reader = r;
 
 			if (reader != buffer.end()) {
 				if (use_encoding) {
+					this->flags = nst::leb128::read_unsigned64(reader, buffer.end());
 					this->identity = nst::leb128::read_unsigned64(reader, buffer.end());
+
 				}
 				else {
+					reader = nst::primitive::read(this->flags, reader);
 					reader = nst::primitive::read(this->identity, reader);
 				}
 
@@ -553,10 +602,10 @@ namespace spaces {
 		}
 		nst::u32 stored() const {
 			if (use_encoding) {
-				return nst::leb128::unsigned_size(this->identity) + value.stored() ;
+				return nst::leb128::unsigned_size(this->flags) + nst::leb128::unsigned_size(this->identity) + value.stored() ;
 			}
 			else {
-				return sizeof(this->identity) + value.stored();
+				return sizeof(this->flags) + sizeof(this->identity) + value.stored();
 			}
 
 		}
@@ -564,9 +613,11 @@ namespace spaces {
 
 			nst::buffer_type::iterator writer = w;
 			if (use_encoding) {
+				writer = nst::leb128::write_unsigned(writer, this->flags);
 				writer = nst::leb128::write_unsigned(writer, this->identity);
 			}
 			else {
+				writer = nst::primitive::store(writer, this->flags);
 				writer = nst::primitive::store(writer, this->identity);
 			}
 			writer = value.store(writer);
