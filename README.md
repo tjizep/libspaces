@@ -3,7 +3,7 @@
 
     So, What is it ?
 
-Lib(eration) spaces is a library and server for transactional graph and key value storage/persistence. 
+Lib(eration) spaces is a library and server for transactional graph and **ordered** key value storage/persistence. 
 
     And...
 It is flexible in that it can operate as a pure embedded database, memory only, distributed with master master 
