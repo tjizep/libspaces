@@ -1,13 +1,17 @@
+require "packages"
 require "spaces"
 --spaces.debug()
-spaces.storage("benchmark")
+spaces.storage("test")
+spaces.setMaxMb(6500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
-local u = 1e6
+local u = 1e7
 local MAX_GEN =3e6
-local kl = 8
+local kl = 16
+local dl = 800
 local seed = 78976
+
 math.randomseed(seed) -- reseed to standard value for repeatable tests
 
 local charset = {}  do -- [0-9a-zA-Z]
@@ -40,7 +44,6 @@ local function generate(n)
 	--print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
 	return tdata
 end
-spaces.setMaxMb(5000)
 
 local s = spaces.open(); -- starts a transaction automatically
 
@@ -69,6 +72,7 @@ if #data == 0 or #data < u then
 	local td = os.clock()
 	print("start st write",t)
 	local ustart = 0
+	local value = randomString(dl)
 	for i = 1,u do
 		local ss = tdata[i-ustart]
 		if ss == nil then
@@ -85,13 +89,14 @@ if #data == 0 or #data < u then
 			td=os.clock()
 		end
 
-		data[ss] = math.random(1, 3e4);
+		data[ss] = value;
 		--spaces.commit()
 
 	end
 	local dt = os.clock()-t;
 	local ops = math.floor(u/dt)
-	print("end st random write",dt,ops.." keys/s")
+	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
+
 	spaces.commit()
 
 end

@@ -1,8 +1,8 @@
 package = "spaces"
-version = "0.3-12"
+version = "0.3-13"
 source = {
    url = "git://github.com/tjizep/libspaces.git",
-   tag = "v0.3.1"
+   tag = "v0.3.2"
 }
 description = {
    summary = "Lib(eration) spaces is a library and server for transactional graph and key value storage/persistence. ",
