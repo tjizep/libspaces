@@ -4277,8 +4277,13 @@ namespace stx
 
         /// writes all modified pages to storage and frees all surface nodes
         void reduce_use() {
+            stx::storage::allocation::print_allocations();
+            inf_print("reducing b-tree use");
+
             flush_buffers(true);
             free_interiors();
+            inf_print("complete reducing b-tree use");
+            stx::storage::allocation::print_allocations();
             //free_surfaces();
         }
 

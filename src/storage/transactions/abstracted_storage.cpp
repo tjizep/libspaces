@@ -91,8 +91,10 @@ namespace stored{
 		nst::synchronized ll(m);
 
 		for(_AlocationsMap::iterator a = instances.begin(); a != instances.end(); ++a){
-			if(buffer_allocation_pool.is_near_depleted())
+			if(buffer_allocation_pool.is_near_depleted()){
 				(*a).second->reduce();
+			}
+
 		}
 	}
 }; //stored

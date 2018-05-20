@@ -204,8 +204,8 @@ namespace spaces{
         }
 
         void insert_or_replace(spaces::key& k, spaces::record& v) {
-            const ui4 MAX_BUCKET = 64;
-            if(v.size() >  MAX_BUCKET){
+            const ui4 MAX_BUCKET = 100;
+            if(false && v.size() >  MAX_BUCKET){
                 v.set_flag(spaces::record::FLAG_LARGE);
                 spaces::key data_key;
                 spaces::record data;

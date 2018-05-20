@@ -848,7 +848,8 @@ namespace storage{
 
 			//if(current_mem_use > max_mem_use){
 			if(buffer_allocation_pool.is_near_depleted() && (*this)._use > 1024*1024*2){
-				if(transient) inf_print("reduce transient block cache use - %s",this->get_name().c_str());
+				if(transient) 	inf_print("reduce transient block cache use - %s",this->get_name().c_str());
+				else 			inf_print("reduce perm. block cache use - %s",this->get_name().c_str());
 				//ptrdiff_t before = get_use();
 
 				flush_back(0.3,true);

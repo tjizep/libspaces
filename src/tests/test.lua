@@ -7,7 +7,7 @@ spaces.setMaxMb(3500)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
 local u = 1e7
-local MAX_GEN =3e6
+local MAX_GEN =1e6
 local kl = 16
 local dl = 800
 local seed = 78976
@@ -67,7 +67,7 @@ local tdata = {}
 
 if #data == 0 or #data < u then
 
-	local PERIOD = 1e6
+	local PERIOD = 1e5
 	local t = os.clock()
 	local td = os.clock()
 	print("start st write",t)

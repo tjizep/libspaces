@@ -56,20 +56,18 @@ namespace storage{
 				try{
 					while(is_started()){
 						Poco::Thread::sleep(10);
-						double total_mb = ((double)(allocation_pool.get_total_allocated()+buffer_allocation_pool.get_total_allocated())/(1024.0*1024.0));
-						double max_alloc = ((double)allocation_pool.get_max_pool_size())/(1024.0*1024.0);
-						double max_buf_alloc = buffer_allocation_pool.get_max_pool_size()/(1024.0*1024.0);
+
                         if(allocation_pool.is_near_depleted() || buffer_allocation_pool.is_near_depleted()){
                             if(!::stx::memory_low_state){
 
                                 //std::cout << "switching to low state" << std::endl;
                             }
-							inf_print(" resources: %.3f",total_mb);
+
 							::stx::memory_low_state = true;
 							//stored::reduce_all();
-							while(is_started() && allocation_pool.is_near_factor(0.75)) {
-								Poco::Thread::sleep(10);
-								//stored::reduce_all();
+							while(is_started() && (allocation_pool.is_near_factor(0.75) || buffer_allocation_pool.is_near_factor(0.75))) {
+								Poco::Thread::sleep(100);
+								stored::reduce_all();
 							}
                             ::stx::memory_low_state = false;
                         }else{

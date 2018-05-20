@@ -275,6 +275,13 @@ namespace stx{
 			bool operator!= (const stl_tracker<T1>&, const stl_tracker<T2>&) throw() {
 				return false;
 			}
+			static void print_allocations(){
+				double total_mb = ((double)(allocation_pool.get_total_allocated()+buffer_allocation_pool.get_total_allocated())/(1024.0*1024.0));
+				double max_alloc = ((double)allocation_pool.get_max_pool_size())/(1024.0*1024.0);
+				double max_buf_alloc = buffer_allocation_pool.get_max_pool_size()/(1024.0*1024.0);
+				inf_print(" resources: %.3f",total_mb);
+			}
+
 		}; /// allocations
 
 		/// the general buffer type

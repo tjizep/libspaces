@@ -6,6 +6,7 @@
 #include <storage/spaces/data_type.h>
 #include <stx/storage/basic_storage.h>
 #include <rabbit/unordered_map>
+
 #ifdef _MSC_VER
 #define SPACES_NOINLINE_PRE _declspec(noinline)
 #define SPACES_NOINLINE_
@@ -28,25 +29,27 @@ namespace spaces {
 		};
 	};
 	class astring {
+	public:
+		typedef typename std::vector<char, stx::storage::allocation::pool_alloc_tracker<char>> tracked_buffer;
 	private:
 		static const i4 SS = 256;
 		ui4 l;
-		i1 sequence[sizeof(std::vector<char>)];
-		std::vector<char> & make_long() {
-			new (sequence) std::vector<char>();
+		i1 sequence[sizeof(tracked_buffer)];
+		tracked_buffer & make_long() {
+			new (sequence) tracked_buffer();
 			l = SS;
-			return (std::vector<char>&)sequence;
+			return (tracked_buffer&)sequence;
 		}
 
-		std::vector<char>&str() {
-			return (std::vector<char>&)sequence;
+		tracked_buffer&str() {
+			return (tracked_buffer&)sequence;
 		}
-		const std::vector<char> &str() const {
-			return (std::vector<char>&)sequence;
+		const tracked_buffer &str() const {
+			return (tracked_buffer&)sequence;
 		}
 		void resize(ui4 l, const char * data) {
 			if (l >= sizeof(sequence)) {
-				std::vector<char> &s = make_long();
+				tracked_buffer &s = make_long();
 				s.resize(l);
 				memcpy(&s[0], data, l);
 				return;
@@ -152,7 +155,7 @@ namespace spaces {
 		~astring() {
 			if (is_long()) {
 			    typedef std::vector<char> vchar;
-				str().~vchar();
+				str().~tracked_buffer();
 			}
 		}
 		astring& operator=(const astring& right) {
