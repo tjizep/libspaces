@@ -2,7 +2,7 @@ require "packages"
 require "spaces"
 --spaces.debug()
 spaces.storage("test")
-spaces.setMaxMb(3500)
+spaces.setMaxMb(1500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)

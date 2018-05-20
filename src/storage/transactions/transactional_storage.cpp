@@ -65,9 +65,9 @@ namespace storage{
 
 							::stx::memory_low_state = true;
 							//stored::reduce_all();
-							while(is_started() && (allocation_pool.is_near_factor(0.75) || buffer_allocation_pool.is_near_factor(0.75))) {
+							while(is_started() && allocation_pool.is_near_factor(0.75) ) {
 								Poco::Thread::sleep(100);
-								stored::reduce_all();
+								//stored::reduce_all();
 							}
                             ::stx::memory_low_state = false;
                         }else{

@@ -205,7 +205,7 @@ namespace spaces{
 
         void insert_or_replace(spaces::key& k, spaces::record& v) {
             const ui4 MAX_BUCKET = 100;
-            if(false && v.size() >  MAX_BUCKET){
+            if(v.size() >  MAX_BUCKET){
                 v.set_flag(spaces::record::FLAG_LARGE);
                 spaces::key data_key;
                 spaces::record data;
@@ -217,7 +217,7 @@ namespace spaces{
                 ui4 index = 0;
                 const char * val = value.get_sequence().readable();
                 while(left > 0){
-                    ui4 todo = std::min<ui4>(left,MAX_BUCKET);
+                    ui4 todo = std::min<ui4>(left,value.size());
                     data.get_value().set_text(val,todo);
                     data_key.get_name() = (ui8)index;
                     data_key.set_context(v.get_identity());
@@ -226,7 +226,7 @@ namespace spaces{
                     session.get_set()[data_key] = data;
                 }
 
-                v.get_value().clear();
+                value.clear();
 
             }
             session.get_set()[k] = v;

@@ -4926,12 +4926,12 @@ namespace stx
     _NodeHash           key_lookup;
     /// add a hashed key to the lookup table
     void add_hash(surface_node* node, int at){
-
+        data_type &data = node->get_value(at);
         key_type& key = node->get_key(at);
         size_t h = stx::btree_hash<key_type>()(key);
         if(h){
 
-            key_lookup[h] = cache_data(node,&key,&node->get_value(at));
+            key_lookup[h] = cache_data(node,&key,&data);
         }
     }
 
