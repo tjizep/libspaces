@@ -1,4 +1,4 @@
-****LIB SPACES**** v0.3.1
+****LIB SPACES**** v0.3.2
 --
 
     So, What is it ?
