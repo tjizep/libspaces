@@ -17,8 +17,11 @@ nst::u64 store_journal_lower_max = 2 * 1024ll * 1024ll * 1024ll;
 
 nst::u64 store_max_mem_use;
 nst::u64 store_current_mem_use;
+
 ptrdiff_t btree_totl_used = 0;
 ptrdiff_t btree_totl_instances = 0;
+ptrdiff_t btree_totl_surfaces = 0;
+
 bool stx::memory_low_state = false;
 bool stx::memory_mark_state = false;
 std::string data_directory;

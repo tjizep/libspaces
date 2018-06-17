@@ -117,6 +117,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 extern stx::storage::allocation::pool allocation_pool;
 extern ptrdiff_t btree_totl_used;
 extern ptrdiff_t btree_totl_instances;
+extern ptrdiff_t btree_totl_surfaces;
 extern void add_btree_totl_used(ptrdiff_t added);
 extern void remove_btree_totl_used(ptrdiff_t added);
 class malformed_page_exception : public std::exception {
@@ -642,7 +643,7 @@ namespace stx
 
 
 
-            /// called to set the state and members correcly when member ptr is marked as created
+            /// called to set the state and members correctly when member ptr is marked as created
             /// requires non zero w (wHere it gets stored) parameter
 
             void create(btree * context, stream_address w) {
@@ -776,7 +777,7 @@ namespace stx
             }
         private:
             void update_links(typename btree::surface_node* l) {
-                if (rget()->issurfacenode()) {
+                if (l->issurfacenode()) {
                     if (l->preceding.is_loaded()) {
                         l->preceding.rget()->unload_next();
                         l->preceding.unload(true, false);
@@ -923,13 +924,6 @@ namespace stx
                 }
 
             }
-            /// used to hide things from compiler optimizers which may inline to aggresively
-            NO_INLINE void load_this(pointer_proxy* p, stream_address loader, nst::u16 slot) {//
-                null_check();
-                /// this is hidden from the MSVC inline optimizer which seems to be overactive
-                (*p) = (*p).get_context()->load(((super*)p)->w, loader, slot);
-
-            }
 
 
             bool next_check() const {
@@ -986,17 +980,6 @@ namespace stx
                 }
 
 
-            }
-            /// The initial state can be any state
-            void load(stream_address loader, nst::u16 slot) {
-                null_check();
-                if ((*this).ptr == NULL_REF) {
-                    if (super::w) {
-
-                        load_this(this, loader, slot);
-
-                    }
-                }
             }
 
             /// const version of above function - un-consting it for eveel hackery
@@ -1575,7 +1558,7 @@ namespace stx
 
             /// decodes a page from given storage and buffer and puts it in slots
             /// the buffer type is expected to be some sort of vector although no strict
-            /// checking is performed
+            /// checking is performedinterior_node
             template<typename key_interpolator >
             void load
             (   btree * context
@@ -1649,10 +1632,20 @@ namespace stx
                 d = writer - buffer.begin();
                 buffer.resize(d); /// TODO: use swap
             }
+            void clear_surfaces() {
+                using namespace stx::storage;
+                /// removes any remaining references to surfaces if available
+                if(this->level == 1) {
+
+                    for (u16 c = 0; c <= interiorslotmax; ++c) {
+                        childid[c].discard(*(this->context));
+                    }
+                }
+            }
             void clear_references() {
                 this->check_node();
                 using namespace stx::storage;
-                /// removes any remaining references
+                /// removes any remaining references to surfaces
                 for (u16 c = this->get_occupants() + 1; c <= interiorslotmax; ++c) {
                     childid[c].clear();
                 }
@@ -1722,19 +1715,23 @@ namespace stx
                 if(this->context == nullptr){
                     return;
                 }
-                for (int at = 0; at < surfaceslotmax; ++at) {
-                    nst::u16 al = permutations[at];
-                    if ( al != surfaceslotmax) {
-                        node::context->erase_hash(_keys[al]);
+                if(this->context->get_storage()->is_readonly()){
+                    for (int at = 0; at < surfaceslotmax; ++at) {
+                        nst::u16 al = permutations[at];
+                        if ( al != surfaceslotmax) {
+                            node::context->erase_hash(_keys[al]);
+                        }
+                        permutations[at] = surfaceslotmax;
                     }
-                    permutations[at] = surfaceslotmax;
                 }
+
             }
         public:
             virtual ~surface_node() {
                 //if(is_modified())
                 //    this->context->save(this,this->address);
                 this->deallocate_data();
+                --btree_totl_surfaces;
             }
             void check_next() const {
                 return;
@@ -1884,23 +1881,10 @@ namespace stx
                 }
                 this->dec_occupants();
             }
-            void set_slot_loader(stream_address loader, nst::u16 loaded_slot) {
-                (*this).loaded_slot = loaded_slot;
-                (*this).loader = loader;
-            }
 
-            /// return the slot in which this page belongs
-            nst::u16 get_loaded_slot() const {
-                return (*this).loaded_slot;
-            }
-
-            /// return the loader of this page (interior node)
-            stream_address get_loader() const {
-                return (*this).loader;
-            }
             /// default constructor anyone
             surface_node() {
-
+                ++btree_totl_surfaces;
             }
             /// Set variables to initial values
             inline void initialize(btree* context)
@@ -2206,7 +2190,7 @@ namespace stx
         _AddressedNodes		nodes_loaded;
         _AddressedNodes		interiors_loaded;
         _AddressedNodes		surfaces_loaded;
-        _AllocatedNodes		modified;
+        _AddressedNodes		modified;
 
         void erase_hash(const key_type& key){
             size_t h = stx::btree_hash<key_type>()(key);
@@ -2239,7 +2223,8 @@ namespace stx
 
         void change(const typename interior_node::shared_ptr& n, stream_address w) {
             n->set_address(w);
-            modified.push_back(std::make_pair(w, n));
+            if(!modified.count(w))
+                modified[w] = n;
         }
 
         /// same for surface nodes
@@ -2249,7 +2234,8 @@ namespace stx
                 stats.last_surface_size = last_surface->get_occupants();
             }
             n->set_address(w);
-            modified.push_back(std::make_pair(w, n));
+            if(!modified.count(w))
+                modified[w] = n;
         }
 
         /// change an abstract node
@@ -2406,10 +2392,10 @@ namespace stx
         void check_special_node() {
 
         }
-        typename node::ptr load(stream_address w, stream_address loader = 0, nst::u16 slot = 0) {
+        typename node::ptr load(stream_address w) {
             check_special_node();
 
-            return load(w, nullptr, loader, slot);
+            return load(w, nullptr);
         }
         bool is_valid(const typename node::shared_ptr& page) const {
             return is_valid(page.get());
@@ -2445,7 +2431,7 @@ namespace stx
         /// refresh preallocated surface node
         typename node::ptr refresh(stream_address w, const typename surface_node::shared_ptr& preallocated) {
             if (preallocated != nullptr) {
-                return load(w, preallocated, preallocated->get_loader(), preallocated->get_loaded_slot());
+                return load(w, preallocated);
             }
             else {
                 return load(w, preallocated);
@@ -2510,10 +2496,15 @@ namespace stx
 
         }
         ///TODO: let it be known I hate this function but I'm to stoopid to rewrite it
-        typename node::ptr load(stream_address w, const typename node::shared_ptr& preallocated, stream_address loader = 0, nst::u16 slot = 0) {
+        typename node::ptr load(stream_address w, const typename node::shared_ptr& preallocated) {
             using namespace stx::storage;
-            short refs = 0;
-
+            auto l = nodes_loaded.find(w);
+            if(l!=nodes_loaded.end()){
+                typename node::ptr s = l->second;
+                s.set_state(loaded);
+                s.set_where(w);
+                return s;
+            }
 
             i32 level = 0;
             /// storage operation started
@@ -2538,7 +2529,7 @@ namespace stx
 
             if (level == 0) { // its a safaas
                 typename surface_node::ptr s;
-                s = allocate_surface(w, loader, slot);
+                s = allocate_surface(w);
                 load_node(s,w,version,load_buffer,load_size);
                 return s;
             }
@@ -4011,17 +4002,10 @@ namespace stx
             if (stats.tree_size) {
                 if (!get_storage()->is_readonly()) {
 
-                    for (typename _AllocatedNodes::iterator n = modified.begin(); n != modified.end(); ++n) {
+                    for (auto n = modified.begin(); n != modified.end(); ++n) {
                         this->save((*n).second, (*n).first);
                     }
                     modified.clear();
-                    if (false) {
-                        for (auto n = nodes_loaded.begin(); n != nodes_loaded.end(); ++n) {
-                            if ((*n).second != NULL_REF) {
-                                this->save((*n).second, (*n).first);
-                            }/// can happen when reduce/allocate called recursively
-                        }
-                    }
                     write_boot_values();
                 }
                 ///BTREE_PRINT("flushing %ld\n",flushed);
@@ -4030,67 +4014,16 @@ namespace stx
 
         }
     private:
-        typedef std::pair<stream_address, node*> _NodePair;
-        typedef std::pair<stream_address, surface_node*> _SurfaceNodePair;
-        typedef std::vector<_SurfaceNodePair> _ToDeleteSurface; ///, ::sta::tracker<_SurfaceNodePair,::sta::bt_counter>
-        typedef std::vector<_SurfaceNodePair> _ToDelete; //, ::sta::tracker<_SurfaceNodePair,::sta::bt_counter>
-        /// remove inter node dependencies
-        typedef std::vector<_SurfaceNodePair > _UnlinkNodes; //, ::sta::tracker<_SurfaceNodePair,::sta::bt_counter>
-        /// recycling of allocated nodes
-        typedef std::vector<interior_node*> _Interiors;
-        typedef std::vector<surface_node*> _Surfaces;
 
-        _Surfaces surfaces;
-        _Interiors interiors;
-
-        /// free all surface nodes in the recycler
-        void free_surfaces() {
-            for (auto s = surfaces.begin(); s != surfaces.end(); ++s) {
-                //new ((*s)) surface_node();
-                allocation_pool.free<surface_node>((*s));
+        void unlink_surface_nodes(){
+            for(auto i = interiors_loaded.begin(); i!=interiors_loaded.end(); ++i){
+                typename interior_node::shared_ptr interior = std::static_pointer_cast<interior_node>((*i).second);
+                interior->clear_surfaces();
             }
-            surfaces.clear();
+
+
         }
 
-        /// free all recycled interior nodes
-        void free_interiors() {
-            for (auto i = interiors.begin(); i != interiors.end(); ++i) {
-                ///new ((*i)) interior_node();
-                allocation_pool.free_ns<interior_node>((*i));
-            }
-            interiors.clear();
-        }
-
-        /// put a surface node in the recycler
-        void recycle(surface_node* s) {
-
-            if (::stx::memory_low_state) {
-                free_surfaces();
-                allocation_pool.free<surface_node>(s);
-            }
-            else {
-                s->initialize(this);
-                //s->~surface_node();
-                surfaces.push_back(s);
-            }
-        }
-
-        void unlink_surface_2(const typename surface_node::shared_ptr& surface) {
-            typename surface_node::ptr t;
-            auto i = interiors_loaded.begin();
-            if (surface->get_loader() != 0) {
-                /// find the current loaded instance of the interior node
-                i = interiors_loaded.find(surface->get_loader());
-                if (i != interiors_loaded.end()) {
-                    typename btree::interior_node* interior = (btree::interior_node*)(*i).second.get();
-                    nst::u16 p = surface->get_loaded_slot();
-                    interior->get_childid(p).discard(*this);
-                }/// else interior does not exist anymore = mission accomplished
-            }/// this case may result in all the links not being removed
-            t = surface;
-            t.set_context(this);
-            t.unlink();	/// remove its sibling links
-        }
 
         /// unlink all nodes from tree
         void raw_unlink_nodes_2() {
@@ -4102,13 +4035,36 @@ namespace stx
             ///typedef std::vector<node::ptr,::sta::tracker<node::ptr,::sta::bt_counter>> _LinkedList;
 
             size_t c = 0;
+            size_t surface_count = surfaces_loaded.size();
             /// NB: it wont work with std::unordered_map only with rabbit::unordered_map
             for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
 
                 typename surface_node::shared_ptr surface = std::static_pointer_cast<surface_node>((*n).second);
+                typename surface_node::ptr saved = surface;
 
-                unlink_surface_2(surface);
+                saved.unlink();
                 ++c;
+            }
+            for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
+                typename surface_node::shared_ptr surface = std::static_pointer_cast<surface_node>((*n).second);
+                size_t cnt = surface.use_count();
+                if (cnt == 3) {
+                    if(n->first != surface->get_address()){
+                        err_print("invalid persistent address");
+                        throw bad_pointer();
+                    }
+
+                    nodes_loaded.erase(n->first);
+                    surfaces_loaded.erase(n->first);
+
+                    size_t after = surface.use_count();
+                    if(after != 1){
+                        err_print("could not remove all references");
+                        throw bad_access();
+                    };
+
+                }
+
             }
 
         }
@@ -4148,12 +4104,6 @@ namespace stx
             raw_unlink_nodes();
 
         }
-        /// unlink all nodes
-        void unlink_local_nodes_2() {
-
-            raw_unlink_nodes_2();
-
-        }
 
 
     public:
@@ -4171,11 +4121,11 @@ namespace stx
         /// writes all modified pages to storage and frees all surface nodes
         void reduce_use() {
             stx::storage::allocation::print_allocations();
-            inf_print("reducing b-tree use");
+            inf_print("reducing b-tree use %lld surface pages",(nst::lld)btree_totl_surfaces);
 
             flush_buffers(true);
-            free_interiors();
-            inf_print("complete reducing b-tree use");
+
+            inf_print("complete reducing b-tree use %lld surface pages",(nst::lld)btree_totl_surfaces);
             stx::storage::allocation::print_allocations();
             //free_surfaces();
         }
@@ -4188,17 +4138,13 @@ namespace stx
             if (reduce) {
                 size_t nodes_before = nodes_loaded.size();
                 if (nodes_before > 32) {
-                    unlink_local_nodes_2();
-                    local_reduce_free();
-                    if (nodes_loaded.size() > nodes_before / 2) {
-                        unlink_local_nodes();
-                        ///local_reduce_free();
-                        local_free();
-                    }
+                    unlink_surface_nodes();
+                    raw_unlink_nodes_2();
+
                 }
 
                 if (save_tot > btree_totl_used)
-                    BTREE_PRINT("total tree use %.8g MiB after flush , nodes removed %lld remaining %lld\n",
+                    inf_print("total tree use %.8g MiB after flush , nodes removed %lld remaining %lld",
                                 (double) btree_totl_used / (1024.0 * 1024.0),
                                 (long long) nodes_before - (long long) nodes_loaded.size(),
                                 (long long) nodes_loaded.size());
@@ -4248,7 +4194,6 @@ namespace stx
                 change_use(sizeof(surface_node), 0, sizeof(surface_node));
                 stats.leaves = surfaces_loaded.size();
                 pn->initialize(this);
-                pn->set_slot_loader(loader, slot);
                 typename surface_node::ptr n = pn;
                 n.create(this, w);
                 n->set_next_context(this);
@@ -4341,20 +4286,11 @@ namespace stx
             }
 
 
-            void local_free() {
 
-
-            }
-
-            void local_reduce_free() {
-
-
-            }
             /// orphan the nodes which are still referenced
 
             void orphan_remaining() {
 
-                local_free();
 
             }
 
@@ -4611,7 +4547,7 @@ namespace stx
     bool exists(const key_type &key) const
     {
         typename node::ptr n = root;
-        if (!n) return false;
+        if (n == NULL_REF) return false;
         int slot = 0;
         stream_address loader = 0;
         while (!n->issurfacenode())
@@ -4623,7 +4559,6 @@ namespace stx
         }
 
         typename surface_node::ptr surface = n;
-        surface->set_slot_loader(loader, loader);
         slot = find_lower(surface.rget(), key);
         return (slot < surface->get_occupants() && key_equal(key, surface->keys()[slot]));
     }
@@ -4674,20 +4609,15 @@ namespace stx
         typename node::ptr n = root;
         if (n == NULL_REF) return end();
         int slot = 0;
-        stream_address loader = 0;
         while (!n->issurfacenode())
         {
 
             typename interior_node::ptr interior = n;
-
             slot = find_lower(interior, key);
-            loader = interior.get_where();
-            interior->get_childid(slot).load(interior.get_where(), slot);
             n = interior->get_childid(slot);
         }
 
         typename surface_node::ptr surface = n;
-        surface->set_slot_loader(loader, slot);
         slot = find_lower(surface.rget(), key);
         return (slot < surface->get_occupants() && key_equal(key, surface->get_key(slot)))
                ? iterator(surface, slot) : end();
@@ -4768,7 +4698,6 @@ namespace stx
             slot = find_lower(static_cast<interior_node*>(n. operator->()), key);
             typename interior_node::ptr interior = n;
             interior_node * i = static_cast<interior_node*>(n. operator->());
-            i->get_childid(slot).load(i->get_address(), slot);
 
             n = i->get_childid(slot);
 
@@ -5215,8 +5144,6 @@ namespace stx
         else // n->issurfacenode() == true
         {
             typename surface_node::ptr surface = n;
-
-            surface->set_slot_loader(source, child_at);
 
             int at = surface->find_lower(key_less, key_terp, key);
 
