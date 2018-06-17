@@ -49,7 +49,7 @@ namespace stx{
 				typedef std::size_t    size_type;
 				typedef std::ptrdiff_t difference_type;
 				// rebind allocator to type U
-				template <class U>
+				template <typename U>
 				struct rebind {
 					typedef pool_alloc_tracker<U> other;
 				};

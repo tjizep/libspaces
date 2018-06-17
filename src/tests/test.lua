@@ -2,14 +2,14 @@ require "packages"
 require "spaces"
 --spaces.debug()
 spaces.storage("test")
-spaces.setMaxMb(1500)
+spaces.setMaxMb(5500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
-local u = 1e7
+local u = 1e6
 local MAX_GEN =1e6
-local kl = 16
-local dl = 800
+local kl = 8
+local dl = 8
 local seed = 78976
 
 math.randomseed(seed) -- reseed to standard value for repeatable tests
@@ -132,7 +132,7 @@ local last = ""
 for k,v in pairs(data) do
 	cnt = cnt + 1
 	if k < last then
-		--error("order error")
+		error("order error")
 	end
 	last = k
 end

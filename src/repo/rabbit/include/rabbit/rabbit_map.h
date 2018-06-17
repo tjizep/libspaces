@@ -1135,6 +1135,7 @@ namespace rabbit{
 		};
 
 		struct const_iterator {
+            friend struct iterator;
 		private:
 			typedef hash_kernel* kernel_ptr;
 			const basic_unordered_map* h;
@@ -1167,6 +1168,7 @@ namespace rabbit{
 
 			}
 		public:
+
 			size_type pos;
 
 			const_iterator() : h(nullptr){
@@ -1333,9 +1335,7 @@ namespace rabbit{
 					iterator e = end();
 					size_type ctr = 0;
 					bool rerehashed = false;
-					//_K k;
 					for(iterator i = begin();i != e;++i){
-						//std::swap(k,(*i).first);
 						_V* v = reh->subscript((*i).first);
 						if(v != nullptr){
 							*v = i->second;
@@ -1358,8 +1358,6 @@ namespace rabbit{
 							rehashed->set_logarithmic(current->get_logarithmic());
 							reh = rehashed.get();
 
-							// i = begin(); // start over
-							//ctr = 0;
 							break;
 
 						}
@@ -1578,8 +1576,8 @@ namespace rabbit{
 		typedef typename _Base::const_reference const_reference;
 		typedef typename _Base::iterator iterator;
 		typedef typename _Base::const_iterator const_iterator;
-//	typedef typename _Base::reverse_iterator reverse_iterator;
-//	typedef typename _Base::const_reverse_iterator
+//	    typedef typename _Base::reverse_iterator reverse_iterator;
+//	    typedef typename _Base::const_reverse_iterator
 //		const_reverse_iterator;
 		typedef typename _Base::value_type value_type;
 

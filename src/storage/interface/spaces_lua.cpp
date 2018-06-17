@@ -87,6 +87,8 @@ static int l_open_space(lua_State *L) {
 
 	}
 	session_t * s = spaces::create_session<session_t>(L, SPACES_SESSION_KEY,false);
+	s->set_mode(true); /// if the transaction is already started this wont make a difference
+    s->begin(); /// will start transaction
 	spaces::space*  r = s->open_space(0);
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);

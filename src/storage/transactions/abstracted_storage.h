@@ -127,7 +127,7 @@ namespace stored{
 		,	writer (false)
 		,	boot(1)
 		{
-
+			begin(false);
 		}
 
 		~abstracted_storage() {
@@ -206,7 +206,7 @@ namespace stored{
 			NS_STORAGE::buffer_type::iterator writer = buffer.begin();
 
 			NS_STORAGE::leb128::write_signed(writer, r);
-			get_transaction().complete();
+			get_transaction().complete();/// also impl
 
 		}
 		void set_boot_value(NS_STORAGE::i64 r, NS_STORAGE::stream_address boot){
@@ -239,6 +239,8 @@ namespace stored{
 			order = get_allocations().get_order();
 
 		}
+		/// starts a transaction with version preconditions
+		/// for replication purposes
 		void begin(bool writer,const nst::version_type& version,const nst::version_type& last_version){
 			rollback();
 			get_allocations();
@@ -248,21 +250,27 @@ namespace stored{
 			order = get_allocations().get_order();
 
 		}
-
+		/// the order of the current transaction
+		/// throws null pointer exception if no
+		/// transaction is started
 		NS_STORAGE::u64 current_transaction_order() const{
-			return order;
+			if(is_transacted())
+				return order;
+			err_print("The current transaction has not been started");
+			throw NullPointerException();
 		}
-
+		/// the current transaction order does not match
+		/// the system order
 		bool stale() const {
 			if(_transaction==nullptr) return true;
 			return (get_transaction().get_order() != get_allocations().get_order());
 		}
-
+		/// returns true when the transaction has its own order
 		bool is_transacted() const {
 			return (_transaction!=nullptr);
 		}
 
-
+		/// returns true if no writes are permitted
 		bool is_readonly() const {
 			if(_transaction == NULL) return true;
 			return get_transaction().is_readonly();
@@ -299,6 +307,9 @@ namespace stored{
 			
 			return r;
 		}
+
+		/// returns true when storage is writing to local storage
+
 		bool is_local_writes() const{
 		    if(_allocations!=nullptr){
 				return _allocations->is_local_writes();
@@ -436,10 +447,6 @@ namespace stored{
 	void abstracted_tx_begin(bool read,bool shared, _Storage& storage, _Map& map){
 		////bool write = !read;
 		bool reload = abstracted_tx_begin_1(read,storage);
-		//if(write || !shared){
-			map.unshare();
-		//}else
-		//	map.share();
 		if(reload)
 			map.reload();
 	}

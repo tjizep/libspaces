@@ -20,7 +20,8 @@ namespace spaces{
 	public:
 
 		stored::abstracted_storage storage;
-		typedef stx::btree_map<key, record, stored::abstracted_storage, std::less<key>> _Set;
+		typedef stx::storage::allocation::pool_alloc_tracker<key> _KeyAllocator;
+		typedef stx::btree_map<key, record, stored::abstracted_storage, std::less<key>, _KeyAllocator> _Set;
 	private:
 		_Set set;
 		nst::i64 id;

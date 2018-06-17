@@ -7,7 +7,7 @@ spaces.setMaxMb(6500)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
 local u = 1e7
-local MAX_GEN =3e6
+local MAX_GEN =1e6
 local kl = 16
 local dl = 800
 local seed = 78976

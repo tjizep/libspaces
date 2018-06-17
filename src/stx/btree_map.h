@@ -39,9 +39,10 @@ namespace stx
 template <	typename _Key, typename _Data,
 			typename _Storage ,
 			typename _Compare = std::less<_Key>,
-			typename _Iterpolator = stx::interpolator<_Key> ,
-			typename _Traits = bt_def_map_t<_Key, _Data, def_p_traits>,
-			typename _Alloc = std::allocator<std::pair<_Key, _Data> > >
+			typename _Alloc = std::allocator<std::pair<_Key, _Data> > ,
+            typename _Traits = bt_def_map_t<_Key, _Data, def_p_traits>,
+            typename _Interpolator = stx::interpolator<_Key>
+>
 class btree_map
 {
 public:
@@ -61,7 +62,7 @@ public:
     typedef _Compare                    key_compare;
 
 	/// Fourth template parameter: interpolator if applicable
-	typedef _Iterpolator				key_interpolator;
+	typedef _Interpolator				key_interpolator;
 
     /// Fifth template parameter: Traits object used to define more parameters
     /// of the B+ tree
@@ -83,7 +84,7 @@ public:
     // *** Constructed Types
 
     /// Typedef of our own type
-    typedef btree_map<key_type, data_type, storage_type, key_compare, key_interpolator, traits, allocator_type> self;
+    typedef btree_map<key_type, data_type, storage_type, key_compare, allocator_type, traits, key_interpolator> self;
 
     /// Construct the STL-required value_type as a composition pair of key and
     /// data types
@@ -641,14 +642,10 @@ public:
 	/// shared pages
 
 	void share(std::string name){
-		tree.share(name);
+
 	}
 
-	/// unshare all surfaces
 
-	void unshare(){
-		tree.unshare();
-	}
 	stx::storage::stream_address get_root_address() const {
 		return tree.get_root_address();
 	}
