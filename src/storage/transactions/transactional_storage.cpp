@@ -58,20 +58,21 @@ namespace storage{
 						Poco::Thread::sleep(10);
 
                         if(allocation_pool.is_near_depleted() || buffer_allocation_pool.is_near_depleted()){
-                            if(!::stx::memory_low_state){
 
-                                //std::cout << "switching to low state" << std::endl;
-                            }
 
-							::stx::memory_low_state = true;
-							//stored::reduce_all();
-							while(is_started() && allocation_pool.is_near_factor(0.75) ) {
-								Poco::Thread::sleep(100);
-								//stored::reduce_all();
+                            if(allocation_pool.is_near_depleted()) {
+								::stx::memory_low_state = true;
+
+								while (is_started() && allocation_pool.is_near_factor(0.75)) {
+									Poco::Thread::sleep(100);
+									if(buffer_allocation_pool.is_near_depleted())
+										stored::reduce_all();
+								}
+								::stx::memory_low_state = false;
 							}
-                            ::stx::memory_low_state = false;
-                        }else{
-                            ::stx::memory_low_state = false;
+							if(buffer_allocation_pool.is_near_depleted())
+								stored::reduce_all();
+
                         }
 						timer_val = os::millis();
 					}

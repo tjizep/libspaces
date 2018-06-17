@@ -277,9 +277,11 @@ namespace stx{
 			}
 			static void print_allocations(){
 				double total_mb = ((double)(allocation_pool.get_total_allocated()+buffer_allocation_pool.get_total_allocated())/(1024.0*1024.0));
+				double buff_mb = ((double)(buffer_allocation_pool.get_total_allocated())/(1024.0*1024.0));
+
 				double max_alloc = ((double)allocation_pool.get_max_pool_size())/(1024.0*1024.0);
 				double max_buf_alloc = buffer_allocation_pool.get_max_pool_size()/(1024.0*1024.0);
-				inf_print(" resources: %.3f",total_mb);
+				inf_print(" resources: %.3f (buffers %.3f of %.3f)",total_mb,buff_mb,max_buf_alloc);
 			}
 
 		}; /// allocations

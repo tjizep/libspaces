@@ -8,6 +8,7 @@ spaces.setMaxMb(1500)
 --spaces.localWrites(false)
 local u = 1e7
 local MAX_GEN =1e6
+local MAX_VAL =1e4
 local kl = 16
 local dl = 800
 local seed = 78976
@@ -72,7 +73,11 @@ if #data == 0 or #data < u then
 	local td = os.clock()
 	print("start st write",t)
 	local ustart = 0
-	local value = randomString(dl)
+	local values = {}
+	for v=1,MAX_VAL do
+	    values[v] = randomString(dl)
+	end
+
 	for i = 1,u do
 		local ss = tdata[i-ustart]
 		if ss == nil then
@@ -89,7 +94,7 @@ if #data == 0 or #data < u then
 			td=os.clock()
 		end
 
-		data[ss] = value;
+		data[ss] = values[(i % MAX_VAL) + 1];
 		--spaces.commit()
 
 	end

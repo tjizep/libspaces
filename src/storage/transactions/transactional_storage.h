@@ -844,10 +844,10 @@ namespace storage{
 
 		void check_use(){
 			/// this may cause problems
-			if(!transient) return;
+			//if(!transient) return;
 
 			//if(current_mem_use > max_mem_use){
-			if(buffer_allocation_pool.is_near_depleted() && (*this)._use > 1024*1024*2){
+			if(buffer_allocation_pool.is_near_depleted()){
 				if(transient) 	inf_print("reduce transient block cache use - %s",this->get_name().c_str());
 				else 			inf_print("reduce perm. block cache use - %s",this->get_name().c_str());
 				//ptrdiff_t before = get_use();
@@ -1520,17 +1520,9 @@ namespace storage{
 		void set_transient(){
 			(*this).transient = true;
 		}
-
 		/// transient: false;
-
 		void set_permanent(){
 			(*this).transient = false;
-		}
-
-		/// is transient == true
-
-		bool is_transient() const {
-			return (*this).transient;
 		}
 
 		/// discard all data and internal state if references are 0
@@ -2792,7 +2784,9 @@ namespace storage{
 				b = std::make_shared< version_storage_type>(last_address, order, version, (*this).lock);
 				storage_allocator_type_ptr allocator = std::make_shared<storage_allocator_type>(version_namer(b->get_version(),initial->get_name()),true);
 				allocator->set_allocation_start(last_address);
+				allocator->set_transient();
 				b->set_allocator(allocator);
+
 			}else {
 				b = recycler.back();
 				recycler.pop_back();

@@ -186,6 +186,8 @@ namespace spaces {
 		, 	type(r.type){
 
 		}
+		~data(){}
+
 		void clear() {
 			type = data_type::numeric;
 			sequence.clear();
@@ -327,16 +329,15 @@ namespace spaces {
 		}
 
 		ui4 size() const {
-			char* end;
 			switch (type) {
 				case data_type::numeric:
 					return 8;
 				case data_type::boolean:
 					return 8;
 				case data_type::text:
-					return this->sequence.size();
 				case data_type::function:
 				case data_type::multi:
+					return this->sequence.size();
 				case data_type::infinity:
 				default:
 					break;
