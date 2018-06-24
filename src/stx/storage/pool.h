@@ -435,7 +435,7 @@ namespace stx{
 				}
 				std::vector<std::pair<void *, size_t>> free_pairs;
 			};
-
+			extern pool_shared* get_shared();
 			class inner_pool{
 			public:
 				/// types
@@ -473,7 +473,7 @@ namespace stx{
 				static const u64 MIN_ALLOCATION_SIZE = 32ll;
 				static const u64 MAX_SMALL_ALLOCATION_SIZE = MIN_ALLOCATION_SIZE*4ll;
 				static const u64 MAX_THREAD_BUCKETS = 5000;
-				pool_shared * shared;
+
 				u64 last_full_flush;
 				u64 clock;
 				u64 used_period;
@@ -488,16 +488,15 @@ namespace stx{
 			
 			public:
 
-				inner_pool(pool_shared* shared)
-				:	shared(shared)
-				,	clock(0)
+				inner_pool()
+				:	clock(0)
 				,	used_period(0)
 				,	last_allocation(0)
 				,	last_allocation_row(0)
 				,	threads(0)
 				{
 					//inner_pool::max_pool_size = max_pool_size;
-					this->id = ++(shared->instances);
+					this->id = ++(get_shared()->instances);
 					dbg_print("creating unlocked pool");
 					last_full_flush = clock;
 
@@ -541,24 +540,22 @@ namespace stx{
 				}
 
 
-				pool_shared * get_shared(){
-					return this->shared;
-				}
+
 				size_t get_allocated() const {
-					return (*this).shared->allocated;
+					return get_shared()->allocated;
 				}
 				void set_max_pool_size(u64 max_pool_size){
 
-					shared->max_pool_size = max_pool_size;
+					get_shared()->max_pool_size = max_pool_size;
 
 				}
 				u64 get_used() {
 
-					return (*this).shared->used;
+					return get_shared()->used;
 				}
 				u64 get_total_allocated(){
 
-					return (*this).shared->allocated + (*this).shared->used;
+					return get_shared()->allocated + get_shared()->used;
 				}
 
 				void * allocate(size_t requested){
@@ -576,8 +573,8 @@ namespace stx{
 				}
 				_Allocated allocate_type(size_t requested) {
 
-					
-						shared->allocated += requested + overhead() ;
+
+						get_shared()->allocated += requested + overhead() ;
 						u8 * a = new u8[requested];
 						//memset(a,0,requested);
 						_Allocated result(a,requested);
@@ -595,10 +592,10 @@ namespace stx{
 			
 				void free_type(void * data, size_t requested){
 					if(use_internal_pool == FALSE){// && requested < MAX_SMALL_ALLOCATION_SIZE){
-						if((*this).shared->allocated < (requested + overhead())){
+						if(get_shared()->allocated < (requested + overhead())){
 							err_print("invalid de-allocation detected");
 						}
-						shared->allocated -= requested + overhead();
+						get_shared()->allocated -= requested + overhead();
 						delete (u8*)data;
 						return;
 					}
@@ -609,15 +606,15 @@ namespace stx{
 				/// returns true if the pool is depleted
 				bool is_depleted() const {
 
-					return ( shared->allocated >= shared->max_pool_size );
+					return ( get_shared()->allocated >= get_shared()->max_pool_size );
 				}
 				bool is_full() const {
 
-					return ( ( shared->used + shared->allocated )  >= shared->max_pool_size );
+					return ( ( get_shared()->used + get_shared()->allocated )  >= get_shared()->max_pool_size );
 				}
 				bool is_near_full() const {
 
-					return ( ( shared->used + shared->allocated )  >= shared->max_pool_size ) && ( shared->allocated > (shared->max_pool_size*0.1) );
+					return ( ( get_shared()->used + get_shared()->allocated )  >= get_shared()->max_pool_size ) && ( get_shared()->allocated > (get_shared()->max_pool_size*0.1) );
 				}
 
 				/// returns true if the pool is nearing depletion
@@ -625,10 +622,10 @@ namespace stx{
 					return is_near_factor(0.95);
 				}
 				bool is_near_factor(double factor) const {
-					return ( shared->allocated >= (factor*shared->max_pool_size) ) ;
+					return ( get_shared()->allocated >= (factor*get_shared()->max_pool_size) ) ;
 				}
 				u64 get_max_pool_size() const {
-					return shared->max_pool_size;
+					return get_shared()->max_pool_size;
 				}
 				/// simple template allocations
 				template<typename T>
@@ -657,7 +654,7 @@ namespace stx{
 			class pool{
 			protected:
 
-				pool_shared shared;
+
 
 				inner_pool* inner;
 
@@ -665,7 +662,7 @@ namespace stx{
 			public:
 				pool(u64 max_pool_size) : inner (nullptr){
 					set_max_pool_size(max_pool_size);
-					inner = new inner_pool(&shared);
+					inner = new inner_pool();
 				}
 
 				~pool(){
@@ -688,11 +685,11 @@ namespace stx{
 				}
 
 				void set_max_pool_size(u64 max_pool_size){
-					this->shared.max_pool_size = max_pool_size;
+					get_shared()->max_pool_size = max_pool_size;
 				}
 
 				u64 get_used() {
-					return this->shared.used;
+					return get_shared()->used;
 				}
 				u64 get_total_allocated(){
 
@@ -714,9 +711,9 @@ namespace stx{
 
 				/// return true if the give size bytes can be allocated
 				bool can_allocate(u64 size) const throw() {
-					if(size <  this->shared.used) return true;
-					u64 extra = size -  this->shared.used;
-					return  this->shared.allocated + extra <  this->shared.max_pool_size;
+					if(size <  get_shared()->used) return true;
+					u64 extra = size -  get_shared()->used;
+					return  get_shared()->allocated + extra <  get_shared()->max_pool_size;
 				}
 
 				/// returns true if the pool is depleted

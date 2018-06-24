@@ -281,7 +281,7 @@ namespace stx{
 
 				double max_alloc = ((double)allocation_pool.get_max_pool_size())/(1024.0*1024.0);
 				double max_buf_alloc = buffer_allocation_pool.get_max_pool_size()/(1024.0*1024.0);
-				inf_print(" resources: %.3f (buffers %.3f of %.3f)",total_mb,buff_mb,max_buf_alloc);
+				inf_print(" resources: %.3f (buffers %.3f of %.3f) (structure max %.3f)",total_mb,buff_mb,max_buf_alloc,max_alloc);
 			}
 
 		}; /// allocations

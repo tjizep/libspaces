@@ -37,7 +37,8 @@ file(GLOB TESTS
 "src/tests/*.lua")
 
 file(GLOB SPACES 
-"src/*.cpp" 
+"src/*.cpp"
+"src/stx/storage/*.cpp"
 "src/storage/spaces/*.cpp"
 "src/storage/interface/*.cpp"
 "src/storage/network/*.cpp"

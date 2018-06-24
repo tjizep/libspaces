@@ -31,6 +31,9 @@ namespace spaces{
         ~db_session(){
 
         }
+        bool is_transacted() const{
+            return d->is_transacted();
+        }
         void create(){
             if(is_reader){
                 d =spaces::create_reader();
@@ -181,6 +184,10 @@ namespace spaces{
         }
 
         typename _SessionType::_Set& get_set() {
+            if(!session.is_transacted()){
+                err_print("transaction not started");
+                throw std::exception();
+            }
             return session.get_set();
         }
 

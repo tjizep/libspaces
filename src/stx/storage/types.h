@@ -95,7 +95,7 @@ namespace stx{
 			typedef long long unsigned int fi64; /// cast for %llu
 
 			static const char * tostring(const version_type& v) {
-				static std::string _t_str;
+				static thread_local std::string _t_str;
 				_t_str = v.toString();
 				return _t_str.c_str();
 			}

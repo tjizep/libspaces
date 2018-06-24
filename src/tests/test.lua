@@ -6,10 +6,10 @@ spaces.setMaxMb(1500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
-local u = 1e7
+local u = 1e6
 local MAX_GEN =1e6
 local MAX_VAL =1e4
-local kl = 16
+local kl = 8
 local dl = 800
 local seed = 78976
 
@@ -95,7 +95,6 @@ if #data == 0 or #data < u then
 		end
 
 		data[ss] = values[(i % MAX_VAL) + 1];
-		--spaces.commit()
 
 	end
 	local dt = os.clock()-t;
@@ -105,6 +104,7 @@ if #data == 0 or #data < u then
 	spaces.commit()
 
 end
+
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
 spaces.read()

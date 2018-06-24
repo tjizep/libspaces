@@ -569,6 +569,10 @@ public:
 
 public:
 
+    /// check the current use flag and flush buffers of required
+    void check_use(){
+        tree.check_low_memory_state();
+    }
 	/// reduce the tree memory use by storing pages to alternate storage
 
     void reduce_use(){

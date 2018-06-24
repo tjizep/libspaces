@@ -154,8 +154,9 @@ static int l_configure_space(lua_State *L) {
 }
 static int l_setmaxmb_space(lua_State *L) {
 	nst::u64 mmb = (nst::u64)lua_tonumber(L,1);
-	allocation_pool.set_max_pool_size((1024UL*1024UL*mmb*3UL)/4UL);
-	buffer_allocation_pool.set_max_pool_size((1024UL*1024UL*mmb*1UL)/4UL);
+	dbg_print("set max mem to %lld",(nst::lld)mmb);
+	allocation_pool.set_max_pool_size((1024UL*1024UL*mmb)/2UL);
+	//buffer_allocation_pool.set_max_pool_size((1024UL*1024UL*mmb*1UL)/4UL);
     return 0;
 }
 

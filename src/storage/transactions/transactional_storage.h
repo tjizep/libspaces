@@ -209,23 +209,27 @@ namespace storage{
 	class FileIOException : public std::exception{
 	public:
 		FileIOException() throw() {
+			err_print("file io exception");
 		}
 	};
 	/// Exceptions that may be thrown in various circumstances
 	class InvalidAddressException : public std::exception{
 	public: /// The address required cannot exist
 		InvalidAddressException() throw() {
+			err_print("invalid address");
 		}
 	};
 
 	class InvalidStorageException : public std::exception{
 	public: /// The storage has invalid meta data
 		InvalidStorageException() throw() {
+			err_print("invalid storage");
 		}
 	};
 	class NonExistentAddressException : public std::exception{
 	public: /// The address required does not exist
 		NonExistentAddressException() throw() {
+			err_print("address not found");
 		}
 	};
 
@@ -233,30 +237,36 @@ namespace storage{
 	class InvalidStorageAction : public std::exception{
 		public: /// The storage action supplied is inconsistent with the address provided (according to contract)
 		InvalidStorageAction() throw() {
+			err_print("invalid storage action");
 		}
 	};
 
 	class WriterConsistencyViolation : public std::exception{
 		public: /// The writing version has uncommitted dependencies
 		WriterConsistencyViolation() throw() {
+			err_print("writer consistency violation");
 		}
 	};
 
 	class ConcurrentWriterError : public std::exception{
 	public: /// There was more than one transaction writing simultaneously
 		ConcurrentWriterError() throw() {
+			err_print("concurrent writer error");
 		}
 	};
 
 	class InvalidReaderDependencies : public std::exception{
 		public: /// The reader has no locks
 		InvalidReaderDependencies() throw() {
+			err_print("invalid reader dependencies");
 		}
 	};
 
 	class InvalidVersion : public std::exception{
 		public: /// The writing version has uncommitted dependencies
 		InvalidVersion() throw() {
+			err_print("invalid version");
+
 		}
 	};
 
@@ -264,28 +274,33 @@ namespace storage{
 	class InvalidWriterOrder : public std::exception{
 		public: /// The writing transaction has committed to late, another writer already committed
 		InvalidWriterOrder() throw() {
+			err_print("invalid writer order");
 		}
 	};
 	// this is an exception thrown when a non writing transaction is trying to commit
 	class InvalidTransactionType : public std::exception{
 		public: /// The reading transaction should not commit
 		InvalidTransactionType() throw() {
+			err_print("invalid transaction type");
 		}
 	};
 
 	class InvalidReaderCount : public std::exception{
 		public: /// version released != engaged
 		InvalidReaderCount() throw() {
+			err_print("invalid reader count");
 		}
 	};
 	class ReplicationFailure : public std::exception{
 	public: /// Replication Failed
 		ReplicationFailure() throw() {
+			err_print("replication failure");
 		}
 	};
 	class InvalidReplicationController : public std::exception{
 	public: /// Replication controller not available
 		InvalidReplicationController() throw() {
+			err_print("invalid replication controller");
 		}
 	};
 
@@ -605,14 +620,14 @@ namespace storage{
 		u64 get_max_address() const {
 			return (*this).next;
 		}
-		void add_buffer(const address_type& w, const block_type& block){
+		void add_buffer(const address_type& w, const version_type& version, const block_type& block){
 			current_address = w;
 			current_size = block.size()*sizeof(typename block_type::value_type);
 			current_version.clear();
 			current_address = w;
 			/// assumes block_type is some form of stl vector container
 			current_size = block.size()*sizeof(typename block_type::value_type);
-			current_version = get_version().toString();
+			current_version = nst::tostring(version);
 			encoded_block.clear();
 			if(!block.empty()){
 				//compress_block
@@ -814,7 +829,7 @@ namespace storage{
 				mods--;
 				if(local_writes){
 					versions[(*b).first] = (*b).second->get_version();
-					add_buffer((*b).first, (*b).second->block);
+					add_buffer((*b).first, (*b).second->get_version(), (*b).second->block);
 					(*b).second->set_written();
 				}
 
@@ -848,8 +863,9 @@ namespace storage{
 
 			//if(current_mem_use > max_mem_use){
 			if(buffer_allocation_pool.is_near_depleted()){
-				if(transient) 	inf_print("reduce transient block cache use - %s",this->get_name().c_str());
-				else 			inf_print("reduce perm. block cache use - %s",this->get_name().c_str());
+				if(transient) 	dbg_print("reduce transient block cache use - %s",this->get_name().c_str());
+				else 			dbg_print("reduce perm. block cache use - %s",this->get_name().c_str());
+				stx::storage::allocation::print_allocations();
 				//ptrdiff_t before = get_use();
 
 				flush_back(0.3,true);
@@ -1470,17 +1486,23 @@ namespace storage{
 		~sqlite_allocator(){
 			//printf("[TX DELETE] %s ver. %lld \n", get_name().c_str(), (long long)get_version());
 			discard();
-			if(transient && !is_new){
+			dbg_print("~ after discard [%s] references: %lld transient:%lld is_new: %lld",  get_name().c_str(),(nst::lld)references ,(nst::lld)transient ,(nst::lld)is_new);
+			if(references == 0 && transient && !is_new){
 				using Poco::File;
 				using Poco::Path;
 				try{
 					std::string nname = get_name() + extension;
+
 					File df (nname.c_str());
 					if(df.exists()){
+						dbg_print("removing transient file [%s]",nname.c_str());
 						df.remove();
+					}else{
+						err_print("error removing transient file [%s]",nname.c_str());
 					}
 				}catch(std::exception& ){
 					/// TODO: needs to be logged as warning and/or handled when transient resource starts up
+					err_print("error removing transient file [%s]",name.c_str());
 				}
 			}
 		}
@@ -1755,9 +1777,7 @@ namespace storage{
 			for(typename _Addresses::iterator a = todo.begin(); a != todo.end(); ++a){
 				stream_address at = (*a);
 				buffer_type &r = allocate(at, read);
-				if(at == 1 && r.size() == 1 && r[0] == 9){
-					inf_print("debug this");
-				}
+
 				if(is_end(r)){
 					throw InvalidAddressException();
 				}
