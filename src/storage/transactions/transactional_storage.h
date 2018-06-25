@@ -925,11 +925,12 @@ namespace storage{
 		}
 	protected:
 		block_type read_block;
+		/// allocate without checking memory use (used in move and some other operations)
 		block_type & _allocate(address_type& which, storage_action how){
 
 			lock.lock();
 			touch();
-			//check_use();
+
 			if(how != read)
 				++((*this).changes);
 			busy = true;
@@ -1329,7 +1330,7 @@ namespace storage{
 					recycle_block(at,current);
 				}else{
 					++unloaded;
-					buffer_type &r = allocate(at, read);
+					buffer_type &r = _allocate(at, read);
 					buffer_type *d = &(dest.allocate(at, create));
 					dbg_print("moving * %lld [%lld] ", (nst::fi64)at,(nst::fi64)r.size());
 					if((*this).get_allocated_version() <= dest.get_allocated_version()){
@@ -1630,7 +1631,7 @@ namespace storage{
 		/// the storage pair is created
 		/// returns the end() if the non nil address requested does not exist
 		block_type & allocate(address_type& which, storage_action how){
-
+			check_use();
 			block_type & allocated = _allocate(which, how);
 
 			return allocated;

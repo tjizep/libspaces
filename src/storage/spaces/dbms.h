@@ -190,10 +190,10 @@ namespace spaces{
 		{
 			dbg_print("dbms manager thread initialized");
 
-			//checker = std::make_shared<std::thread>(&dbms_memmanager::check_dbms,this);
-			//while(!started){
-			//	std::this_thread::sleep_for (std::chrono::milliseconds(10));
-			//}
+			checker = std::make_shared<std::thread>(&dbms_memmanager::check_dbms,this);
+			while(!started){
+				std::this_thread::sleep_for (std::chrono::milliseconds(10));
+			}
 
 
 		}
@@ -211,7 +211,7 @@ namespace spaces{
                 while(!canceling){
                     {
                         std::lock_guard<std::recursive_mutex> lock(manage_x);
-                        manage_instances();
+						manage_instances();
                         manage_memory();
                     }
 
