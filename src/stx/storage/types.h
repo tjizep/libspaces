@@ -94,11 +94,7 @@ namespace stx{
 		/// format spec casts
 			typedef long long unsigned int fi64; /// cast for %llu
 
-			static const char * tostring(const version_type& v) {
-				static thread_local std::string _t_str;
-				_t_str = v.toString();
-				return _t_str.c_str();
-			}
+			extern const char * tostring(const version_type& v) ;
 
 			inline version_type create_version(){
 				return Poco::UUIDGenerator::defaultGenerator().create();

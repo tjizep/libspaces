@@ -76,6 +76,7 @@ namespace spaces{
             if (this->storage.is_transacted()) {
 				dbg_print("rollback  %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
                 this->storage.rollback();
+
                 resource_x.unlock();
             }
 
@@ -110,6 +111,7 @@ namespace spaces{
 					if(this->is_reader){
 						dbg_print("commit readonly rollback %s on %s",nst::tostring(this->storage.get_version()),storage.get_name().c_str());
 						this->storage.rollback();
+
 					}else{
 						dbg_print("commit write save id [%lld] %s on %s",(nst::fi64)id,nst::tostring(storage.get_version()),storage.get_name().c_str());
 						if(start_id != id){
@@ -119,6 +121,7 @@ namespace spaces{
 						dbg_print("commit final %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
 						this->set.flush_buffers();
 						this->storage.commit();
+
 						if(this->storage.is_local_writes()){
 							dbg_print("commit synch. to io %s on %s",nst::tostring(storage.get_version()),storage.get_name().c_str());
 							nst::journal::get_instance().synch();
@@ -154,14 +157,13 @@ namespace spaces{
 		std::recursive_mutex manage_x;
     private:
         void remove(const spaces::dbms::ptr& dbms_ptr){
-            dbg_print("collecting dbms %s", dbms_ptr->get_name().c_str());
+            dbg_print("unmanaging dbms %s", dbms_ptr->get_name().c_str());
             active.erase((ptrdiff_t)(void *)dbms_ptr.get());
         }
         void manage_instances(){
             for (auto a = active.begin(); a != active.end(); ++a) {
                 spaces::dbms::ptr dbms = a->second;
                 if(dbms.use_count()==2 && dbms->reader()){
-                    dbg_print("removing reader from management");
                     remove(dbms);
                 }
             }
@@ -188,10 +190,10 @@ namespace spaces{
 		{
 			dbg_print("dbms manager thread initialized");
 
-			checker = std::make_shared<std::thread>(&dbms_memmanager::check_dbms,this);
-			while(!started){
-				std::this_thread::sleep_for (std::chrono::milliseconds(10));
-			}
+			//checker = std::make_shared<std::thread>(&dbms_memmanager::check_dbms,this);
+			//while(!started){
+			//	std::this_thread::sleep_for (std::chrono::milliseconds(10));
+			//}
 
 
 		}

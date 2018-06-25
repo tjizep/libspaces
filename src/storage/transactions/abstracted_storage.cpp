@@ -7,24 +7,30 @@ struct statics
 {
 	statics(){
 		this->instances = std::make_shared<stored::_AlocationsMap>();
-		this->db_mem_mgr = std::make_shared<spaces::dbms_memmanager>();
+		//this->db_mem_mgr = std::make_shared<spaces::dbms_memmanager>();
 
 	}
+
 	Poco::Mutex m;
 	std::shared_ptr<stored::_AlocationsMap> instances;
 	std::shared_ptr<spaces::dbms> writer;
 	std::shared_ptr<spaces::dbms_memmanager> db_mem_mgr;
 	~statics(){
 		//this->writer = nullptr;
-		this->db_mem_mgr = nullptr;
+		//this->db_mem_mgr = nullptr;
 		this->instances = nullptr;
 	}
 };
-static statics variables;
 
+static statics variables;
+static thread_local std::string _t_str;
 namespace nst = ::stx::storage;
 namespace stx{
 	namespace storage{
+		const char * tostring(const version_type& v) {
+			_t_str = v.toString();
+			return _t_str.c_str();
+		}
 		bool storage_debugging = false;
 		bool storage_info = false;
 	}
@@ -35,13 +41,13 @@ namespace stx{
 
 spaces::dbms::ptr spaces::create_reader() {
 	auto r = std::make_shared<dbms>(STORAGE_NAME, true);
-	//variables.db_mem_mgr->add(r.get());
+	//variables.db_mem_mgr->add(r);
 	return r;
 }
 spaces::dbms::ptr  spaces::get_writer(){
 	if(writer == nullptr){
 		writer = std::make_shared<spaces::dbms>(STORAGE_NAME,false);
-		//variables.db_mem_mgr->add(writer.get());
+		//variables.db_mem_mgr->add(writer);
 	}
 	return writer;
 }

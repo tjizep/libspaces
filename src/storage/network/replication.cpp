@@ -195,6 +195,7 @@ namespace spaces{
 
     }
     block_replication_server::~block_replication_server(){
+        dbg_print("Stopping server %s","");
 
     }
 /// client
@@ -353,7 +354,7 @@ namespace spaces{
         return this->remote->call("notifyChange", descriptors).as<bool>();
     }
     block_replication_notifier::~block_replication_notifier(){
-
+        dbg_print("notifier finalized");
     }
 
     /// create a notifier to send changes to
@@ -389,7 +390,7 @@ namespace spaces{
         srv->async_run(2); /// start version is part of this so should be ok to capture asynch
     }
     block_replication_observer_server::~block_replication_observer_server(){
-
+        dbg_print("observer [%s] finalized","");
     }
 
     /// start the observer server in a new thread

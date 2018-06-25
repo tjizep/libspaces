@@ -627,7 +627,7 @@ namespace storage{
 			current_address = w;
 			/// assumes block_type is some form of stl vector container
 			current_size = block.size()*sizeof(typename block_type::value_type);
-			current_version = nst::tostring(version);
+			current_version = version.toString(); //nst::tostring();
 			encoded_block.clear();
 			if(!block.empty()){
 				//compress_block
@@ -673,7 +673,7 @@ namespace storage{
 			if(this->repl!=nullptr){
 				version_type temp_version;
 				if(this->repl->read_replicants(current_block,temp_version,w)){
-					current_version = nst::tostring(temp_version);
+					current_version = temp_version.toString();
 					return true;
 				}else{
 					return false;
@@ -929,7 +929,7 @@ namespace storage{
 
 			lock.lock();
 			touch();
-			check_use();
+			//check_use();
 			if(how != read)
 				++((*this).changes);
 			busy = true;
@@ -1310,7 +1310,7 @@ namespace storage{
 			for(typename _Allocations::iterator a = todo.begin(); a != todo.end(); ++a){
 				stream_address at = a->first;
 				ref_block_descriptor current = a->second;
-
+				dest.check_use();
 
 				if(current!=nullptr){
 					dbg_print("moving %lld [%lld] ", (nst::fi64)at,(nst::fi64)current->block.size());
@@ -2607,8 +2607,7 @@ namespace storage{
 		}
 
 		virtual ~mvcc_coordinator(){
-			dbg_print("Stopping observer %s",this->get_name().c_str());
-			dbg_print("observer finalized");
+			dbg_print("~mvcc_coordinator");
 			if(references != 0)
 				err_print("non zero references on destruction");
 
