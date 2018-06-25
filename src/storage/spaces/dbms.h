@@ -147,7 +147,7 @@ namespace spaces{
 
 	class dbms_memmanager{
 	private:
-		typedef std::unordered_map<ptrdiff_t, spaces::dbms::ptr> _Active;
+		typedef rabbit::unordered_map<ptrdiff_t, spaces::dbms::ptr> _Active;
 
 		bool canceling;
 		bool started;
@@ -215,14 +215,11 @@ namespace spaces{
                         manage_memory();
                     }
 
-                    std::this_thread::sleep_for (std::chrono::milliseconds(100));
+                    std::this_thread::sleep_for (std::chrono::milliseconds(50));
                 }
 			}catch (...){
 			    err_print("dbms memory management error");
 			}
-
-
-
 			dbg_print("finish dbms checker");
 			started = false;
 		}
@@ -240,7 +237,6 @@ namespace spaces{
 
 			try
 			{
-
 				if(checker->joinable())
 					checker->join();
 			}catch(std::exception& e){
