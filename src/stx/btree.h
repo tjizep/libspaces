@@ -1702,8 +1702,7 @@ namespace stx
             data_type _values[surfaceslotmax];
 
             /// initialize a key at a specific position
-            void init(int at) {
-                hashed = 0;
+            void init_key_allocation(int at) {
                 if (permutations[at] == surfaceslotmax) {
                     if (allocated == surfaceslotmax) {
                         err_print("cannot allocate any more keys");
@@ -1716,25 +1715,24 @@ namespace stx
 
             void deallocate_data(){
                 if(this->context == nullptr){
+                    if(this->hashed > 0)
+                        err_print("cannot have hashed keys without context");
                     return;
                 }
-                if(this->context->get_storage()->is_readonly()){
+                if(this->hashed > 0 ) {
                     for (int at = 0; at < surfaceslotmax; ++at) {
                         nst::u16 al = permutations[at];
-                        if ( al != surfaceslotmax) {
+                        if (al != surfaceslotmax) {
                             node::context->erase_hash(_keys[al]);
                         }
                         permutations[at] = surfaceslotmax;
                     }
                 }
-
             }
         public:
             virtual ~surface_node() {
-                //if(is_modified())
-                //    this->context->save(this,this->address);
-                //if(this->hashed > 0)
-                 //   this->deallocate_data();
+
+                this->deallocate_data();
                 --btree_totl_surfaces;
             }
             void check_next() const {
@@ -1809,11 +1807,11 @@ namespace stx
                 _values[p] = v;
             }
             void set_key(int at, const key_type& key){
-                init(at);
+                init_key_allocation(at);
                 _keys[permutations[at]] = key;
             }
             inline key_type &get_key(int at) {
-                init(at);
+                init_key_allocation(at);
                 return _keys[permutations[at]];
             }
             inline const key_type &get_key(int at) const {
@@ -1822,7 +1820,7 @@ namespace stx
                     throw bad_access();
                 }
                 return  _keys[permutations[at]] ;
-            }
+            } typedef rabbit::unordered_map<stream_address, typename node::shared_ptr> _AddressedNodes;
             inline const data_type &get_value(int at) const {
                 if(permutations[at]==surfaceslotmax){
                     err_print("invalid surface page value access");
@@ -1831,7 +1829,7 @@ namespace stx
                 return  _values[permutations[at]] ;
             }
             inline data_type &get_value(int at) {
-                init(at);
+                init_key_allocation(at);
                 return  _values[permutations[at]]  ;
             }
 
@@ -1870,7 +1868,7 @@ namespace stx
             }
 
             void erase_d(int slot) {
-                if(this->context!=nullptr){
+                if(this->context!=nullptr && hashed > 0){
                     this->context->erase_hash(get_key(slot));
                 }
 
@@ -1885,6 +1883,7 @@ namespace stx
             /// default constructor anyone
             surface_node() {
                 ++btree_totl_surfaces;
+                (*this).hashed = 0;
             }
             /// Set variables to initial values
             inline void initialize(btree* context)
@@ -2009,24 +2008,25 @@ namespace stx
                 (*this).next.set_where(sa);
 
                 if (encoded_key_size > 0) {
-                    //interp.decode(buffer, reader, keys(), (*this).get_occupants());
+                    err_print("cannot decode encoded pages or invalid format");
+                    throw bad_format();
                 } else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    for (u16 k = 0; k < (*this).get_occupants(); ++k) { typedef rabbit::unordered_map<stream_address, typename node::shared_ptr> _AddressedNodes;
                         key_type & key = get_key(k);
                         storage.retrieve(buffer, reader, key);
-
                     }
                 }
-
+                (*this).hashed = 0;
                 if (encoded_value_size > 0) {
-                    //interp.decode_values(buffer, reader, values(), (*this).get_occupants());
+                    err_print("cannot decode encoded pages or invalid format");
+                    throw bad_format();
                 } else {
-
+                    bool add_hash = (storage.is_readonly() && !(::stx::memory_low_state)) ;
                     for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                         storage.retrieve(buffer, reader, get_value(k));
-                        if(storage.is_readonly() && !(::stx::memory_low_state)) {
-                            ++(*this).hashed;/// only add hash cache when readonly
-                            //context->add_hash(self, k);
+                        if(add_hash){
+                            ++((*this).hashed);/// only add hash cache when readonly
+                            context->add_hash(self, k);
                         }
                     }
                 }
@@ -2176,6 +2176,7 @@ namespace stx
         /// be decoupled.
         /// TODO: the memory used by these is not counted
         typedef rabbit::unordered_map<stream_address, typename node::shared_ptr> _AddressedNodes;
+        typedef rabbit::unordered_map<stream_address, typename surface_node::shared_ptr> _AddressedSurfaceNodes;
         //typedef std::unordered_map<stream_address, node*> _AddressedNodes;
 
 
@@ -2189,13 +2190,13 @@ namespace stx
         /// therefore providing consistency to updates to any
         /// node
 
-        _AddressedNodes		nodes_loaded;
-        _AddressedNodes		interiors_loaded;
-        _AddressedNodes		surfaces_loaded;
-        _AddressedNodes		modified;
+        _AddressedNodes		    nodes_loaded;
+        _AddressedNodes		    interiors_loaded;
+        _AddressedSurfaceNodes	surfaces_loaded;
+        _AddressedNodes		    modified;
 
         void erase_hash(const key_type& key){
-            size_t h = stx::btree_hash<key_type>()(key);
+            size_t h = hash_val(key);
             if(h){
 
                 key_lookup.erase(h);
@@ -4055,7 +4056,7 @@ namespace stx
                 ++c;
             }
             for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
-                typename surface_node::shared_ptr surface = std::static_pointer_cast<surface_node>((*n).second);
+                typename surface_node::shared_ptr surface = (*n).second;
                 size_t cnt = surface.use_count();
                 if (cnt == 3) {
                     if(n->first != surface->get_address()){
