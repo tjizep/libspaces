@@ -9,12 +9,18 @@ set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
 
-
-set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
-set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
-set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
+if (WIN32)
+    set(LUA_INCDIR c:/torch/install/include CACHE PATH "Path to torch, lua or luajit")
+    set(LUA_LIBDIR c:/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
+    set(INST_LIBDIR c:/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
+    set(LUADIR c:/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
+else()
+    set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
+    set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
+    set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
+    set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
+endif()
 set(LUA luajit)
-set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
 link_directories(${LUA_LIBDIR})
 
 include_directories(
@@ -120,7 +126,7 @@ file(GLOB_RECURSE POCO_DATA_SQLITE_H
 
 file(GLOB LUA_H_FILES ${LUA_INCLUDE}/*.h)
 if (WIN32)
-    add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack)
+    add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 else()
     add_definitions(-DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 endif ()

@@ -137,20 +137,42 @@ namespace std {
 		return result.c_str();
 	}
 
+	struct fnv_1a{
+		typedef unsigned char byte_type;
+		// FNV-1a hash function for bytes
+		// https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+		// https://tools.ietf.org/html/draft-eastlake-fnv-13#section-6
 
+		size_t bytes(const byte_type *bytes, size_t count) const {
+			const unsigned long long FNV64prime = 0x00000100000001B3ull;
+			const unsigned long long FNV64basis = 0xCBF29CE484222325ull;
+			std::size_t r = FNV64basis;
+			for (size_t a = 0; a < count; ++a){
+				r ^= (size_t)bytes[a]; // folding of one byte at a time
+				r *= FNV64prime;
+			}
+			return r;
+		}
+		/**
+		 *
+		 * @tparam _HType type that will be interpreted as raw bytes to hash
+		 * @param other the actual instance to be hashed
+		 * @return the
+		 */
+		template<typename _HType>
+        size_t hash(const _HType& other) const {
+			const byte_type* other_bytes = reinterpret_cast<const byte_type*>(&other);
+			return bytes(other_bytes,sizeof(other));
+		}
+	};
 	template <>
     class hash<stx::storage::version_type>{
+	private:
+
     public:
 		size_t operator()(const stx::storage::version_type &version ) const{
-			using namespace stx::storage;
-			u64 r = 0;
-			if(sizeof(version_type) >= sizeof(u64)){
-				const u64 * data = reinterpret_cast<const u64*>(&version);
-				r = data[0];
-				if(sizeof(version_type) == sizeof(u64) * 2){
-					 r ^= data[1];
-				}
-			}
+			fnv_1a hasher;
+			size_t r = hasher.hash(version);
 			return r;
 		}
     };

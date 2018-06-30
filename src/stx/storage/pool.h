@@ -622,7 +622,9 @@ namespace stx{
 					return is_near_factor(0.95);
 				}
 				bool is_near_factor(double factor) const {
-					return ( get_shared()->allocated >= (factor*get_shared()->max_pool_size) ) ;
+					size_t a = get_shared()->allocated;
+					size_t m = get_shared()->max_pool_size;
+					return ( a >= (factor*m) ) ;
 				}
 				u64 get_max_pool_size() const {
 					return get_shared()->max_pool_size;

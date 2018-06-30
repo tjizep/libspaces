@@ -2,15 +2,15 @@ require "packages"
 require "spaces"
 --spaces.debug()
 spaces.storage("test")
-spaces.setMaxMb(1500)
+spaces.setMaxMb(400)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
 local u = 1e6
 local MAX_GEN =1e6
 local MAX_VAL =1e4
-local kl = 32
-local dl = 800
+local kl = 8
+local dl = 80
 local seed = 78976
 
 math.randomseed(seed) -- reseed to standard value for repeatable tests

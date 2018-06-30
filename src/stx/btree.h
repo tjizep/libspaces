@@ -1693,6 +1693,8 @@ namespace stx
 
             /// allocation marker
             nst::u16 allocated;
+            /// count keys hashed
+            nst::u16 hashed;
             /// Keys of children or data pointers
             key_type _keys[surfaceslotmax];
 
@@ -1701,6 +1703,7 @@ namespace stx
 
             /// initialize a key at a specific position
             void init(int at) {
+                hashed = 0;
                 if (permutations[at] == surfaceslotmax) {
                     if (allocated == surfaceslotmax) {
                         err_print("cannot allocate any more keys");
@@ -1730,7 +1733,8 @@ namespace stx
             virtual ~surface_node() {
                 //if(is_modified())
                 //    this->context->save(this,this->address);
-                this->deallocate_data();
+                //if(this->hashed > 0)
+                 //   this->deallocate_data();
                 --btree_totl_surfaces;
             }
             void check_next() const {
@@ -1784,11 +1788,7 @@ namespace stx
                 check_next();
             }
 
-            /// the slot loader logical back pointers for quick release alg
 
-            nst::u16 loaded_slot;
-
-            stream_address loader;
             template<typename key_compare, typename key_interpolator >
             inline int find_lower(key_compare key_less, const key_interpolator &interp, const key_type& key) const
             {
@@ -1891,11 +1891,10 @@ namespace stx
             {
                 node::initialize(context, 0);
                 (*this).context = context;
-                (*this).loader = 0;
-                (*this).loaded_slot = 0;
                 (*this).transaction = 0;
                 (*this).preceding = next = NULL_REF;
                 (*this).allocated = 0;
+                (*this).hashed = 0;
                 ::memset(permutations, surfaceslotmax, sizeof(permutations));
 
             }
@@ -1946,6 +1945,7 @@ namespace stx
                 (*this).address = right.address;
                 (*this).last_found = right.last_found;
                 (*this).transaction = right.transaction;
+                (*this).hashed = right.hashed;
             }
             /// sorts the page if it hasn't been
 
@@ -2024,8 +2024,10 @@ namespace stx
 
                     for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                         storage.retrieve(buffer, reader, get_value(k));
-                        if(storage.is_readonly()) /// only add hash cache when readonly
-                            context->add_hash(self,k);
+                        if(storage.is_readonly() && !(::stx::memory_low_state)) {
+                            ++(*this).hashed;/// only add hash cache when readonly
+                            //context->add_hash(self, k);
+                        }
                     }
                 }
 
@@ -4016,10 +4018,17 @@ namespace stx
     private:
 
         void unlink_surface_nodes(){
-            for(auto i = interiors_loaded.begin(); i!=interiors_loaded.end(); ++i){
-                typename interior_node::shared_ptr interior = std::static_pointer_cast<interior_node>((*i).second);
-                interior->clear_surfaces();
+            size_t il = interiors_loaded.size();
+            size_t sl = surfaces_loaded.size();
+            if(sl > 8){
+                for(auto i = interiors_loaded.begin(); i!=interiors_loaded.end(); ++i){
+                    typename interior_node::shared_ptr interior = std::static_pointer_cast<interior_node>((*i).second);
+                    interior->clear_surfaces();
+                }
             }
+
+
+
 
 
         }
@@ -4110,12 +4119,10 @@ namespace stx
 
         /// checks if theres a low memory state and release written pages
         void check_low_memory_state() {
-            /// ||allocation_pool.is_near_depleted()
             if (::stx::memory_low_state) {
-                reduce_use();
-
+               reduce_use();
             }
-            ///last_surface.validate_surface_links();
+
         }
 
         /// writes all modified pages to storage and frees all surface nodes
@@ -4136,16 +4143,19 @@ namespace stx
             flush();
             if (reduce) {
                 size_t nodes_before = nodes_loaded.size();
-                if (nodes_before > 32) {
+                size_t surfaces_before = surfaces_loaded.size();
+                //if (nodes_before > 32) {
                     unlink_surface_nodes();
                     raw_unlink_nodes_2();
 
-                }
-
+                //}
+                size_t nodes_after = nodes_loaded.size();
+                size_t surfaces_after = surfaces_loaded.size();
                 if (save_tot > btree_totl_used)
-                    inf_print("total tree use %.8g MiB after flush , nodes removed %lld remaining %lld",
+                    inf_print("total tree use %.8g MiB after flush , nodes removed %lld (%lld)remaining %lld",
                                 (double) btree_totl_used / (1024.0 * 1024.0),
-                                (long long) nodes_before - (long long) nodes_loaded.size(),
+                                (long long) nodes_before - (long long) nodes_after,
+                              (long long) surfaces_before - (long long) surfaces_after,
                                 (long long) nodes_loaded.size());
 
             }
