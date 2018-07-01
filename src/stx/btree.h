@@ -2156,6 +2156,7 @@ namespace stx
                 node = right.node;
                 key = right.key;
                 value = right.value;
+				return *this;
             }
             typename surface_node::raw_ptr node;
             key_type* key;
@@ -3670,10 +3671,7 @@ namespace stx
 
             /// Bytes used by interior nodes in trestart_tree_sizee
             ptrdiff_t       interior_use;
-
-            /// print timer
-            ptrdiff_t       pto;
-
+           
             ptrdiff_t       max_use;
 
             /// number of pages changed since last flush
@@ -3699,8 +3697,7 @@ namespace stx
                     , interiornodes(0)
                     , use(0)
                     , surface_use(0)
-                    , interior_use(0)
-                    , pto(OS_CLOCK()), max_use(1024 * 1024 * 8)
+                    , interior_use(0)                 
                     , changes(0)
                     , last_surface_size(0)
             {

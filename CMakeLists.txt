@@ -1,27 +1,35 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces VERSION 0.3.1 )
-
-
-
+project(spaces VERSION 0.3.3 )
+if (WIN32)
+	set(BOOST_ROOT c:/dev/boost_1_58_0 CACHE PATH "Path to boost")
+	set(BOOST_INCLUDE ${BOOST_ROOT} CACHE PATH "Path to boost include")
+	set(BOOST_LIBRARYDIR ${BOOST_ROOT}/stage/lib CACHE PATH "Path to boost static libs")
+else()
+endif()
 set(CMAKE_CXX_STANDARD 11)
-set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
+set(Boost_USE_DEBUG_LIBS         ON)
+set(Boost_USE_STATIC_LIBS        ON) # only find static libs
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost 1.58.0 COMPONENTS system filesystem REQUIRED)
+find_package(Boost 1.58.0 COMPONENTS filesystem system)
 
 if (WIN32)
-    set(LUA_INCDIR c:/torch/install/include CACHE PATH "Path to torch, lua or luajit")
-    set(LUA_LIBDIR c:/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
-    set(INST_LIBDIR c:/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
-    set(LUADIR c:/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
+    set(LUA_INCDIR c:/torch/include CACHE PATH "Path to torch, lua or luajit")
+    set(LUA_LIBDIR c:/torch/lib CACHE PATH "Path to torch, lua or luajit static libaries")
+    set(INST_LIBDIR c:/torch/lib/lua/5.1 CACHE PATH "path where installation will occur")
+    set(LUADIR c:/torch/lib/lua/5.1 "where to put lua scripts that may be assiociated")
+	set(LUA libluajit)
+	link_directories(${LUA_LIBDIR} ${BOOST_LIBRARYDIR})
 else()
     set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
     set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
     set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
     set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
+	set(LUA luajit)
+	link_directories(${LUA_LIBDIR})
 endif()
-set(LUA luajit)
-link_directories(${LUA_LIBDIR})
+
+
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
@@ -126,7 +134,7 @@ file(GLOB_RECURSE POCO_DATA_SQLITE_H
 
 file(GLOB LUA_H_FILES ${LUA_INCLUDE}/*.h)
 if (WIN32)
-    add_definitions(-DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
+    add_definitions(-MP -DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 else()
     add_definitions(-DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 endif ()
@@ -147,6 +155,7 @@ ${SPACES}
 ${SPACES_H})
 
 set_target_properties(spaces PROPERTIES PREFIX "")
+
 target_link_libraries(spaces PRIVATE ${LUA} ${Boost_LIBRARIES})
 
 source_group("Spaces" FILES ${SPACES})

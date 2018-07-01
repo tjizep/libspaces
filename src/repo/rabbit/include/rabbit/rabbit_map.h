@@ -160,7 +160,7 @@ namespace rabbit{
 		};
 	};
 
-	template<int logarithmic = 0>
+	template<unsigned int logarithmic = 0>
 	class basic_config{
 	public:
 		typedef unsigned long long int _Bt; /// exists ebucket type - not using vector<bool> - interface does not support bit bucketing
@@ -181,7 +181,7 @@ namespace rabbit{
 		_Bt BITS_SIZE ;
 		_Bt BITS_SIZE1 ;
 		_Bt ALL_BITS_SET ;
-		_Bt LOGARITHMIC ;
+		size_type LOGARITHMIC ;
 		/// maximum probes per access
 		size_type MIN_PROBES; /// the minimum starting value of probes which is increased if the bucket is used at a load factor < min load factor
 		size_type DEFAULT_PROBES; /// if the min load factor is set to a unusable value

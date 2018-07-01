@@ -49,8 +49,8 @@
 #include "Poco/OpcomChannel.h"
 #endif
 #if defined(POCO_OS_FAMILY_WINDOWS) && !defined(_WIN32_WCE)
-#include "Poco/EventLogChannel.h"
-#include "Poco/WindowsConsoleChannel.h"
+//#include "Poco/EventLogChannel.h"
+//#include "Poco/WindowsConsoleChannel.h"
 #endif
 #include "Poco/PatternFormatter.h"
 
@@ -109,7 +109,7 @@ void LoggingFactory::registerBuiltins()
 {
 	_channelFactory.registerClass("AsyncChannel", new Instantiator<AsyncChannel, Channel>);
 #if defined(POCO_OS_FAMILY_WINDOWS) && !defined(_WIN32_WCE)
-	_channelFactory.registerClass("ConsoleChannel", new Instantiator<WindowsConsoleChannel, Channel>);
+	//_channelFactory.registerClass("ConsoleChannel", new Instantiator<WindowsConsoleChannel, Channel>);
 #else
 	_channelFactory.registerClass("ConsoleChannel", new Instantiator<ConsoleChannel, Channel>);
 #endif
@@ -131,7 +131,7 @@ void LoggingFactory::registerBuiltins()
 	_channelFactory.registerClass("OpcomChannel", new Instantiator<OpcomChannel, Channel>);
 #endif
 #if defined(POCO_OS_FAMILY_WINDOWS) && !defined(_WIN32_WCE)
-	_channelFactory.registerClass("EventLogChannel", new Instantiator<EventLogChannel, Channel>);
+	//_channelFactory.registerClass("EventLogChannel", new Instantiator<EventLogChannel, Channel>);
 #endif
 
 	_formatterFactory.registerClass("PatternFormatter", new Instantiator<PatternFormatter, Formatter>);

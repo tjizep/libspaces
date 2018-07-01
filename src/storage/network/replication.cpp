@@ -251,10 +251,10 @@ namespace spaces{
 
         dbg_print("block_replication_client::begin(%lld)",(nst::fi64)is_write);
         if(this->remote == nullptr) return false;
-        this->remote->call("begin",is_write).as<bool>();
+        return this->remote->call("begin",is_write).as<bool>();		
     }
     bool block_replication_client::begin(bool is_write,const nst::version_type& version,const nst::version_type& last_version){
-        dbg_print("block_replication_client::beginVeblock_replication_notifier::open()rsion(%lld,%s)",(nst::fi64)is_write, nst::tostring(version));
+        dbg_print("block_replication_client::begin(%lld,%s)",(nst::fi64)is_write, nst::tostring(version));
         if(this->remote == nullptr) return false;
         return this->remote->call("beginVersion",is_write,version,last_version).as<bool>();
     }
