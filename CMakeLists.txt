@@ -7,13 +7,15 @@ if (WIN32)
 else()
 endif()
 set(CMAKE_CXX_STANDARD 11)
-set(Boost_USE_DEBUG_LIBS         ON)
-set(Boost_USE_STATIC_LIBS        ON) # only find static libs
-set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost 1.58.0 COMPONENTS filesystem system)
+
+
 
 if (WIN32)
+    set(Boost_USE_DEBUG_LIBS         ON)
+    set(Boost_USE_STATIC_LIBS        ON) # only find static libs
+    set(Boost_USE_MULTITHREADED      ON)
+    set(Boost_USE_STATIC_RUNTIME    OFF)
+    find_package(Boost 1.58.0 COMPONENTS filesystem system)
     set(LUA_INCDIR c:/torch/include CACHE PATH "Path to torch, lua or luajit")
     set(LUA_LIBDIR c:/torch/lib CACHE PATH "Path to torch, lua or luajit static libaries")
     set(INST_LIBDIR c:/torch/lib/lua/5.1 CACHE PATH "path where installation will occur")
@@ -21,6 +23,11 @@ if (WIN32)
 	set(LUA libluajit)
 	link_directories(${LUA_LIBDIR} ${BOOST_LIBRARYDIR})
 else()
+    set(Boost_USE_DEBUG_LIBS         OFF)
+    set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
+    set(Boost_USE_MULTITHREADED      ON)
+    set(Boost_USE_STATIC_RUNTIME    OFF)
+    find_package(Boost 1.58.0 COMPONENTS filesystem system)
     set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
     set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
     set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
