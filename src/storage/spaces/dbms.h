@@ -48,7 +48,7 @@ namespace spaces{
 		~dbms() {
 			
 			dbg_print("stopping dbms as a %s...%s", this->is_reader ? "reader" : "writer",storage.get_name().c_str());
-			storage.rollback();
+			this->rollback();
 			dbg_print("ok %s", storage.get_name().c_str());
 		}
 
@@ -62,21 +62,21 @@ namespace spaces{
 		    return id++;
 		}
 		void begin() {
-
+			
 			if (!this->storage.is_transacted()) {
 				resource_x.lock();
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
                     id = 1;
-                }std::mutex m;
+                }
 				start_id = id;
 			}
 		}
 		void rollback(){
+			
             if (this->storage.is_transacted()) {
 				dbg_print("rollback  %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
                 this->storage.rollback();
-
                 resource_x.unlock();
             }
 
@@ -91,19 +91,21 @@ namespace spaces{
 			if (this->storage.is_transacted()) {
 				return;
 			}
-            if(resource_x.try_lock()){
-				//dbg_print("dbms reducing use from memory manager");
-				stored::abstracted_tx_begin(true, false, storage, set);
-				set.check_use();
-				this->storage.rollback();
+            //dbg_print("dbms reducing use from memory manager");
+			std::lock_guard<std::recursive_mutex> lock(resource_x);
+			stored::abstracted_tx_begin(true, false, storage, set);
+			set.check_use();
+			this->storage.rollback();
+			
 				//stx::storage::allocation::print_allocations();
-				resource_x.unlock();
-            }
+			
+            
 		}
 		bool is_transacted() const {
 			return this->storage.is_transacted();
 		}
 		bool commit() {
+			
 			bool r = false;
 			if (this->storage.is_transacted()){
 
@@ -143,7 +145,7 @@ namespace spaces{
 		typedef std::shared_ptr<dbms> ptr;
         typedef dbms* ref;
 	};
-	static spaces::dbms::ptr writer;
+	
 
 	class dbms_memmanager{
 	private:
@@ -189,7 +191,7 @@ namespace spaces{
 		,	started(false)
 		{
 			dbg_print("dbms manager thread initialized");
-
+			
 			checker = std::make_shared<std::thread>(&dbms_memmanager::check_dbms,this);
 			while(!started){
 				std::this_thread::sleep_for (std::chrono::milliseconds(10));
@@ -197,11 +199,12 @@ namespace spaces{
 
 
 		}
-		void add(const spaces::dbms::ptr& dbms_ptr){
-        	if(canceling)
-				return;
+		spaces::dbms::ptr add(const std::string& name, bool reader){
+        	
             std::lock_guard<std::recursive_mutex> lock(manage_x);
+			spaces::dbms::ptr dbms_ptr = std::make_shared<spaces::dbms>(name, reader);
 			active[(ptrdiff_t)(void *)dbms_ptr.get()] = dbms_ptr;
+			return dbms_ptr;
 		}
 
 		void check_dbms(){
@@ -226,15 +229,16 @@ namespace spaces{
 		~dbms_memmanager(){
         	dbg_print("~dbms_memmanager");
 			canceling = true;
-
-			while(started){
-				std::this_thread::sleep_for (std::chrono::milliseconds(10));
+			if (checker->joinable()) {
+				while (started) {
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				}
+				{
+					std::lock_guard<std::recursive_mutex> lock(manage_x);
+					active.clear();
+				}
 			}
-			{
-				std::lock_guard<std::recursive_mutex> lock(manage_x);
-				active.clear();
-			}
-
+			
 			try
 			{
 				if(checker->joinable())

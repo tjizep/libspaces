@@ -53,3 +53,6 @@ bool register_connector() {
 	return true;
 }
 static bool registered = register_connector();
+namespace spaces {
+	std::atomic<long> db_session_count;
+}

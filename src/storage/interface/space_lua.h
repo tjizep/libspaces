@@ -991,9 +991,11 @@ namespace spaces{
 
 
 //extern void register_spaces_replication();
-#ifdef _MSC_VER_
+#ifdef _MSC_VER
 extern "C" int __declspec(dllexport) luaopen_spaces(lua_State * L);
+extern "C" int __declspec(dllexport) luaclose_spaces(lua_State * L);
 #else
 extern "C" int luaopen_spaces(lua_State * L);
+extern "C" int luaclose_spaces(lua_State * L);
 #endif
 //extern int r_initialize_spaceslib(lua_State *L,DSASession* session = NULL);

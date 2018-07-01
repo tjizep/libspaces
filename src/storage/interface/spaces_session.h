@@ -13,6 +13,7 @@
 #include <rabbit/unordered_map>
 
 namespace spaces{
+	extern std::atomic<long> db_session_count;
     typedef rabbit::unordered_map<ptrdiff_t, spaces::space*> _LuaKeyMap;
     //typedef spaces::dbms::_Set _SSet;
     //typedef _SSet::iterator iterator;
@@ -25,11 +26,12 @@ namespace spaces{
         std::shared_ptr<spaces::dbms> d;
         bool is_reader;
         db_session(bool is_reader = false) : is_reader(is_reader){
+			++db_session_count;
             this->create();
 
         }
         ~db_session(){
-
+			--db_session_count;
         }
         bool is_transacted() const{
             return d->is_transacted();
@@ -52,7 +54,10 @@ namespace spaces{
         }
         void set_mode(bool reader){
             if(is_reader != reader){
-                if(d!= nullptr) d->rollback();
+				if (d != nullptr && d->is_transacted()) {
+					d->begin();
+					d->rollback();
+				}
                 d = nullptr;
                 is_reader = reader;
                 create();

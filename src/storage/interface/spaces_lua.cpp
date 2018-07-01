@@ -14,13 +14,18 @@ extern "C" {
 #include <storage/network/replication.h>
 
 #include <storage/transactions/abstracted_storage.h>
+extern void start_storage();
+extern void stop_storage();
 
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::lua_session<spaces::db_session> session_t;
 //typedef spaces::lua_session<spaces::mem_session> session_t;
 typedef spaces::spaces_iterator<session_t::_Set> lua_iterator_t;
 typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
-
+static int  l_space_close(lua_State *L) {
+	stop_storage();
+	return 0;
+}
 static int l_serve_space(lua_State *L) {
     nst::u32 port = spaces::DEFAULT_PORT;
     if(lua_isnumber(L,1)){
@@ -170,7 +175,6 @@ static const struct luaL_Reg spaces_f[] = {
 	{ "from", l_from_space },
 	{ "begin", l_begin_space },
 	{ "beginRead", l_begin_reader_space },
-
 	{ "commit", l_commit_space },
 	{ "rollback", l_rollback_space },
     { "setMaxMb", l_setmaxmb_space },
@@ -180,6 +184,7 @@ static const struct luaL_Reg spaces_f[] = {
 	{ "quiet", l_space_quiet },
     { "localWrites", l_space_local_writes },
 	{ "observe", l_space_observe },
+	{ "__gc", l_space_close },
 	{ NULL, NULL } /* sentinel */
 };
 
@@ -607,6 +612,9 @@ static const struct luaL_Reg spaces_iter_m[] =
 static int l_session_close(lua_State* L) { 	
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
 	s->~session_t();
+	if (spaces::db_session_count == 0) {
+		stop_storage();
+	}
 	return 0;
 }
 static const struct luaL_Reg spaces_session_f[] = {
@@ -624,10 +632,12 @@ static const struct luaL_Reg spaces_session_m[] =
 
 
 extern "C" int
-#ifdef _MSC_VER_
+#ifdef _MSC_VER
 __declspec(dllexport)
 #endif
 luaopen_spaces(lua_State * L) {
+	dbg_print("open lua spaces");
+	start_storage();
 	// provides pairs and ipairs metamethods (__ added)
 	/// lua_xt is required for 5.1 iterator compatibility
 	//lua_XT::luaopen_xt(L);
@@ -640,4 +650,12 @@ luaopen_spaces(lua_State * L) {
 	lua_setfield(L,-2,"__mode");
 	lua_setglobal(L, SPACES_G);
 	return 1;
+}
+extern "C" int
+#ifdef _MSC_VER
+__declspec(dllexport)
+#endif
+luaclose_spaces(lua_State * L) {
+	stop_storage();
+	return 0;
 }
