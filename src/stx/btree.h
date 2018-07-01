@@ -3944,7 +3944,11 @@ namespace stx
         /// relation to be a total order, otherwise the B+ tree cannot be sorted.
         inline bool key_equal(const key_type &a, const key_type &b) const
         {
-            return !key_less(a, b) && !key_less(b, a);
+            /// TODO: some compilers dont optimize this very well
+            /// others do
+            /// return !key_less(a, b) && !key_less(b, a);
+            /// Most compilers can optimize this
+            return a == b;
         }
 
         /// saves the boot values - can npt in read only mode or when nodes are shared
