@@ -1713,7 +1713,9 @@ namespace stx
                 }
             }
 
-            void deallocate_data(){
+
+        public:
+            void deallocate_data(btree* context){
                 if(this->context == nullptr){
                     if(this->hashed > 0)
                         err_print("cannot have hashed keys without context");
@@ -1723,16 +1725,13 @@ namespace stx
                     for (int at = 0; at < surfaceslotmax; ++at) {
                         nst::u16 al = permutations[at];
                         if (al != surfaceslotmax) {
-                            node::context->erase_hash(_keys[al]);
+                            context->erase_hash(_keys[al]);
                         }
                         permutations[at] = surfaceslotmax;
                     }
                 }
             }
-        public:
             virtual ~surface_node() {
-
-                this->deallocate_data();
                 --btree_totl_surfaces;
             }
             void check_next() const {
@@ -1938,6 +1937,7 @@ namespace stx
                     }
                 }
                 set_occupants(right.get_occupants());
+                (*this).context = right.context;
                 (*this).level = right.level;
                 (*this).next = right.next;
                 (*this).preceding = right.preceding;
@@ -1972,7 +1972,7 @@ namespace stx
             /// TODO: throw an exception if checks fail
 
             void load
-            (   btree* context
+            (   btree* loading_context
             ,   stream_address address
             ,   nst::version_type version
             ,   storage_type & storage
@@ -1985,11 +1985,14 @@ namespace stx
                 using namespace stx::storage;
                 bool direct_encode = false;
                 (*this).address = address;
-                (*this).context = context;
                 /// size_t bs = buffer.size();
                 buffer_type::const_iterator reader = buffer.begin();
-
-                (*this).set_occupants(leb128::read_signed(reader));
+                nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
+                if(occupants < 0 || occupants > surfaceslotmax){
+                    err_print("bad format: invalid node/page size");
+                    throw bad_format();
+                }
+                (*this).set_occupants(occupants);
                 (*this).level = leb128::read_signed(reader);
                 nst::i32 encoded_key_size = leb128::read_signed(reader);
                 nst::i32 encoded_value_size = leb128::read_signed(reader);
@@ -1997,14 +2000,16 @@ namespace stx
                 (*this).next = NULL_REF;
                 (*this).preceding = NULL_REF;
                 stream_address sa = leb128::read_signed(reader);
-                (*this).preceding.set_context(context);
+                /// TODO: this is a problem for multi-threading - we might have to make context a thread_local somehow
+                (*this).preceding.set_context(loading_context);
                 (*this).preceding.set_where(sa);
                 sa = leb128::read_signed(reader);
                 if (sa == address) {
                     err_print("loading node with invalid next address");
                     throw bad_format();
                 }
-                (*this).next.set_context(context);
+                /// TODO: this is a problem for multi-threading - we might have to make context a thread_local somehow
+                (*this).next.set_context(loading_context);
                 (*this).next.set_where(sa);
 
                 if (encoded_key_size > 0) {
@@ -2026,7 +2031,7 @@ namespace stx
                         storage.retrieve(buffer, reader, get_value(k));
                         if(add_hash){
                             ++((*this).hashed);/// only add hash cache when readonly
-                            context->add_hash(self, k);
+                            loading_context->add_hash(self, k);
                         }
                     }
                 }
@@ -3959,7 +3964,7 @@ namespace stx
             if (stats.changes)
             {
                 /// avoid letting those pigeons out
-                if(stats.start_head != root.get_where()){
+                if(stats.start_root != root.get_where()){
                     get_storage()->set_boot_value(root.get_where());
                     stats.start_head == root.get_where();
                 }
@@ -4060,6 +4065,7 @@ namespace stx
                 typename surface_node::shared_ptr surface = (*n).second;
                 size_t cnt = surface.use_count();
                 if (cnt == 3) {
+                    surface->deallocate_data(this);
                     if(n->first != surface->get_address()){
                         err_print("invalid persistent address");
                         throw bad_pointer();
