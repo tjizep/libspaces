@@ -1574,9 +1574,17 @@ namespace stx
                 using namespace stx::storage;
                 buffer_type::const_iterator reader = buffer.begin();
                 (*this).address = address;
-
-                (*this).set_occupants(leb128::read_signed(reader));
+                nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
+                if( occupants <= 0 || occupants  > interiorslotmax){
+                    err_print("bad format: invalid interior node size");
+                    throw bad_format();
+                }
+                (*this).set_occupants(occupants);
                 (*this).level = leb128::read_signed(reader);
+                if((*this).level  <= 0 || (*this).level  > 128){
+                    err_print("bad format: invalid level for interior node");
+                    throw bad_format();
+                }
                 (*this).set_version(version);
                 for (u16 k = 0; k <= interiorslotmax; ++k) {
                     childid[k] = NULL_REF;
@@ -1994,6 +2002,10 @@ namespace stx
                 }
                 (*this).set_occupants(occupants);
                 (*this).level = leb128::read_signed(reader);
+                if((*this).level  != 0){
+                    err_print("bad format: invalid level for surface node");
+                    throw bad_format();
+                }
                 nst::i32 encoded_key_size = leb128::read_signed(reader);
                 nst::i32 encoded_value_size = leb128::read_signed(reader);
                 (*this).set_version(version);
