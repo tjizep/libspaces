@@ -1573,6 +1573,7 @@ namespace stx
             {
                 using namespace stx::storage;
                 buffer_type::const_iterator reader = buffer.begin();
+                node::check_deleted();
                 (*this).address = address;
                 nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
                 if( occupants <= 0 || occupants  > interiorslotmax){
@@ -1598,7 +1599,7 @@ namespace stx
                     childid[k].set_context(context);
                     childid[k].set_where(sa);
                 }
-                node::check_deleted();
+
 
                 this->transaction = storage.current_transaction_order();
                 if(this->transaction == 0){
@@ -1615,6 +1616,14 @@ namespace stx
 
             void save(storage_type &storage, buffer_type& buffer) const {
                 this->check_node();
+                if( this->get_occupants() <= 0 || this->get_occupants()  > interiorslotmax){
+                    err_print("bad format: invalid interior node size");
+                    throw bad_format();
+                }
+                if((*this).level  <= 0 || (*this).level  > 128){
+                    err_print("bad format: invalid level for interior node");
+                    throw bad_format();
+                }
                 using namespace stx::storage;
                 u32 storage_use = leb128::signed_size((*this).get_occupants()) + leb128::signed_size((*this).level);
                 for (u16 k = 0; k < (*this).get_occupants(); ++k) {
