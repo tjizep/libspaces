@@ -1,7 +1,7 @@
 require("spaces")
 spaces.storage("tutorial")
-
-local s = spaces.open()
+local con = spaces.open()
+local s = con:open()
 -- assign data
 s.cities =  {
     London  = { population = 8615246, area=10000 },
@@ -11,7 +11,7 @@ s.cities =  {
     Pretoria= { population = 2248000, area=12220 }
 }
 -- persist atomically
-spaces.commit()
+con:commit()
 
 -- print some value
 print(s.cities.London.population)

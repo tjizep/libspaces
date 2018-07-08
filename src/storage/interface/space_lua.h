@@ -45,13 +45,22 @@ namespace spaces{
 		//return luaL_checkudata(L, ud, tname);
 	}
 	template<typename _TypeName>
-	static _TypeName *err_checkudata(lua_State *L, const char* tname, int ud = 1) {
+	static _TypeName& err_check_ref_udata(lua_State *L, const char* tname, int ud = 1) {
+		void *p = is_udata(L, ud, tname);
+		if (p != NULL) {  /* value is a userdata? */
+			return *(_TypeName*)p;
+		}
+		luaL_typerror(L, ud, tname);  /* else error */
+		throw std::exception("invalid lua type");
+	}
+	template<typename _TypeName>
+	static _TypeName* err_checkudata(lua_State *L, const char* tname, int ud = 1) {
 		void *p = is_udata(L, ud, tname);
 		if (p != NULL) {  /* value is a userdata? */
 			return (_TypeName*)p;
 		}
  		luaL_typerror(L, ud, tname);  /* else error */
-		return NULL;  /* to avoid warnings */
+		return nullptr;  /* to avoid warnings */
 	}
 	
 	template<typename _sT>
@@ -78,11 +87,20 @@ namespace spaces{
 		return k;  /* new userdatum is already on the stack */
 
 	}
-	template<typename _SessionType>
-	static _SessionType* create_session(lua_State *L,const char* name, bool is_reader) {
-		_SessionType* r = nullptr;
+	template<typename _sT, typename _pT, typename _p1T >
+	static std::shared_ptr<_sT> create_shared_instance_from_nothing(lua_State *L, _pT param, _p1T param1) {
+		size_t nbytes = sizeof(std::shared_ptr<_sT>);
+		std::shared_ptr<_sT> *k = (std::shared_ptr<_sT> *)lua_newuserdata(L, nbytes);
+		new (k) std::shared_ptr<_sT>();
+		*k = std::make_shared<_sT>(param,param1);
+		return *k;  /* new userdatum is already on the stack */
 
-		r = create_instance_from_nothing<_SessionType,const char*,bool>(L,name,is_reader);
+	}
+	template<typename _SessionType>
+	static typename _SessionType::ptr create_session(lua_State *L,const char* name, bool is_reader) {
+		typename _SessionType::ptr r = nullptr;
+
+		r = create_shared_instance_from_nothing<_SessionType,const char*,bool>(L,name,is_reader);
 		r->set_state(L);
 		// set its metatable
 		luaL_getmetatable(L, SPACES_SESSION_LUA_TYPE_NAME);
@@ -96,10 +114,11 @@ namespace spaces{
 		r->set_mode(is_reader);
 		return r;
 	}
+
 	template<typename _SessionType>
-	static _SessionType* get_session(lua_State *L, int at = 1) {
-		_SessionType* r = nullptr;
-		r = err_checkudata<_SessionType>(L, SPACES_SESSION_NAME, at);
+	static typename _SessionType::ptr get_session(lua_State *L, int at = 1) {
+		typename _SessionType::ptr r = nullptr;
+		r = *err_checkudata<typename _SessionType::ptr>(L, SPACES_SESSION_NAME, at);
 
 		r->check();
 		return r;
@@ -115,6 +134,7 @@ namespace spaces{
 		typedef typename session_type::space space;
 		typedef std::vector<i1> _DumpVector;
 		typedef rabbit::unordered_map<ptrdiff_t, space*> _LuaKeyMap;
+		typedef std::shared_ptr<lua_session> ptr;
 		/// despite improvements
 		/// sometimes the type system still gets lost without
 		/// a hint
@@ -128,7 +148,7 @@ namespace spaces{
 		struct lua_iterator : public spaces::spaces_iterator<_Set>{
 			lua_iterator() : session(nullptr){
 			}
-			lua_session * session;
+			ptr session;
 		};
 		lua_session(const char * name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
 			dbg_print("create session:%s",name);
@@ -144,14 +164,14 @@ namespace spaces{
         bool is_integer(double n) {
 			return (n - (i8)n == 0);
 		}
-		lua_iterator* create_iterator() {
+		lua_iterator* create_iterator(ptr session) {
 			auto i = create_instance_from_nothing<lua_iterator>(L); /* new userdatum is already on the stack */
-			i->session = this;
+			i->session = session;
 			return i;
 		}
 		lua_iterator*  get_iterator(int at = 1) {
 			lua_iterator * i = err_checkudata<lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
-			i->session = this;
+			//i->session = this;
 			return i;
 
 		}
@@ -299,7 +319,7 @@ namespace spaces{
 			};
 		}
 
-		space* open_space(_LuaKeyMap& keys, ui8 id) {
+		space* open_space(_LuaKeyMap& keys,ptr session, ui8 id) {
 			i4 t = lua_gettop(L);
 			if (!is_space(keys, -1)) {
 				lua_newtable(L);
@@ -312,12 +332,12 @@ namespace spaces{
 				lua_setmetatable(L, -2);
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
 				keys[pt] = r;
-				r->session = this;
+				r->session = session;
 				return r;
 			}
 			else {
 				space* r = this->get_space(keys,-1);
-				r->session = this;
+				r->session = session;
 				return r;
 			}
 		}
@@ -418,15 +438,15 @@ namespace spaces{
 		) {
 			to_space(keys, d.first,d.second,_at);
 		}
-		int push_pair(_LuaKeyMap& keys, const spaces::key& k,const spaces::record& v) {
+		int push_pair(_LuaKeyMap& keys,ptr session, const spaces::key& k,const spaces::record& v) {
 			push_data(k.get_name());
 			if (v.get_identity() != 0) {
-				space * r = this->open_space(keys,v.get_identity());
+				space * r = this->open_space(keys,session,v.get_identity());
 				r->first = k;
 				r->second = v;
 			}
 			else {
-				push_data(v.get_value());
+				return push_data(v.get_value());
 			}
 			return 2;
 		}

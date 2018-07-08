@@ -134,16 +134,16 @@ static int l_open_session(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 		name = lua_tostring(L,1);
 	}
-	session_t * s = spaces::create_session<session_t>(L,name, false);
+	auto s = spaces::create_session<session_t>(L,name, false);
 	s->set_mode(true); /// if the transaction is already started this wont make a difference
 	s->begin(); /// will start transaction
 	return 1;
 }
 static int l_session_open_space(lua_State *L) {
-	session_t * s = spaces::get_session<spaces::session_t>(L);
+	auto s = spaces::get_session<spaces::session_t>(L);
 	s->set_mode(true); /// if the transaction is already started this wont make a difference
     s->begin(); /// will start transaction
-	session_t::space*  r = s->open_space(spaces::keys,0);
+	session_t::space*  r = s->open_space(spaces::keys,s,0);
 
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);
@@ -276,12 +276,12 @@ static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
 	spaces::space k;
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = static_cast<session_t*>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->session);
 	s->set_mode(false);
 	s->begin();
 	s->resolve_id(p);
     k.first.set_context(p->second.get_identity());
-	static_cast<session_t*>(s)->to_space_data( k.first.get_name(), 2);
+	std::static_pointer_cast<session_t>(s)->to_space_data( k.first.get_name(), 2);
 	s->to_space(spaces::keys,k, 3);
 
 
@@ -296,7 +296,7 @@ static int spaces_newindex(lua_State *L) {
 
 static int spaces_index(lua_State *L) {
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = static_cast<session_t*>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->session);
 	s->begin(); /// use whatever mode is set
 	spaces::space k;
 	spaces::space *r = nullptr;
@@ -313,7 +313,7 @@ static int spaces_index(lua_State *L) {
 		if (value != nullptr) {
 
 			if (!value->is_flag(spaces::record::FLAG_LARGE) && value->get_identity() != 0) {
-				r = s->open_space(spaces::keys,value->get_identity());
+				r = s->open_space(spaces::keys,s,value->get_identity());
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
 				spaces::keys[pt] = r;
 
@@ -379,7 +379,7 @@ static int spaces_div(lua_State* L) {
 }
 static int spaces_tostring(lua_State *L) {
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = static_cast<session_t*>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->session);
 	if (p->second.get_identity() != 0) {
 		lua_pushfstring(L, "table: %p", p->second.get_identity());
 		return 1;
@@ -404,14 +404,14 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
 
-		i->session->push_pair(spaces::keys,spaces::get_key(i->i),spaces::get_data(i->i));
+		i->session->push_pair(spaces::keys,i->session,spaces::get_key(i->i),spaces::get_data(i->i));
 		i->next();
 		return 2;
 	}
 	
 	return 0;
 }
-static int push_iterator(lua_State* L, session_t* s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
+static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
 
 
 	spaces::key f,e ;
@@ -422,7 +422,7 @@ static int push_iterator(lua_State* L, session_t* s, spaces::space* p, const spa
 	e.set_name(upper);
 
 	// create the lua iterator
-	auto * pi = s->create_iterator();
+	auto * pi = s->create_iterator(s);
 	pi->i = s->get_set().lower_bound(f);
 	pi->e = s->get_set().lower_bound(e);
 
@@ -445,7 +445,7 @@ inline const spaces::data make_inf(){
 static int spaces___pairs(lua_State* L) {
 
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = static_cast<session_t*>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->session);
 
 	s->begin(); /// will start a transaction
 	return push_iterator(L, s, p, spaces::data(),make_inf());
@@ -456,7 +456,7 @@ static int spaces_call(lua_State *L) {
 
 	int o = (t >= 4) ? 1: 0;
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = static_cast<session_t*>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->session);
 	s->begin(); /// will start a transaction
 	spaces::data lower;
 	spaces::data upper = make_inf();
@@ -506,7 +506,7 @@ static const struct luaL_Reg spaces_iter_m[] =
 
 static int l_session_close(lua_State* L) { 	
 	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	s->~session_t();
+	s.~shared_ptr<session_t>();
 	if (spaces::db_session_count == 0) {
 		stop_storage();
 	}

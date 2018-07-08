@@ -646,7 +646,7 @@ namespace spaces {
 		}
 		key first;
 		record second;
-		_Session * session;
+		typename  _Session::ptr session;
 	};
 }
 namespace rabbit{

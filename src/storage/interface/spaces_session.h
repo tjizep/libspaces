@@ -153,6 +153,8 @@ namespace spaces{
 
     template<typename _SessionType>
     class spaces_session {
+    public:
+        typedef std::shared_ptr<spaces_session> ptr;
     protected:
 
         _SessionType session;
