@@ -5,16 +5,18 @@
 
 class statics
 {
+public:
+	typedef spaces::dbms::ptr dbms_ptr;
 private:
 	std::shared_ptr<spaces::dbms_memmanager> db_mem_mgr;
-
+	Poco::Mutex mwriters;
+	typedef rabbit::unordered_map<std::string,spaces::dbms::ptr> _WriterMap;
+	_WriterMap writers;
 public:
 	statics(){
-		
-
 	}
 	void close() {
-		this->writer = nullptr;
+		this->writers.clear();
 		this->db_mem_mgr = nullptr;
 		this->instances = nullptr;
 	}
@@ -22,10 +24,16 @@ public:
 		this->instances = std::make_shared<stored::_AlocationsMap>();
 		this->db_mem_mgr = std::make_shared<spaces::dbms_memmanager>();
 	}
-	spaces::dbms::ptr&  get_writer() {
-		if (writer == nullptr) {
+	spaces::dbms::ptr  get_writer(const std::string &name) {
+		dbms_ptr writer;
+		nst::synchronized sync(mwriters);
+		auto w = writers.find(name);
+		if (w == writers.end()) {
 
-			writer = get_db_mem_mgr()->add(STORAGE_NAME, false);
+			writer = get_db_mem_mgr()->add(name, false);
+			writers[name] = writer;
+		}else{
+			writer = w->second;
 		}
 		return writer;
 	}
@@ -37,7 +45,7 @@ public:
 	}
 	Poco::Mutex m;
 	std::shared_ptr<stored::_AlocationsMap> instances;
-	std::shared_ptr<spaces::dbms> writer;
+;
 	~statics(){
 		
 	}
@@ -66,13 +74,13 @@ namespace stx{
 
 
 
-spaces::dbms::ptr spaces::create_reader() {
+spaces::dbms::ptr spaces::create_reader(const std::string& name) {
 	
-	auto r = variables.get_db_mem_mgr()->add(STORAGE_NAME, true);
+	auto r = variables.get_db_mem_mgr()->add(name, true);
 	return r;
 }
-spaces::dbms::ptr  spaces::get_writer(){
-	return variables.get_writer();
+spaces::dbms::ptr  spaces::get_writer(const std::string& name ){
+	return variables.get_writer(name);
 }
 namespace stored{
 

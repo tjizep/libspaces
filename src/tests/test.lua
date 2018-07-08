@@ -46,8 +46,8 @@ local function generate(n)
 	return tdata
 end
 
-local s = spaces.open(); -- starts a transaction automatically
-
+local con = spaces.open(); -- starts a transaction automatically
+local s = con:open()
 if s == nil then
 	print("intializing root")
 	s = {} -- nb. initialize the root space if its not initialized
@@ -101,13 +101,13 @@ if #data == 0 or #data < u then
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
 
-	spaces.commit()
+	con:commit()
 
 end
 
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
-spaces.read()
+con:read()
 for rr = 1,2 do
 	print("start st read")
 	local cnt = 0

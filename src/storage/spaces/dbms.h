@@ -250,8 +250,8 @@ namespace spaces{
 
 	};
 
-	extern dbms::ptr get_writer();
-	extern dbms::ptr create_reader();
+	extern dbms::ptr get_writer(const std::string& name);
+	extern dbms::ptr create_reader(const std::string& name);
 }
 #undef __LOG_NAME__
 #define __LOG_NAME__ __LOG_SPACES__

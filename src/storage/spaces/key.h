@@ -633,7 +633,8 @@ namespace spaces {
 		}
 
 	};
-	typedef struct lua_space{
+	template<typename _Session>
+	struct lua_space{
 		lua_space(){
 
 		}
@@ -645,7 +646,8 @@ namespace spaces {
 		}
 		key first;
 		record second;
-	} space;
+		_Session * session;
+	};
 }
 namespace rabbit{
 	template<>

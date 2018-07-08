@@ -14,33 +14,33 @@
 
 namespace spaces{
 	extern std::atomic<long> db_session_count;
-    typedef rabbit::unordered_map<ptrdiff_t, spaces::space*> _LuaKeyMap;
-    //typedef spaces::dbms::_Set _SSet;
-    //typedef _SSet::iterator iterator;
     typedef std::map<key,record> _MMap;
 
 
     struct db_session {
         typedef spaces::dbms::_Set _Set;
-        //spaces::_SSet s;
         std::shared_ptr<spaces::dbms> d;
+        std::string name;
         bool is_reader;
-        db_session(bool is_reader = false) : is_reader(is_reader){
+        db_session(const std::string& name, bool is_reader = false) : is_reader(is_reader){
+            this->name = name;
 			++db_session_count;
-            this->create();
+            this->create(name);
 
         }
         ~db_session(){
 			--db_session_count;
         }
+        const std::string& get_name() const {return this->name;}
+
         bool is_transacted() const{
             return d->is_transacted();
         }
-        void create(){
+        void create(const std::string& name){
             if(is_reader){
-                d =spaces::create_reader();
+                d = spaces::create_reader(name);
             }else{
-                d = spaces::get_writer();
+                d = spaces::get_writer(name);
             }
         }
         _Set &get_set() {
@@ -60,7 +60,7 @@ namespace spaces{
 				}
                 d = nullptr;
                 is_reader = reader;
-                create();
+                create(this->name);
             }
         }
         void begin() {
@@ -160,9 +160,9 @@ namespace spaces{
         spaces::record large;
 
     public:
-
+        typedef lua_space<spaces_session> space;
         typedef typename _SessionType::_Set _Set;
-        spaces_session(bool reader) : session(reader) {
+        spaces_session(const std::string& name, bool reader) : session(name,reader) {
 
         }
         ~spaces_session() {
@@ -243,10 +243,10 @@ namespace spaces{
             }
             session.get_set()[k] = v;
         }
-        void insert_or_replace(spaces::space& p) {
+        void insert_or_replace(space& p) {
             insert_or_replace(p.first,p.second);
         }
-        void resolve_id(spaces::space* p, bool override = false) {
+        void resolve_id(space* p, bool override = false) {
             resolve_id(p->first, p->second,override);
         }
 
@@ -289,11 +289,12 @@ namespace spaces{
             }
         }
 
-        void resolve_id(spaces::space& p, bool override = false) {
+        void resolve_id(space& p, bool override = false) {
             resolve_id(&p);
         }
 
     };
+
 }
 
 
