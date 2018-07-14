@@ -45,7 +45,9 @@ local function generate(n)
 	return tdata
 end
 
-local s = spaces.open(); -- starts a transaction automatically
+
+local storage = spaces.open(); -- starts a transaction automatically
+local s = storage:open()
 
 if s == nil then
 	print("intializing root")
@@ -90,19 +92,19 @@ if #data == 0 or #data < u then
 		end
 
 		data[ss] = value;
-		--spaces.commit()
+		--storage:commit()
 
 	end
 	local dt = os.clock()-t;
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
 
-	spaces.commit()
+	storage:commit()
 
 end
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
-spaces.read()
+storage:read()
 for rr = 1,2 do
 	print("start st read")
 	local cnt = 0

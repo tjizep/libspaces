@@ -2,7 +2,11 @@ require "spaces"
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
 spaces.storage("cities") -- puts data in the cities subdirectory
-local s = spaces.open(); -- starts a transaction automatically
+
+local storage = spaces.open(); -- starts a transaction automatically
+local s = storage:open()
+
+
 
 if s.cities==nil then
     local cities = {
@@ -48,7 +52,7 @@ if s.cities==nil then
         }
     }
 
-    spaces.commit()
+    storage:commit()
 else
     print("data from storage")
 end

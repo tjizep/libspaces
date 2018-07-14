@@ -46,8 +46,8 @@ local function generate(n)
 	return tdata
 end
 
-local con = spaces.open(); -- starts a transaction automatically
-local s = con:open()
+local storage = spaces.open(); -- starts a transaction automatically
+local s = storage:open()
 if s == nil then
 	print("intializing root")
 	s = {} -- nb. initialize the root space if its not initialized
