@@ -1,14 +1,15 @@
 require "packages"
 require "spaces"
 spaces.storage("ranges") -- puts data in the jsonp subdirectory
-local s = spaces.open(); -- starts a transaction automatically
+local storage = spaces:open()
+local s = storage:open(); -- starts a transaction automatically
 if s.alphan == nil then
     print("importing")
     s.alphan = {a=0,b=2,d=4,e=5,f=6,g=7,child={1,2,3,4,5} }
     s.numbers = {[0.01]=0,[2]=1,[4.1]=2,[5.15]=3,[6.0]=4,[7.08]=5,[4.05]={1,2,3,4,5} }
     s.array = {0,2,4,{1,2,3,4,5},6,8,10 }
     s.ordered = s.alphan
-    spaces.commit()
+    storage:commit()
 else
     print("loading...")
 end

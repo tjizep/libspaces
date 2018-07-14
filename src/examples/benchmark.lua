@@ -1,5 +1,5 @@
-require "packages"
-require "spaces"
+package.cpath = '../../cmake-build-release/?.so;./?.so;;'
+require 'spaces'
 --spaces.debug()
 spaces.storage("test")
 spaces.setMaxMb(6500)
