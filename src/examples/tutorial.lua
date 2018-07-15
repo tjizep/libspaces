@@ -1,6 +1,6 @@
 require("spaces")
 spaces.storage("tutorial")
-local con = spaces.open()
+local con = spaces.open("tutorial")
 local s = con:open()
 -- assign data
 s.cities =  {

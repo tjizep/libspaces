@@ -1,1 +1,0 @@
-package.cpath = '../../../cmake-build-release/spaces.so;./?.so;;'

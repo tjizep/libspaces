@@ -1,5 +1,5 @@
 require "packages"
-require "libspaces"
+require "paces"
 spaces.storage("client")
 spaces.observe("127.0.0.1",15003)
 spaces.replicate("127.0.0.1",16003)

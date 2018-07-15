@@ -1,1 +1,0 @@
-package.cpath = (package.cpath or '')..'./?.so;;'

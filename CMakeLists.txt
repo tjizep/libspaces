@@ -1,42 +1,40 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces VERSION 0.3.3 )
-if (WIN32)
-	set(BOOST_ROOT c:/dev/boost_1_58_0 CACHE PATH "Path to boost")
-	set(BOOST_INCLUDE ${BOOST_ROOT} CACHE PATH "Path to boost include")
-	set(BOOST_LIBRARYDIR ${BOOST_ROOT}/stage/lib CACHE PATH "Path to boost static libs")
-else()
-endif()
+project(spaces VERSION 0.3.3)
+
 set(CMAKE_CXX_STANDARD 11)
 
+find_package(Lua)
+if(LUA_FOUND)
+    message("FOUND LUA LUA_LIBRARIES:${LUA_LIBRARIES}")
+    message("FOUND LUA_INCLUDE_DIR:${LUA_INCLUDE_DIR}")
+else()
+    message("ERROR LUA NOT FOUND")
+endif()
+set(INST_LIBDIR ./ CACHE PATH "path where installation will occur")
+#set(LUADIR LUA_LIBRARIES "where to put lua scripts that may be assiociated")
 
 
 if (WIN32)
+    #boost 1.58.0 is not so easy to find in windows especially with VS 2017
+    #should be modified on windows to work
+    set(BOOST_ROOT c:/dev/boost_1_58_0 CACHE PATH "Path to boost")
+    set(BOOST_INCLUDE ${BOOST_ROOT} CACHE PATH "Path to boost include")
+    set(BOOST_LIBRARYDIR ${BOOST_ROOT}/stage/lib CACHE PATH "Path to boost static libs")
+
     set(Boost_USE_DEBUG_LIBS         ON)
     set(Boost_USE_STATIC_LIBS        ON) # only find static libs
     set(Boost_USE_MULTITHREADED      ON)
     set(Boost_USE_STATIC_RUNTIME    OFF)
-    find_package(Boost 1.58.0 COMPONENTS filesystem system)
-    set(LUA_INCDIR c:/torch/include CACHE PATH "Path to torch, lua or luajit")
-    set(LUA_LIBDIR c:/torch/lib CACHE PATH "Path to torch, lua or luajit static libaries")
-    set(INST_LIBDIR c:/torch/lib/lua/5.1 CACHE PATH "path where installation will occur")
-    set(LUADIR c:/torch/lib/lua/5.1 "where to put lua scripts that may be assiociated")
-	set(LUA libluajit)
-	link_directories(${LUA_LIBDIR} ${BOOST_LIBRARYDIR})
+
+	link_directories(${BOOST_LIBRARYDIR})
 else()
     set(Boost_USE_DEBUG_LIBS         OFF)
-    set(Boost_USE_STATIC_LIBS        OFF) # only find static libs
+    set(Boost_USE_STATIC_LIBS        OFF) # dont find static libs
     set(Boost_USE_MULTITHREADED      ON)
     set(Boost_USE_STATIC_RUNTIME    OFF)
-    find_package(Boost 1.58.0 COMPONENTS filesystem system)
-    set(LUA_INCDIR ~/torch/install/include CACHE PATH "Path to torch, lua or luajit")
-    set(LUA_LIBDIR ~/torch/install/lib CACHE PATH "Path to torch, lua or luajit static libaries")
-    set(INST_LIBDIR ~/torch/install/lib/lua/5.1 CACHE PATH "path where installation will occur")
-    set(LUADIR ~/torch/install/lib/lua/5.1 "where to put lua scripts that may be assiociated")
-	set(LUA luajit)
-	link_directories(${LUA_LIBDIR})
 endif()
-
-
+find_package(Boost 1.58.0 COMPONENTS filesystem system)
+set(LUA ${LUA_LIBRARIES})
 
 include_directories(
 src/poco-1.4.6p1-all/Foundation/include
@@ -51,7 +49,7 @@ src/repo/lz4-r101
 ${Boost_INCLUDE_DIRS}
 src/repo/rpclib/include
 src/repo/rpclib/dependencies/include
-${LUA_INCDIR}
+${LUA_INCLUDE_DIR}
 src)
 
 file(GLOB TESTS 

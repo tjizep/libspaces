@@ -1,4 +1,3 @@
-package.cpath = '../../cmake-build-release/?.so;./?.so;;'
 require 'spaces'
 --spaces.debug()
 spaces.storage("test")
@@ -6,7 +5,7 @@ spaces.setMaxMb(6500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
 --spaces.localWrites(false)
-local u = 1e7
+local u = 1e6
 local MAX_GEN =1e6
 local kl = 16
 local dl = 800
@@ -46,7 +45,7 @@ local function generate(n)
 end
 
 
-local storage = spaces.open(); -- starts a transaction automatically
+local storage = spaces.open("benchmark_data"); -- starts a transaction automatically
 local s = storage:open()
 
 if s == nil then
