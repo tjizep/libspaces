@@ -1,23 +1,18 @@
 cmake_minimum_required(VERSION 3.1.0)
-project(spaces VERSION 0.3.3)
+project(spaces VERSION 0.4.0)
 
 set(CMAKE_CXX_STANDARD 11)
 
 find_package(Lua)
-if(LUA_FOUND)
-    message("FOUND LUA LUA_LIBRARIES:${LUA_LIBRARIES}")
-    message("FOUND LUA_INCLUDE_DIR:${LUA_INCLUDE_DIR}")
-else()
+if (!LUA_FOUND)
     message("ERROR LUA NOT FOUND")
 endif()
-set(INST_LIBDIR ./ CACHE PATH "path where installation will occur")
-#set(LUADIR LUA_LIBRARIES "where to put lua scripts that may be assiociated")
-
+set(INST_LIBDIR ${LUA_LIBDIR} CACHE PATH "path where installation will occur")
 
 if (WIN32)
     #boost 1.58.0 is not so easy to find in windows especially with VS 2017
     #should be modified on windows to work
-    set(BOOST_ROOT c:/dev/boost_1_58_0 CACHE PATH "Path to boost")
+    set(BOOST_ROOT c:/boost_1_58_0 CACHE PATH "Path to boost")
     set(BOOST_INCLUDE ${BOOST_ROOT} CACHE PATH "Path to boost include")
     set(BOOST_LIBRARYDIR ${BOOST_ROOT}/stage/lib CACHE PATH "Path to boost static libs")
 
