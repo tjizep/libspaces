@@ -28,9 +28,16 @@ namespace spaces{
 		lua_pushliteral(L, "__index");
 		lua_pushvalue(L, -2);
 		lua_rawset(L, -3);
-		luaL_register (L, NULL, m);
+#if LUA_VERSION_NUM >= 502
+        luaL_setfuncs (L, m, 0); /// set functions on meta table (which is in registry)
+        lua_pop(L,1l); /// remove remnant
+        lua_newtable(L);
+        luaL_setfuncs(L, f, 0);
+#else
+        luaL_register (L, NULL, m);
 		luaL_register(L, library_name, f);
-		return 1;
+#endif
+		return 1; ///returns the library
 	}
 	
 	
@@ -50,7 +57,9 @@ namespace spaces{
 		if (p != NULL) {  /* value is a userdata? */
 			return *(_TypeName*)p;
 		}
-		luaL_typerror(L, ud, tname);  /* else error */
+
+		luaL_error(L, "Type %s expected",tname);  /* else error */
+
 		throw std::exception("invalid lua type");
 	}
 	template<typename _TypeName>
@@ -59,7 +68,8 @@ namespace spaces{
 		if (p != NULL) {  /* value is a userdata? */
 			return (_TypeName*)p;
 		}
- 		luaL_typerror(L, ud, tname);  /* else error */
+		luaL_error(L, "Type %s expected",tname);  /* else error */
+
 		return nullptr;  /* to avoid warnings */
 	}
 	

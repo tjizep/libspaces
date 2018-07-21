@@ -6,9 +6,12 @@ set(CMAKE_CXX_STANDARD 11)
 find_package(Lua)
 if (!LUA_FOUND)
     message("ERROR LUA NOT FOUND")
+else()
+    message("LUA FOUND OK")
+    message(${LUA_LIBRARIES})
+    message(${LUA_VERSION_STRING})
 endif()
 set(INST_LIBDIR ${LUA_LIBDIR} CACHE PATH "path where installation will occur")
-
 if (WIN32)
     #boost 1.58.0 is not so easy to find in windows especially with VS 2017
     #should be modified on windows to work
@@ -172,4 +175,10 @@ source_group("Repo/headers" FILES ${REPO_H})
 source_group("Tests" FILES ${TESTS})
 source_group("Stx" FILES ${STX_H})
 
-INSTALL_TARGETS(${INST_LIBDIR} spaces)
+if(IS_DIRECTORY ${INST_LIBDIR})
+    INSTALL(TARGETS spaces
+            LIBRARY DESTINATION ${INST_LIBDIR})
+else()
+INSTALL(TARGETS spaces
+        LIBRARY DESTINATION .)
+endif()

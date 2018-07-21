@@ -1,5 +1,4 @@
-require "packages"
-require "libspaces"
+local spaces = require "spaces"
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
 spaces.storage("jsonp") -- puts data in the jsonp subdirectory

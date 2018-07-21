@@ -1,5 +1,4 @@
-require "packages"
-require "spaces"
+local spaces = require "spaces"
 spaces.data("transactions")
 local u = 1e5
 local s = spaces.open()

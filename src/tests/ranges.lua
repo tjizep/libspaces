@@ -1,5 +1,4 @@
-require "packages"
-require "spaces"
+local spaces = require "spaces"
 spaces.storage("ranges") -- puts data in the jsonp subdirectory
 local storage = spaces:open()
 local s = storage:open(); -- starts a transaction automatically

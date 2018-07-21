@@ -5,7 +5,6 @@ extern "C" {
 #include <lua.h>
 }
 #endif
-#include <helper/lua_xt.h>
 
 #include <storage/spaces/data_type.h>
 
@@ -47,7 +46,7 @@ namespace spaces{
 		dbg_print("Closing spaces key... ");
 		auto f = keys.find(pt);
 		if (f!=keys.end()) {
-			delete[] f->second;
+			delete f->second;
 			keys.erase(f);
 			dbg_print("ok ");
 		}else{
@@ -542,14 +541,12 @@ __declspec(dllexport)
 luaopen_spaces(lua_State * L) {
 	dbg_print("open lua spaces");
 	start_storage();
-	// provides pairs and ipairs metamethods (__ added)
-	/// lua_xt is required for 5.1 iterator compatibility
-	//lua_XT::luaopen_xt(L);
 	spaces::luaopen_plib_any(L, spaces_m, SPACES_LUA_TYPE_NAME, spaces_f, SPACES_NAME);
 	spaces::luaopen_plib_any(L, spaces_iter_m, SPACES_ITERATOR_LUA_TYPE_NAME, spaces_iter_f, SPACES_ITERATOR_NAME);
+	lua_pop(L,1);
 	spaces::luaopen_plib_any(L, spaces_session_m, SPACES_SESSION_LUA_TYPE_NAME, spaces_session_f, SPACES_SESSION_NAME);
 	//spaces::luaopen_plib_any(L, spaces_recursor_m, SPACES_LUA_RECUR_NAME, spaces_recursor_f, "_spaces_recursor");
-
+    lua_pop(L,1);
 	return 1;
 }
 extern "C" int

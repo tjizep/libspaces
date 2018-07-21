@@ -1,4 +1,4 @@
-require "spaces"
+local spaces = require "spaces"
 --spaces.debug()
 spaces.storage("test")
 spaces.setMaxMb(1080)
@@ -100,13 +100,13 @@ if #data == 0 or #data < u then
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
 
-	con:commit()
+	storage:commit()
 
 end
 
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
-con:read()
+storage:read()
 for rr = 1,2 do
 	print("start st read")
 	local cnt = 0

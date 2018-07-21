@@ -1,5 +1,4 @@
-require "packages"
-require "spaces"
+local spaces = require "spaces"
 --local _ = require ("moses")
 local inspect = require('inspect_meta')
 

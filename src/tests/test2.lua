@@ -1,5 +1,4 @@
-require "packages"
-require "spaces"
+local spaces = require "spaces"
 local s = spaces.open();
 
 s[1] = 0
