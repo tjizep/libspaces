@@ -4,7 +4,10 @@
 #include <Poco/BinaryWriter.h>
 #include <Poco/BinaryReader.h>
 #include <Poco/File.h>
-
+#ifdef __LOG_NAME__
+#undef __LOG_NAME__
+#endif
+#define __LOG_NAME__ "JOURNAL"
 namespace nst = stx::storage;
 extern void set_store_journal_size(nst::u64 ns);
 
@@ -73,6 +76,7 @@ public:
 	,	last_synch(0)
 	,	last_check(0)
 	{
+		dbg_print("journalling in %s",journal_name.c_str());
 	}
 	~journal_state(){
 	}
@@ -257,6 +261,8 @@ public:
 							if(is_valid_storage_directory(storage_name)){
 								transaction = storage->begin(true);
 								pending[storage_name] = transaction;
+							}else{
+								wrn_print("'%s' is not a valid storage directory",storage_name.c_str());
 							}
 						}
 						if(storage->transactions_away() > 0){
@@ -324,7 +330,7 @@ public:
 
 	void synch(bool force)
 	{
-		
+
 		nst::synchronized _llock(llock);
 		if(last_synch != sequence){
 
@@ -333,6 +339,21 @@ public:
 			writer.flush();
 			journal_ostr.flush();
 			journal_ostr.rdbuf()->pubsync();
+
+			Poco::File jf(journal_name.c_str());
+			if(jf.exists()) {
+				nst::u64 jsize = 0;
+				try {
+					jsize = jf.getSize();
+					dbg_print("journal '%s' size:%lld",journal_name.c_str(),(nst::lld)jsize);
+					dbg_print("synch journal '%s' ok",journal_name.c_str());
+				} catch (...) {
+					err_print("error getting journal size");
+					return;
+				}
+			}else if(sequence > 0){
+				wrn_print("synch journal '%s' not ok, %lld commands buffered but file does not exist",journal_name.c_str(),(nst::lld)sequence);
+			}
 			if(force || os::millis() - last_check > 3000){
 				last_check = os::millis();
 				Poco::File jf(journal_name.c_str());

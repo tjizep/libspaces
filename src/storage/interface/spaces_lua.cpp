@@ -204,6 +204,7 @@ static int l_space_quiet(lua_State* L) {
 static int l_configure_space(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 		nst::data_directory = lua_tostring(L,1);
+		dbg_print("storage directoryt set to %s",nst::data_directory.c_str());
 	}
 	return 0;
 }

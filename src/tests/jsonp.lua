@@ -2,8 +2,8 @@ local spaces = require "spaces"
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
 spaces.storage("jsonp") -- puts data in the jsonp subdirectory
-local s = spaces.open(); -- starts a transaction automatically
-
+local storage = spaces.open("jp"); -- starts a transaction automatically
+s = storage:open()
 if s.cities==nil then
     local cities = {
         { name = 'London', population = 8615246 },
@@ -48,7 +48,7 @@ if s.cities==nil then
         }
     }
 
-    spaces.commit()
+    st:commit()
 else
     print("data from storage")
 end

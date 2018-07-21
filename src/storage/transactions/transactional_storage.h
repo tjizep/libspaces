@@ -1456,6 +1456,7 @@ namespace storage{
 
 			if(!is_new){
 				std::string npath = get_storage_path() + name + extension;
+				dbg_print("open block storage in directory set to %s",npath.c_str());
 				File df ( npath.c_str() );
 				(*this).is_new = !df.exists();
 				if(!(*this).is_new){

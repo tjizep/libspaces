@@ -1,6 +1,6 @@
 local spaces = require "spaces"
 --spaces.debug()
-spaces.storage("test")
+spaces.storage("./test")
 spaces.setMaxMb(1080)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
@@ -45,8 +45,8 @@ local function generate(n)
 	return tdata
 end
 
-local storage = spaces.open(); -- starts a transaction automatically
-local s = storage:open()
+local session = spaces.open(); -- starts a transaction automatically
+local s = session:open()
 if s == nil then
 	print("intializing root")
 	s = {} -- nb. initialize the root space if its not initialized
@@ -100,13 +100,13 @@ if #data == 0 or #data < u then
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
 
-	storage:commit()
+	session:commit()
 
 end
 
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
-storage:read()
+session:read()
 for rr = 1,2 do
 	print("start st read")
 	local cnt = 0
