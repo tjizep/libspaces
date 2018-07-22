@@ -45,8 +45,8 @@ local function generate(n)
 end
 
 
-local storage = spaces.open("benchmark_data"); -- starts a transaction automatically
-local s = storage:open()
+local session = spaces.open("benchmark_data"); -- starts a transaction automatically
+local s = session:open()
 
 if s == nil then
 	print("intializing root")
@@ -99,12 +99,12 @@ if #data == 0 or #data < u then
 	local ops = math.floor(u/dt)
 	print("end st random write",dt,ops.." keys/s","key l.:"..kl,"data l.:"..dl)
 
-	storage:commit()
+	session:commit()
 
 end
 math.randomseed(seed)
 tdata = generate(math.min(u,MAX_GEN))
-storage:read()
+session:read()
 for rr = 1,2 do
 	print("start st read")
 	local cnt = 0

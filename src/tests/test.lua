@@ -1,6 +1,6 @@
 local spaces = require "spaces"
---spaces.debug()
-spaces.storage("./test")
+spaces.debug()
+spaces.storage("test")
 spaces.setMaxMb(1080)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
