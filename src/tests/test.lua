@@ -1,5 +1,5 @@
 local spaces = require "spaces"
-spaces.debug()
+--spaces.debug()
 spaces.storage("test")
 spaces.setMaxMb(1080)
 --spaces.observe("localhost",15003)
@@ -44,6 +44,14 @@ local function generate(n)
 	--print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
 	return tdata
 end
+-- create small set of values to verify
+function generateValues()
+	local values = {}
+	for v=1,MAX_VAL do
+		values[v] = randomString(dl)
+	end
+	return values
+end
 
 local session = spaces.open(); -- starts a transaction automatically
 local s = session:open()
@@ -64,7 +72,7 @@ print("data: ", data)
 print("current object count",#data)
 
 local tdata = {}
-
+local values = generateValues()
 if #data == 0 or #data < u then
 
 	local PERIOD = 1e5
@@ -72,13 +80,10 @@ if #data == 0 or #data < u then
 	local td = os.clock()
 	print("start st write",t)
 	local ustart = 0
-	local values = {}
-	for v=1,MAX_VAL do
-	    values[v] = randomString(dl)
-	end
 
 	for i = 1,u do
 		local ss = tdata[i-ustart]
+
 		if ss == nil then
 			local gt = os.clock()
 			tdata = generate(math.min(u,MAX_GEN))
@@ -88,12 +93,13 @@ if #data == 0 or #data < u then
 			t = t + gt
 			ss = tdata[i-ustart]
 		end
+
 		if (i % PERIOD) == 0 then
 			print("wrote "..(PERIOD) .. " keys in ",os.clock()-td .. " tot. "..i,(PERIOD)/(os.clock()-td).." keys/s")
 			td=os.clock()
 		end
 
-		data[ss] = values[(i % MAX_VAL) + 1];
+		data[ss] = values[(i % MAX_VAL)+1];
 
 	end
 	local dt = os.clock()-t;
@@ -105,6 +111,7 @@ if #data == 0 or #data < u then
 end
 
 math.randomseed(seed)
+values = generateValues()
 tdata = generate(math.min(u,MAX_GEN))
 session:read()
 for rr = 1,2 do
@@ -118,9 +125,11 @@ for rr = 1,2 do
 		for k,v in ipairs(tdata) do
 			cnt = cnt + 1
 			local dv = data[v]
-			if  dv == nil then
+			local tv = values[(cnt % MAX_VAL)+1]
+			if  dv ~= tv then
 				mt = mt + 1
 			else
+
 				lt = lt +1
 			end
 
