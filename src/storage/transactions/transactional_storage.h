@@ -88,14 +88,7 @@ extern nst::u64 max_mem_use;
 /// TODODONE: merge versions on commit or if there are too many versions
 /// TODO: configure block storage replication,seeding and leeching
 namespace ns_umap = rabbit; //std;
-namespace storage_workers{
-	typedef asynchronous::QueueManager<asynchronous::AbstractWorker> _WorkerManager;
 
-
-	extern unsigned int get_next_counter();
-	extern const int MAX_WORKER_MANAGERS;
-	extern _WorkerManager & get_threads(unsigned int id);
-};
 namespace stored{
     extern void reduce_all();
 	extern void reduce_aged();

@@ -11,7 +11,6 @@
 #include <Poco/TaskManager.h>
 #include <Poco/Task.h>
 #include <Poco/Timestamp.h>
-#include "storage/transactions/NotificationQueueWorker.h"
 #include <stx/storage/types.h>
 #include <vector>
 #include <rabbit/unordered_map>

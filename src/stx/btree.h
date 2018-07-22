@@ -70,7 +70,6 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <stx/storage/pool.h>
 #include <rabbit/unordered_map>
 
-#include "storage/transactions/NotificationQueueWorker.h"
 // *** Debugging Macros
 
 #ifdef BTREE_DEBUG

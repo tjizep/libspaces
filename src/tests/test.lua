@@ -32,16 +32,13 @@ end
 local generator = randomString
 
 local function generate(n)
-	--local t = os.clock()
+
 	local tdata = {}
-	--print("start st generating",t)
-	local ls = 0
 	for ri = 1,n do
 		local s = generator(kl)
-		ls = ls + #s
 		tdata[ri] = s
 	end
-	--print("complete st generating",os.clock() - t, " avg. key len "..math.floor(ls/u))
+
 	return tdata
 end
 -- create small set of values to verify
