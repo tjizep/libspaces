@@ -69,6 +69,10 @@ namespace spaces{
         void commit() {
             d->commit();
         }
+        const bool reader() const {
+            return is_reader;
+        }
+
 
     };
     struct mem_session {
@@ -99,18 +103,55 @@ namespace spaces{
     };
     template<typename _Set>
     struct spaces_iterator {
-        typename _Set::iterator i;
-        typename _Set::iterator e;
+
+        void set_start(const typename _Set::iterator &s){
+            this->i = s;
+            this->s = s;
+        }
+        void set_end(const typename _Set::iterator &e){
+            this->e = e;
+        }
+        void set_range(const typename _Set::iterator &s,const typename _Set::iterator &e){
+            set_start(s);
+            set_end(e);
+        }
+        void last(){
+            i = e;
+            --i;
+        }
+
         bool end() const {
             return i == e;
+        }
+        bool not_end() const {
+            return i != e;
+        }
+        bool not_start() const {
+            return i != s;
+        }
+        bool first() const{
+            return is_start();
+        }
+        bool is_start() const {
+            return i == s;
         }
         void next() {
             ++i;
         }
+        void previous() {
+            --i;
+        }
+        void start(){
+            this->i = s;
+        }
+        typename _Set::iterator i;
+    private:
+        typename _Set::iterator s;
+
+        typename _Set::iterator e;
     };
 
     static const spaces::record& get_data(const spaces::mem_session::_Set::iterator& i){
-
         return (*i).second;
     }
     static spaces::record& get_data(spaces::mem_session::_Set::iterator& i){
@@ -189,7 +230,9 @@ namespace spaces{
         void rollback() {
 
         }
-
+        const bool reader() const {
+            return session.reader();
+        }
         typename _SessionType::_Set& get_set() {
             if(!session.is_transacted()){
                 err_print("transaction not started");
@@ -198,13 +241,43 @@ namespace spaces{
             return session.get_set();
         }
 
+        std::pair<bool,typename _Set::iterator> last(const space* p) {
+            auto& s = get_set();
+
+            auto identity = p->second.get_identity();
+            if (s.size() > 0 && identity > 0) {
+                spaces::key e;
+                e.set_context(identity);
+                e.get_name().make_infinity();
+                typename _Set::iterator li = s.upper_bound(e);
+                --li;
+                if(li.key().get_context() == identity)
+                    return std::make_pair(true,li);
+
+
+
+            }
+            return std::make_pair(false,typename _Set::iterator());
+        }
+
+        std::pair<bool,typename _Set::iterator> first(const space* p) {
+            auto& s = get_set();
+            auto identity = p->second.get_identity();
+            if (s.size() > 0 && identity > 0) {
+                spaces::key f;
+                f.set_context(identity);
+                typename _Set::iterator fi = s.lower_bound(f);
+                if(fi != s.end() && fi.key().get_context() == identity)
+                    return std::make_pair(true,fi);
+            }
+            return std::make_pair(false,typename _Set::iterator());
+        }
         nst::u64 len(const space* p) {
             if (p->second.get_identity() > 0) {
                 spaces::key f, e;
                 f.set_context(p->second.get_identity());
                 e.set_context(p->second.get_identity());
                 e.get_name().make_infinity();
-                ///.set_identity(std::numeric_limits<ui8>::max());
                 auto& s = get_set();
                 // create the iterator
                 typename _Set::iterator fi = s.lower_bound(f);
@@ -290,6 +363,7 @@ namespace spaces{
                 }
             }
         }
+
 
         void resolve_id(space& p, bool override = false) {
             resolve_id(&p);

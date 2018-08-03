@@ -141,17 +141,33 @@ namespace spaces{
     class lua_session : public spaces_session<_SessionType>{
 	public:
 		typedef lua_session<_SessionType> session_type;
+
 		typedef typename session_type::space space;
 		typedef std::vector<i1> _DumpVector;
 		typedef rabbit::unordered_map<ptrdiff_t, space*> _LuaKeyMap;
 		typedef std::shared_ptr<lua_session> ptr;
+		typedef rabbit::unordered_map<std::string, ptr> sessions_type;
+		typedef std::shared_ptr<sessions_type> sessions_ptr;
 		/// despite improvements
 		/// sometimes the type system still gets lost without
 		/// a hint
 		typedef session_type _Self;
     private:
 		lua_State *L;
-
+		sessions_ptr sessions;
+		sessions_type& get_sessions(){
+			if(sessions == nullptr){
+				sessions = std::make_shared<sessions_type>();
+			}
+			return *(sessions.get());
+		}
+		const sessions_type& get_sessions() const {
+			if(sessions == nullptr){
+				err_print("invalid sessions variable");
+				throw std::exception();
+			}
+			return *(sessions.get());
+		}
 	public:
 
 		typedef typename spaces_session<_SessionType>::_Set _Set;
@@ -159,12 +175,17 @@ namespace spaces{
 			lua_iterator() : session(nullptr){
 			}
 			ptr session;
+
 		};
-		lua_session(const char * name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
-			dbg_print("create session:%s",name);
+		lua_session(const sessions_ptr& sessions, const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
+			dbg_print("create session:%s",name.c_str());
+			this->sessions = sessions;
+		}
+		lua_session(const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
+			dbg_print("create session:%s",name.c_str());
 		}
 		~lua_session() {
-			dbg_print("closing session");
+			dbg_print("closing session '%s'",get_name().c_str());
 
 		}
 
@@ -188,6 +209,19 @@ namespace spaces{
 		space* create_space_from_nothing() {
 			return create_instance_from_nothing<space>(L);  /* new userdatum is already on the stack */
 
+		}
+		ptr create_session(const std::string& storage, ptr self){
+			if(self.get() != this){
+				err_print("this is not the same session");
+				throw std::exception();
+			}
+			auto s = get_sessions().find(storage);
+			if(s != get_sessions().end()){
+				return s->second;
+			}
+			auto result =  std::make_shared<_Self>(sessions,storage,self->reader());
+			get_sessions().insert(storage,result);
+			return result;
 		}
 		umi table_clustered_type(int at) {
 			umi n = 0;
@@ -449,16 +483,20 @@ namespace spaces{
 			to_space(keys, d.first,d.second,_at);
 		}
 		int push_pair(_LuaKeyMap& keys,ptr session, const spaces::key& k,const spaces::record& v) {
-			push_data(k.get_name());
+			int r = push_data(k.get_name());
 			if (v.get_identity() != 0) {
 				space * r = this->open_space(keys,session,v.get_identity());
 				r->first = k;
 				r->second = v;
+				r++;
 			}
 			else {
-				return push_data(v.get_value());
+				r += push_data(v.get_value());
 			}
-			return 2;
+			return r;
+		}
+		const std::string& get_name() const{
+			return this->session.get_name();
 		}
 		int push_space(const space& s) {
 			return push_pair(s.first, s.second);

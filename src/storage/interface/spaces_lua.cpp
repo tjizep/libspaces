@@ -20,7 +20,21 @@ DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::session_t session_t;
 typedef spaces::spaces_iterator<session_t::_Set> lua_iterator_t;
 typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
+static std::string& lua_tostdstring(lua_State *L, int index){
+	thread_local std::string result;
+	result.clear();
 
+	size_t l = 0;
+	if(lua_isstring(L,index)){
+		const char * s = luaL_checklstring(L,index,&l);
+
+		if(s!=NULL){
+			result.append(s,l);
+		}
+	}
+
+	return result;
+}
 
 namespace spaces{
 	session_t::_LuaKeyMap keys;
@@ -55,8 +69,9 @@ namespace spaces{
 	}
 	session_t::lua_iterator*  get_iterator(lua_State *L, int at = 1) {
 		auto * i = err_checkudata<session_t::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
-		if(i->session==nullptr){
-			luaL_error(L, "no session associated with iterator %s", SPACES_LUA_TYPE_NAME);
+
+		if(i==nullptr || i->session==nullptr){
+			luaL_error(L, "no iterator or no session associated with iterator %s", SPACES_LUA_TYPE_NAME);
 		}
 		return i;
 
@@ -134,7 +149,7 @@ static int l_open_session(lua_State *L) {
 		name = lua_tostring(L,1);
 	}
 	auto s = spaces::create_session<session_t>(L,name, false);
-	s->set_mode(true); /// if the transaction is already started this wont make a difference
+	s->set_mode(true); /// start a reading transaction
 	s->begin(); /// will start transaction
 	return 1;
 }
@@ -291,39 +306,72 @@ static int spaces_newindex(lua_State *L) {
 	
 	return 0;
 }
+/**
+ * resolve a route if one is flagged
+ * @param s the session which will be used
+ * @param value the value of the context,key,value tuple
+ * @return the original session if no route was specified
+ */
+static session_t::ptr resolve_route(const session_t::ptr &s,const spaces::record& value){
+	if(value.is_flag(spaces::record::FLAG_ROUTE)){ /// this is a route
+		const char * storage = s->map_data(value).get_value().get_sequence().c_str();
+		if(s->get_name() != storage ){
+			/// create a new session for the storage ??? no sessions are cached per initial session
+			auto r = s->create_session(storage, s);
+			r->set_mode(true); /// start a read transaction
+			r->begin(); /// will start transaction
+			return r;
+		}
+	}
+	return s;
+}
+/**
+ * push a space or data onto the lua stack
+ * if the space has an identity a space object is pushed
+ * else one of the lua primitive types are pushed
+ * @param L the lua state
+ * @param ps the session
+ * @param key the key of potential
+ * @param value
+ * @return 1 if something was pushed 0 otherwize
+ */
+static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& key, spaces::record& value){
+	if (!value.is_flag(spaces::record::FLAG_LARGE) && value.get_identity() != 0) {
+		auto s = resolve_route(ps,value);
+		spaces::space *r = s->open_space(spaces::keys,s,value.get_identity());
+		ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
+		spaces::keys[pt] = r;
 
+		r->first = key;
+		r->second = value;
 
-
+	} else {
+		ps->push_data(ps->map_data(value).get_value());
+	}
+	return 1;
+}
+/**
+ * implements __index meta method
+ * if the object could not be found nil is pushed
+ * @param L the lua state
+ * @return 1
+ */
 static int spaces_index(lua_State *L) {
 	spaces::space* p = spaces::get_space(L,1);
 	auto s = std::static_pointer_cast<session_t>(p->session);
 	s->begin(); /// use whatever mode is set
 	spaces::space k;
-	spaces::space *r = nullptr;
-
 
 	if (p->second.get_identity() != 0) {
 
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
 
-		//auto i = s->get_set().find(k.first);
-		auto value = s->get_set().direct(k.first);
+		//auto i = s->get_set().find(k.first); /// a non hash optimized lookup
+		auto value = s->get_set().direct(k.first);/// a hash optimized lookup
 
 		if (value != nullptr) {
-
-			if (!value->is_flag(spaces::record::FLAG_LARGE) && value->get_identity() != 0) {
-				r = s->open_space(spaces::keys,s,value->get_identity());
-				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
-				spaces::keys[pt] = r;
-
-				r->first = k.first;
-				r->second = *value;
-
-			} else {
-				s->push_data(s->map_data(*value).get_value());
-			}
-
+			return push_space(L,s,k.first,*value);
 		} else {
 			lua_pushnil(L);
 		}
@@ -335,10 +383,15 @@ static int spaces_index(lua_State *L) {
 		lua_pushnil(L);
 	}
 
-	
 	return 1;
 
 }
+/**
+ * pushes a number optionally converting a space object to a number
+ * @param L the lua state
+ * @param at where on the lua state the conversion will take place
+ * @return 1
+ */
 static f8 to_number(lua_State *L, i4 at) {
 	f8 r = 0.0;
 	if (lua_isnumber(L, at)) {
@@ -404,12 +457,29 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
 
-		i->session->push_pair(spaces::keys,i->session,spaces::get_key(i->i),spaces::get_data(i->i));
+		int r = i->session->push_pair(spaces::keys,i->session,spaces::get_key(i->i),spaces::get_data(i->i));
 		i->next();
-		return 2;
+		return r;
 	}
 	
 	return 0;
+}
+/**
+ * set an iterator meta table to a negative position in stack
+ * @param L lua state
+ * @param at negative position relative to top
+ */
+static void set_iter_meta(lua_State* L,int at){
+    if(at >= 0){
+        luaL_error(L, "invalid parameter");
+    }
+    // set its metatable
+    luaL_getmetatable(L, SPACES_ITERATOR_LUA_TYPE_NAME);
+    if (lua_isnil(L, -1)) {
+        luaL_error(L, "no meta table of type %s", SPACES_ITERATOR_LUA_TYPE_NAME);
+    }
+    if(at < 0)
+        lua_setmetatable(L, at-1);
 }
 static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
 
@@ -423,18 +493,22 @@ static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const
 
 	// create the lua iterator
 	auto * pi = s->create_iterator(s);
-	pi->i = s->get_set().lower_bound(f);
-	pi->e = s->get_set().lower_bound(e);
+	pi->set_start(s->get_set().lower_bound(f));
+	pi->set_end(s->get_set().lower_bound(e));
 
 	// set its metatable
-	luaL_getmetatable(L, SPACES_ITERATOR_LUA_TYPE_NAME);
-	if (lua_isnil(L, -1)) {
-		luaL_error(L, "no meta table of type %s", SPACES_ITERATOR_LUA_TYPE_NAME);
-	}
-	lua_setmetatable(L, -2);
+    set_iter_meta(L,-1);
+
+
+	return 1;
+}
+static int push_iterator_closure(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
+
+
+	push_iterator(L,s,p,lower,upper);
 
 	lua_pushcclosure(L, l_pairs_iter, 1);//i
-	///
+
 	return 1;
 }
 inline const spaces::data make_inf(){
@@ -446,25 +520,31 @@ static int spaces___pairs(lua_State* L) {
 
 	spaces::space* p = spaces::get_space(L,1);
 	auto s = std::static_pointer_cast<session_t>(p->session);
-
 	s->begin(); /// will start a transaction
-	return push_iterator(L, s, p, spaces::data(),make_inf());
+	return push_iterator_closure(L, s, p, spaces::data(),make_inf());
 }
-static std::string range = "range";
+
 static int spaces_call(lua_State *L) {
 	int t = lua_gettop(L);
 
 	int o = (t >= 4) ? 1: 0;
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = std::static_pointer_cast<session_t>(p->session);
-	s->begin(); /// will start a transaction
+    auto s = std::static_pointer_cast<session_t>(p->session);
+    s = resolve_route(s, p->second);
+    s->begin(); /// will start a transaction
 	spaces::data lower;
 	spaces::data upper = make_inf();
+
+	if(t == 2){
+		return push_iterator(L, s, p, lower, upper);
+    }
+
+
 	if(t >= o + 2)
 		s->to_space_data(lower, o + 2);
 	if(t >= o + 3)
 		s->to_space_data(upper, o + 3);
-	return push_iterator(L, s, p, lower, upper);
+	return push_iterator_closure(L, s, p, lower, upper);
 
 
 }
@@ -493,15 +573,83 @@ const struct luaL_Reg spaces_m[] = {
 	{ NULL, NULL }/* sentinel */
 };
 
+static int l_pairs_iter_start(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	i->start();
+    return 0;
+}
+static int l_pairs_iter_last(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	i->last();
+    return 0;
+}
+static int l_pairs_iter_key(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	return i->session->push_data(spaces::get_key(i->i).get_name());
+}
+static int l_pairs_iter_value(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	return push_space(L,i->session, spaces::get_key(i->i),spaces::get_data(i->i));
 
+}
+static int l_pairs_iter_pair(lua_State* L){
+    auto *i = spaces::get_iterator(L,1);
+    if (!i->end()) {
+
+        return i->session->push_pair(spaces::keys, i->session, spaces::get_key(i->i), spaces::get_data(i->i));
+    }else{
+        lua_pushnil(L);
+        lua_pushnil(L);
+    }
+    return 2;
+}
+static int l_pairs_iter_next(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+    if (!i->end()) {
+        i->next();
+    }
+    return 0;
+}
+static int l_pairs_iter_valid(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	lua_pushboolean(L,!i->end());
+	return 1;
+}
+static int l_pairs_iter_prev(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	if(!i->first()){
+		i->previous();
+	}
+    return 0;
+}
+static int l_pairs_iter_first(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	lua_pushboolean(L,i->first());
+	return 1;
+}
+static int l_pairs_iter_close(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	dbg_print("destroy iterator");
+	return 0;
+}
 static const struct luaL_Reg spaces_iter_f[] = {
+
+
 	{ NULL, NULL } /* sentinel */
 };
 
-static const struct luaL_Reg spaces_iter_m[] =
-{ 
-	//{ "__gc",l_pairs_iter_close },	
-{ NULL, NULL }/* sentinel */
+static const struct luaL_Reg spaces_iter_m[] = {
+	{ "first",l_pairs_iter_first },
+	{ "start",l_pairs_iter_start },
+	{ "last",l_pairs_iter_last },
+	{ "key",l_pairs_iter_key },
+	{ "value",l_pairs_iter_value },
+	{ "pair",l_pairs_iter_pair },
+	{ "next",l_pairs_iter_next },
+	{ "previous",l_pairs_iter_prev },
+	{ "valid",l_pairs_iter_valid },
+    { "__gc",l_pairs_iter_close },
+    { NULL, NULL }/* sentinel */
 };
 
 static int l_session_close(lua_State* L) { 	

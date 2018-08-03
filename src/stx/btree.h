@@ -2769,6 +2769,10 @@ namespace stx
                 //return _data[current_slot];
                 return currnode->get_value(current_slot);
             }
+            inline data_type& value()
+            {
+                return data();
+            }
 
             /// return true if the iterator is valid
             inline bool loadable() const {

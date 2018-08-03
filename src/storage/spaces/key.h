@@ -644,6 +644,7 @@ namespace spaces {
 		~lua_space(){
 
 		}
+
 		key first;
 		record second;
 		typename  _Session::ptr session;
