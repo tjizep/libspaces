@@ -493,8 +493,8 @@ static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const
 
 	// create the lua iterator
 	auto * pi = s->create_iterator(s);
-	pi->set_start(s->get_set().lower_bound(f));
-	pi->set_end(s->get_set().lower_bound(e));
+	pi->set_lower(s->get_set(),f);
+	pi->set_upper(s->get_set(),e);
 
 	// set its metatable
     set_iter_meta(L,-1);
@@ -585,16 +585,26 @@ static int l_pairs_iter_last(lua_State* L){
 }
 static int l_pairs_iter_key(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	return i->session->push_data(spaces::get_key(i->i).get_name());
+	if(i->is_valid()){
+		return i->session->push_data(spaces::get_key(i->i).get_name());
+
+	}
+	lua_pushnil(L);
+	return 1;
+
 }
 static int l_pairs_iter_value(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	return push_space(L,i->session, spaces::get_key(i->i),spaces::get_data(i->i));
+	if(i->is_valid()){
+		return push_space(L, i->session, spaces::get_key(i->i), spaces::get_data(i->i));
+	}
+	lua_pushnil(L);
+	return 1;
 
 }
 static int l_pairs_iter_pair(lua_State* L){
     auto *i = spaces::get_iterator(L,1);
-    if (!i->end()) {
+    if (!i->end() && i->is_valid()) {
 
         return i->session->push_pair(spaces::keys, i->session, spaces::get_key(i->i), spaces::get_data(i->i));
     }else{
@@ -605,14 +615,14 @@ static int l_pairs_iter_pair(lua_State* L){
 }
 static int l_pairs_iter_next(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-    if (!i->end()) {
+    if (!i->end() && i->is_valid()) {
         i->next();
     }
     return 0;
 }
 static int l_pairs_iter_valid(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	lua_pushboolean(L,!i->end());
+	lua_pushboolean(L,!i->end() && i->is_valid());
 	return 1;
 }
 static int l_pairs_iter_prev(lua_State* L){

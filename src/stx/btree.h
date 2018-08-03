@@ -1,4 +1,5 @@
 // $Id: btree.h 130 2011-05-18 08:24:25Z tb $ -*- fill-column: 79 -*-
+// $Id: btree.h 130 2011-05-18 08:24:25Z tb $ -*- fill-column: 79 -*-
 /** \file btree.h
 * Contains the main B+ tree implementation template class btree.
 */
@@ -1023,7 +1024,7 @@ namespace stx
 
             }
 
-            /// installs pointer with clocksynch for LRU eviction
+            /// installs pointer with clocksynch for LRU evictionset_address_change
             pointer_proxy(const base_type & left)
                     : super(NULL_REF)
             {
@@ -1259,6 +1260,10 @@ namespace stx
             storage::u64	transaction;
 
 
+            /// changes
+            size_t changes;
+
+
             bool force_refresh;
 
 
@@ -1270,11 +1275,16 @@ namespace stx
                     throw bad_format();
                 }
             }
+            void set_address_change(const nst::stream_address &address){
+                change();
+                node_ref::set_address_(address);
+            }
         public:
             node() {
                 this->context = NULL_REF;
                 is_deleted = 0;
                 last_found = 0;
+                changes = 0;
 
             }
 
@@ -1371,7 +1381,7 @@ namespace stx
                 this->context = context;
                 level = l;
                 occupants = 0;
-
+                changes = 0;
                 force_refresh = false;
                 version = nst::version_type();
                 transaction = 0;
@@ -1379,6 +1389,12 @@ namespace stx
 
                 set_context(context);
 
+            }
+            size_t get_changes() const {
+                return changes;
+            }
+            void change(){
+                ++changes;
             }
             bool is_modified() const {
                 check_node();
@@ -1669,6 +1685,7 @@ namespace stx
             void set_address(stream_address address) {
                 node_ref::set_address_(address);
             }
+
         };
 
 
@@ -1702,7 +1719,9 @@ namespace stx
             typename surface_node::ptr		next;
 
             /// data can be kept in encoded format for less memory use
-            buffer_type						attached;
+            //buffer_type						attached;
+            /// changes since last
+            size_t changes;
 
             /// permutation map
             nst::u8 permutations[surfaceslotmax];
@@ -1716,6 +1735,8 @@ namespace stx
 
             /// Array of data
             data_type _values[surfaceslotmax];
+
+
 
             /// initialize a key at a specific position
             void init_key_allocation(int at) {
@@ -1783,6 +1804,10 @@ namespace stx
             void unload_next() {
 
                 this->next.unload(true, false);
+                check_next();
+            }
+            void set_address_change(stream_address address) {
+                node::set_address_change(address);
                 check_next();
             }
             void set_address(stream_address address) {
@@ -2262,7 +2287,8 @@ namespace stx
             if (w == last_surface.get_where()) {
                 stats.last_surface_size = last_surface->get_occupants();
             }
-            n->set_address(w);
+
+            n->set_address_change(w);
             if(!modified.count(w))
                 modified[w] = n;
         }
@@ -2664,6 +2690,9 @@ namespace stx
 
             /// Current key/data slot referenced
             unsigned short          current_slot;
+
+            /// check points any changes
+            size_t check_point;
             //key_type * _keys;
             //data_type * _data;
             /// Friendly to the const_iterator, so it may access the two data items directly.
@@ -2683,8 +2712,17 @@ namespace stx
             /// operator->
             //  mutable value_type              temp_value;
         private:
+            void update_check_point(){
+                if(currnode!=NULL_REF){
+                    check_point=currnode->get_changes();
+                }else{
+                    check_point = 0;
+                }
+            }
             /// assign pointer caches
             void assign_pointers() {
+                update_check_point();
+
                 //_data = &currnode->values()[0];
                 //_keys = &currnode->keys()[0];
             }
@@ -2698,7 +2736,7 @@ namespace stx
             /// Default-Constructor of a mutable iterator
             inline iterator()
                     : currnode(NULL_REF), current_slot(0) //, _data(NULL_REF), _keys(NULL_REF)
-            { }
+            { update_check_point(); }
 
             /// Initializing-Constructor of a mutable iterator
             inline iterator(typename btree::surface_node::ptr l, unsigned short s)
@@ -2783,6 +2821,11 @@ namespace stx
                 mini_pointer m;
                 currnode.make_mini(m);
                 return std::make_pair(m, current_slot);
+            }
+            inline bool has_changed(){
+                if(currnode!=NULL_REF)
+                    return check_point != currnode->get_changes();
+                return false;
             }
 
             /// refresh finction to load the latest version of the current node
@@ -2925,6 +2968,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->get_next();
+
                     current_slot = 0;
                     assign_pointers();
                 }
@@ -2956,6 +3000,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->preceding;
+
                     current_slot = currnode->get_occupants() - 1;
                     assign_pointers();
                 }
@@ -3061,9 +3106,23 @@ namespace stx
             /// operator->
             mutable value_type              temp_value;
 
+            /// check point
+            mutable size_t                  check_point;
+
+
         public:
             // *** Methods
-
+            void set_check_point() const {
+                if(currnode != NULL_REF){
+                    check_point = currnode->get_changes();
+                }
+            }
+            inline bool has_changed(){
+                if(currnode != NULL_REF) {
+                    return check_point != currnode->get_changes();
+                }
+                return false;
+            }
             /// Default-Constructor of a const iterator
             inline const_iterator()
                     : currnode(NULL_REF), current_slot(0)
@@ -3072,23 +3131,24 @@ namespace stx
             /// Initializing-Constructor of a const iterator
             inline const_iterator(const typename btree::surface_node::ptr l, unsigned short s)
                     : currnode(l), current_slot(s)
-            { }
+            {   set_check_point();
+            }
 
             /// Copy-constructor from a mutable iterator
             inline const_iterator(const iterator &it)
                     : currnode(it.currnode), current_slot(it.current_slot)
-            { }
-
+            {   set_check_point();
+            }
             /// Copy-constructor from a mutable reverse iterator
             inline const_iterator(const reverse_iterator &it)
                     : currnode(it.currnode), current_slot(it.current_slot)
-            { }
-
+            {   set_check_point();
+            }
             /// Copy-constructor from a const reverse iterator
             inline const_iterator(const const_reverse_iterator &it)
                     : currnode(it.currnode), current_slot(it.current_slot)
-            { }
-
+            {   set_check_point();
+            }
             /// Dereference the iterator. Do not use this if possible, use key()
             /// and data() instead. The B+ tree does not stored key and data
             /// together.
@@ -3120,7 +3180,10 @@ namespace stx
             {
                 return currnode->get_value(current_slot);
             }
-
+            /// return change id for current page
+            inline size_t change_id(){
+                return currnode->get_changes();
+            }
             /// Prefix++ advance the iterator to the next slot
             inline self& operator++()
             {
@@ -3135,6 +3198,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->get_next();
+                    set_check_point();
                     current_slot = 0;
                 }
                 else
@@ -3162,6 +3226,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->get_next();
+                    set_check_point();
                     current_slot = 0;
                 }
                 else
@@ -3187,6 +3252,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->preceding;
+                    set_check_point();
                     current_slot = currnode->get_occupants() - 1;
                 }
                 else
@@ -3215,6 +3281,7 @@ namespace stx
                         currnode.get_context()->check_low_memory_state();
 
                     currnode = currnode->preceding;
+                    set_check_point();
                     current_slot = currnode->get_occupants() - 1;
                 }
                 else

@@ -103,23 +103,20 @@ namespace spaces{
     };
     template<typename _Set>
     struct spaces_iterator {
-
-        void set_start(const typename _Set::iterator &s){
-            this->i = s;
-            this->s = s;
+        void set_upper(_Set& s,const  key& upper){
+            this->e = s.lower_bound(upper);
         }
-        void set_end(const typename _Set::iterator &e){
-            this->e = e;
-        }
-        void set_range(const typename _Set::iterator &s,const typename _Set::iterator &e){
-            set_start(s);
-            set_end(e);
+        void set_lower(_Set& s,const  key& lower){
+            this->s = s.lower_bound(lower);
+            this->i = this->s;
         }
         void last(){
             i = e;
             --i;
         }
-
+        bool is_valid(){
+            return !i.has_changed() && !s.has_changed();
+        }
         bool end() const {
             return i == e;
         }
