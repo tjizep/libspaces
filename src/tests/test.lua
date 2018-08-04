@@ -146,7 +146,7 @@ while iter:valid() do
 	iter:next()
 end
 dt = os.clock()-t
-print("end st iterate",dt,math.floor(cnt/dt).." keys/s")
+print("end st iterate",dt,math.floor(cnt/dt).." keys/s",cnt)
 --s.data = nil --delete everything added
 
 --[[]]

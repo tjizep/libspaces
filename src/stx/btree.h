@@ -1726,7 +1726,7 @@ namespace stx
             //buffer_type						attached;
 
             /// permutation map
-            nst::u8 permutations[surfaceslotmax];
+            nst::u16 permutations[surfaceslotmax];
 
             /// allocation marker
             nst::u16 allocated;
@@ -1889,7 +1889,7 @@ namespace stx
 
                 BTREE_ASSERT(this->get_occupants() < surfaceslotmax);
                 int j = this->get_occupants();
-                nst::u8 t = permutations[j]; /// because its a resource that might be overwritten
+                nst::u16 t = permutations[j]; /// because its a resource that might be overwritten
                 for (; j > at; ) {
                     permutations[j] = permutations[j - 1];
                     --j;
@@ -1940,7 +1940,9 @@ namespace stx
                 (*this).preceding = next = NULL_REF;
                 (*this).allocated = 0;
                 (*this).hashed = 0;
-                ::memset(permutations, surfaceslotmax, sizeof(permutations));
+                for(nst::u16 p =0; p <surfaceslotmax;++p){
+                    permutations[p] = surfaceslotmax;
+                }
 
             }
 
@@ -2741,11 +2743,11 @@ namespace stx
                 }
             }
             void update_check_point(const typename btree::surface_node::ptr &currnode){
-                //if(currnode.is_loaded()){
+                if(currnode.is_loaded()){
                     check_point=currnode->get_changes();
-                //}else{
-                //    check_point = 0;
-                //}
+                }else{
+                    check_point = 0;
+                }
             }
             bool has_changed(const typename btree::surface_node::ptr &currnode){
                 if(currnode.is_loaded()){
