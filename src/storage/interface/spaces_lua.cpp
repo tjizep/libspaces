@@ -73,7 +73,10 @@ namespace spaces{
 		if(i==nullptr || !i->has_session()){
 			luaL_error(L, "invalid connection or session associated with iterator %s", SPACES_LUA_TYPE_NAME);
 		}
-		i->recover();
+		if(!i->get_session()->reader()){
+			i->recover();
+		}
+
 		return i;
 
 	}

@@ -187,7 +187,7 @@ namespace spaces{
 					return;
 				}
 
-			    if(!this->is_valid())
+			   if(!this->is_valid())
 					super::recover(get_set());
 			}
 			void set_session(ptr session){

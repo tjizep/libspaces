@@ -1,5 +1,5 @@
 local spaces = require "spaces"
-spaces.storage("ranges") -- puts data in the jsonp subdirectory
+spaces.storage("iters") -- puts data in the jsonp subdirectory
 local session = spaces.open()
 local s = session:open(); -- starts a transaction automatically
 if s.alphan == nil then
@@ -40,6 +40,7 @@ while numbers:valid() do
     numbers:next()
 end
 numbers:start()
+numbers:next()
 local erased = 0
 local count = #s.numbers
 while numbers:valid() do
@@ -49,7 +50,8 @@ while numbers:valid() do
     erased = erased+1
 end
 print("total erased",erased,count)
-assert(count == erased, "erase failed")
+assert(1 == #s.numbers, "erase failed (count)")
+assert(count-1 == erased, "erase failed")
 print("tn")
 local tn = s:numbers(2.0001,6.01)
 local t = s:alphan("b","e")

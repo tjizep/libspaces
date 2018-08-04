@@ -130,8 +130,10 @@ namespace spaces{
 
         }
         void last(){
+            position = i.count(e);
             i = e;
             --i;
+
         }
         bool is_valid(){
 

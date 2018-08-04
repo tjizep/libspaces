@@ -2697,7 +2697,7 @@ namespace stx
                         }
                         currnode = currnode->get_next();
                         current_slot = 0;
-                        update_check_point(currnode);
+                        check_point = currnode->get_changes();
                     }
                     else
                     {
@@ -2733,7 +2733,7 @@ namespace stx
                         currnode = currnode->preceding;
 
                         current_slot = currnode->get_occupants() - 1;
-                        update_check_point(currnode);
+                        check_point = currnode->get_changes();
                     } else {
                         current_slot = 0;
                         remaining = 0;
@@ -2741,11 +2741,11 @@ namespace stx
                 }
             }
             void update_check_point(const typename btree::surface_node::ptr &currnode){
-                if(currnode.is_loaded()){
+                //if(currnode.is_loaded()){
                     check_point=currnode->get_changes();
-                }else{
-                    check_point = 0;
-                }
+                //}else{
+                //    check_point = 0;
+                //}
             }
             bool has_changed(const typename btree::surface_node::ptr &currnode){
                 if(currnode.is_loaded()){
@@ -2984,8 +2984,8 @@ namespace stx
             inline iterator& operator= (const iterator& other) {
                 currnode = other.currnode;
                 current_slot = other.current_slot;
+                iterator_base::check_point = other.iterator_base::check_point;
                 assign_pointers();
-
                 return *this;
             }
             /**

@@ -70,9 +70,10 @@ print("current object count",#data)
 
 local tdata = {}
 local values = generateValues()
+local PERIOD = u/10
 if #data == 0 or #data < u then
 
-	local PERIOD = 1e5
+
 	local t = os.clock()
 	local td = os.clock()
 	print("start st write",t)
@@ -139,12 +140,10 @@ end
 cnt = 0
 t = os.clock()
 local last = ""
-for k,v in pairs(data) do
+local iter = s:data()
+while iter:valid() do
 	cnt = cnt + 1
-	if k < last then
-		error("order error")
-	end
-	last = k
+	iter:next()
 end
 dt = os.clock()-t
 print("end st iterate",dt,math.floor(cnt/dt).." keys/s")
