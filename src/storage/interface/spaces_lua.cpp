@@ -70,9 +70,10 @@ namespace spaces{
 	session_t::lua_iterator*  get_iterator(lua_State *L, int at = 1) {
 		auto * i = err_checkudata<session_t::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
 
-		if(i==nullptr || i->session==nullptr){
-			luaL_error(L, "no iterator or no session associated with iterator %s", SPACES_LUA_TYPE_NAME);
+		if(i==nullptr || !i->has_session()){
+			luaL_error(L, "invalid connection or session associated with iterator %s", SPACES_LUA_TYPE_NAME);
 		}
+		i->recover();
 		return i;
 
 	}
@@ -289,19 +290,25 @@ static int spaces_equal(lua_State *L) {
 
 static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
+	int t = lua_gettop(L);
+	if(t!=3) luaL_error(L,"invalid argument count for subscript assignment");
 	spaces::space k;
 	spaces::space* p = spaces::get_space(L,1);
 	auto s = std::static_pointer_cast<session_t>(p->session);
-	s->set_mode(false);
-	s->begin();
+
+	s->begin_writer();
 	s->resolve_id(p);
     k.first.set_context(p->second.get_identity());
-	std::static_pointer_cast<session_t>(s)->to_space_data( k.first.get_name(), 2);
-	s->to_space(spaces::keys,k, 3);
+	s->to_space_data( k.first.get_name(), 2);
 
 
-	if(!lua_isnil(L,3))
+	if(lua_isnil(L,3)){
+		s->erase(k.first);
+	}else{
+		s->to_space(spaces::keys,k, 3);
 		s->insert_or_replace(k);
+	}
+
 
 	
 	return 0;
@@ -335,7 +342,7 @@ static session_t::ptr resolve_route(const session_t::ptr &s,const spaces::record
  * @param value
  * @return 1 if something was pushed 0 otherwize
  */
-static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& key, spaces::record& value){
+static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& key, const spaces::record& value){
 	if (!value.is_flag(spaces::record::FLAG_LARGE) && value.get_identity() != 0) {
 		auto s = resolve_route(ps,value);
 		spaces::space *r = s->open_space(spaces::keys,s,value.get_identity());
@@ -457,7 +464,7 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
 
-		int r = i->session->push_pair(spaces::keys,i->session,spaces::get_key(i->i),spaces::get_data(i->i));
+		int r = i->get_session()->push_pair(spaces::keys,i->get_session(),spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
 		i->next();
 		return r;
 	}
@@ -585,28 +592,25 @@ static int l_pairs_iter_last(lua_State* L){
 }
 static int l_pairs_iter_key(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	if(i->is_valid()){
-		return i->session->push_data(spaces::get_key(i->i).get_name());
-
-	}
+	if (!i->end())
+		return i->get_session()->push_data(spaces::get_key(i->get_i()).get_name());
 	lua_pushnil(L);
 	return 1;
 
 }
 static int l_pairs_iter_value(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	if(i->is_valid()){
-		return push_space(L, i->session, spaces::get_key(i->i), spaces::get_data(i->i));
-	}
+	if (!i->end())
+		return push_space(L, i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
+
 	lua_pushnil(L);
 	return 1;
 
 }
 static int l_pairs_iter_pair(lua_State* L){
     auto *i = spaces::get_iterator(L,1);
-    if (!i->end() && i->is_valid()) {
-
-        return i->session->push_pair(spaces::keys, i->session, spaces::get_key(i->i), spaces::get_data(i->i));
+    if (!i->end()) {
+        return i->get_session()->push_pair(spaces::keys, i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
     }else{
         lua_pushnil(L);
         lua_pushnil(L);
@@ -615,14 +619,14 @@ static int l_pairs_iter_pair(lua_State* L){
 }
 static int l_pairs_iter_next(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-    if (!i->end() && i->is_valid()) {
+    if (!i->end()) {
         i->next();
     }
     return 0;
 }
 static int l_pairs_iter_valid(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	lua_pushboolean(L,!i->end() && i->is_valid());
+	lua_pushboolean(L,!i->end());
 	return 1;
 }
 static int l_pairs_iter_prev(lua_State* L){

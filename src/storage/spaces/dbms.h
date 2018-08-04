@@ -214,7 +214,7 @@ namespace spaces{
                 while(!canceling){
                     {
                         std::lock_guard<std::recursive_mutex> lock(manage_x);
-						manage_instances();
+						//manage_instances();
                         manage_memory();
                     }
 

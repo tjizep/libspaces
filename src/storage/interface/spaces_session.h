@@ -19,7 +19,7 @@ namespace spaces{
 
     struct db_session {
         typedef spaces::dbms::_Set _Set;
-        std::shared_ptr<spaces::dbms> d;
+        spaces::dbms::ptr d;
         std::string name;
         bool is_reader;
         db_session(const std::string& name, bool is_reader = false) : is_reader(is_reader){
@@ -32,7 +32,9 @@ namespace spaces{
 			--db_session_count;
         }
         const std::string& get_name() const {return this->name;}
-
+        spaces::dbms::ptr get_dbms(){
+            return d;
+        }
         bool is_transacted() const{
             return d->is_transacted();
         }
@@ -43,6 +45,7 @@ namespace spaces{
                 d = spaces::get_writer(name);
             }
         }
+
         _Set &get_set() {
             return d->get_set();
         }
@@ -54,6 +57,7 @@ namespace spaces{
         }
         void set_mode(bool reader){
             if(is_reader != reader){
+                auto s = d; /// keep pointer away from cleanup thread
 				if (d != nullptr && d->is_transacted()) {
 					d->begin();
 					d->rollback();
@@ -103,19 +107,38 @@ namespace spaces{
     };
     template<typename _Set>
     struct spaces_iterator {
+        key upper;
+        key lower;
+
+        nst::i64 position;
+        spaces_iterator(): position(0){}
+
         void set_upper(_Set& s,const  key& upper){
             this->e = s.lower_bound(upper);
+            this->upper = upper;
         }
         void set_lower(_Set& s,const  key& lower){
             this->s = s.lower_bound(lower);
             this->i = this->s;
+            this->lower = lower;
+        }
+        void recover(_Set& s){
+            set_upper(s,this->upper);
+            set_lower(s,this->lower);
+
+            this->i += position;
+
         }
         void last(){
             i = e;
             --i;
         }
         bool is_valid(){
+
             return !i.has_changed() && !s.has_changed();
+        }
+        const typename _Set::iterator& get_i() const {
+            return i;
         }
         bool end() const {
             return i == e;
@@ -134,15 +157,20 @@ namespace spaces{
         }
         void next() {
             ++i;
+            ++position;
         }
         void previous() {
             --i;
+            --position;
         }
         void start(){
             this->i = s;
+            position = 0;
         }
-        typename _Set::iterator i;
+
     private:
+        typename _Set::iterator i;
+
         typename _Set::iterator s;
 
         typename _Set::iterator e;
@@ -158,6 +186,9 @@ namespace spaces{
 //	return i.data();
 //}
     static spaces::record& get_data(spaces::db_session::_Set::iterator& i){
+        return i.data();
+    }
+    static const spaces::record& get_data(const spaces::db_session::_Set::iterator& i){
         return i.data();
     }
 
@@ -208,12 +239,26 @@ namespace spaces{
         ~spaces_session() {
 
         }
+        _SessionType& get_session_type(){
+            return session;
+        }
+        spaces::dbms::ptr get_dbms(){
+            return session.get_dbms();
+        }
         void set_max_memory_mb(const ui8& mm){
             session.set_max_memory_mb(mm);
         }
 
         void set_mode(bool readr){
             session.set_mode(readr);
+        }
+        void begin_writer(){
+            this->set_mode(false);
+            this->begin();
+        }
+        void begin_reader(){
+            this->set_mode(true);
+            this->begin();
         }
         void check(){
             session.check();
@@ -286,7 +331,9 @@ namespace spaces{
             }
             return 0;
         }
-
+        void erase(spaces::key& k){
+            session.get_set().erase(k);
+        }
         void insert_or_replace(spaces::key& k, spaces::record& v) {
             const ui4 MAX_BUCKET = 100;
             if(v.size() >  MAX_BUCKET){

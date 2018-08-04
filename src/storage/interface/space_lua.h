@@ -172,8 +172,36 @@ namespace spaces{
 
 		typedef typename spaces_session<_SessionType>::_Set _Set;
 		struct lua_iterator : public spaces::spaces_iterator<_Set>{
-			lua_iterator() : session(nullptr){
+			typedef typename spaces::spaces_iterator<_Set> super;
+			lua_iterator() :session(nullptr){
 			}
+			_Set& get_set(){
+			    return session->get_set();
+			}
+			void recover(){
+
+				if(this->db != session->get_dbms()){
+					this->db = session->get_dbms();
+					super::recover(get_set());
+
+					return;
+				}
+
+			    if(!this->is_valid())
+					super::recover(get_set());
+			}
+			void set_session(ptr session){
+				this->session = session;
+				this->db = session->get_dbms();
+			}
+			bool has_session() const {
+				return session!=nullptr;
+			}
+			ptr& get_session(){
+				return session;
+			}
+		private:
+			spaces::dbms::ptr db;
 			ptr session;
 
 		};
@@ -197,7 +225,7 @@ namespace spaces{
 		}
 		lua_iterator* create_iterator(ptr session) {
 			auto i = create_instance_from_nothing<lua_iterator>(L); /* new userdatum is already on the stack */
-			i->session = session;
+			i->set_session(session);
 			return i;
 		}
 		lua_iterator*  get_iterator(int at = 1) {
