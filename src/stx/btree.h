@@ -4830,7 +4830,7 @@ namespace stx
             }
 
             template <typename node_ptr_type>
-            inline int find_lower(const node_ptr_type n, const key_type& key) const
+            inline int find_lower(const node_ptr_type& n, const key_type& key) const
             {
                 return n->find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
 
