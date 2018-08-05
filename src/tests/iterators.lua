@@ -1,5 +1,5 @@
 local spaces = require "spaces"
-spaces.storage("iters") -- puts data in the jsonp subdirectory
+spaces.storage("iters") -- puts data in the iters subdirectory
 local session = spaces.open()
 local s = session:open(); -- starts a transaction automatically
 if s.alphan == nil then

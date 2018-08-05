@@ -593,8 +593,23 @@ static int l_pairs_iter_last(lua_State* L){
 	i->last();
     return 0;
 }
-static int l_pairs_iter_key(lua_State* L){
+static int l_pairs_iter_count(lua_State* L) {
 	auto *i = spaces::get_iterator(L,1);
+
+	lua_pushinteger(L,i->count());
+
+	return 1;
+
+}
+static int l_pairs_iter_key(lua_State* L){
+
+    auto *i = spaces::get_iterator(L,1);
+    if(lua_gettop(L) > 1){
+        long long index = lua_tonumber(L,2);
+        /// use the lua index convention
+        return i->get_session()->push_data(spaces::get_key(i->get_at(index-1)).get_name());
+    }
+
 	if (!i->end())
 		return i->get_session()->push_data(spaces::get_key(i->get_i()).get_name());
 	lua_pushnil(L);
@@ -603,6 +618,12 @@ static int l_pairs_iter_key(lua_State* L){
 }
 static int l_pairs_iter_value(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
+	if(lua_gettop(L) > 1){
+		long long index = lua_tonumber(L,2);
+		/// use the lua index convention
+		auto iter = i->get_at(index-1);
+		return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
+	}
 	if (!i->end())
 		return push_space(L, i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
 
@@ -626,6 +647,13 @@ static int l_pairs_iter_next(lua_State* L){
         i->next();
     }
     return 0;
+}
+static int l_pairs_iter_move(lua_State* L){
+	if(lua_gettop(L) != 2) luaL_error(L,"invalid parameter to move");
+	auto *i = spaces::get_iterator(L,1);
+	long long index = lua_tonumber(L,2);
+	i->move(index);
+	return 0;
 }
 static int l_pairs_iter_valid(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
@@ -660,11 +688,13 @@ static const struct luaL_Reg spaces_iter_m[] = {
 	{ "start",l_pairs_iter_start },
 	{ "last",l_pairs_iter_last },
 	{ "key",l_pairs_iter_key },
+	{ "count",l_pairs_iter_count },
 	{ "value",l_pairs_iter_value },
 	{ "pair",l_pairs_iter_pair },
 	{ "next",l_pairs_iter_next },
 	{ "previous",l_pairs_iter_prev },
 	{ "valid",l_pairs_iter_valid },
+	{ "move",l_pairs_iter_move },
     { "__gc",l_pairs_iter_close },
     { NULL, NULL }/* sentinel */
 };

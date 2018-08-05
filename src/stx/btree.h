@@ -1398,7 +1398,7 @@ namespace stx
                 return changes;
             }
             void change(){
-                ++changes;
+                ++this->changes;
             }
             bool is_modified() const {
                 check_node();
@@ -1845,18 +1845,18 @@ namespace stx
                     }
                     p = allocated++;
                 }
-                ++this->changes;
+                this->change();
                 _keys[p] = k;
                 _values[p] = v;
             }
             void set_key(int at, const key_type& key){
                 init_key_allocation(at);
                 _keys[permutations[at]] = key;
-                ++this->changes;
+                this->change();
             }
             inline key_type &get_key(int at) {
                 init_key_allocation(at);
-                ++this->changes;
+                this->change();
                 return _keys[permutations[at]];
             }
             inline const key_type &get_key(int at) const {
@@ -1922,7 +1922,7 @@ namespace stx
                     get_key(i) = get_key(i + 1);
                     get_value(i) = get_value(i + 1);
                 }
-                ++this->changes;
+                this->change();
                 this->dec_occupants();
             }
 
@@ -2505,7 +2505,6 @@ namespace stx
 
             return load(w, preallocated);
         }
-
         /// remove an address from caches
         void erase_address(stream_address w) {
             //nodes_loaded.erase(w);
@@ -2655,93 +2654,203 @@ namespace stx
 
         class iterator_base{
         public:
+            typedef typename btree::surface_node::ptr surface_ptr;
+            typedef unsigned short slot_type;
+            /// Friendly to the const_iterator, so it may access the two data items directly.
+            friend class iterator;
+            /// Friendly to the const_iterator, so it may access the two data items directly.
+            friend class const_iterator;
+
+            /// Also friendly to the reverse_iterator, so it may access the two data items directly.
+            friend class reverse_iterator;
+
+            /// Also friendly to the const_reverse_iterator, so it may access the two data items directly.
+            friend class const_reverse_iterator;
+
+            /// Also friendly to the base btree class, because erase_iter() needs
+            /// to read the currnode and current_slot values directly.
+            friend class btree<key_type, data_type, storage_type, value_type, key_compare, key_interpolator, traits, allow_duplicates>;
             iterator_base() : check_point(0){};
+            /**
+             * reposition the iterator towards the end specified by finish
+             * if finish does not exist then the iterator will
+             * advance to the end of the tree
+             * @tparam _Iterator
+             * @param at Current key/data slot referenced
+             * @param count
+             * @param boundary must be the lower or upper most position
+             * can be empty iterator if unknown, then the operation will
+             * continue until the internal boundary is reached
+             */
+            template<typename _Iterator>
+            void reposition
+            (   _Iterator& at
+                ,   long long count
+                ,   const _Iterator& boundary = _Iterator()
+            ) {
+                if(count > 0)
+                    advance(*this,count,boundary);
+                else
+                    retreat(*this,-count,boundary);
+            }
+
+
+            /**
+             * advances the iterator towards the end specified by finish
+             * if finish does not exist then the iterator will
+             * advance to the end of the tree
+             * @tparam _Iterator
+             * @param at Current key/data slot referenced
+             * @param count
+             * @param finish
+             */
+            template<typename _Iterator>
+            void advance
+            (   _Iterator& at
+            ,   long long count
+            ,   const _Iterator& finish = _Iterator()
+            ) {
+                advance(at.currnode,at.current_slot,count,finish);
+            }
+            /**
+             * reverses the iterator up to start if start does not
+             * exist within the tree the iterator will continue
+             * to the begining of the tree
+             * @tparam _Iterator
+             * @param at Current key/data slot referenced
+             * @param count
+             * @param start
+             */
+            template<typename _Iterator>
+            void retreat
+            (   _Iterator& at///
+            ,   long long count
+            ,   const _Iterator& start = _Iterator()
+            ) {
+                retreat(at.currnode,at.current_slot,count,start);
+            }
+
         protected:
             // *** Members
 
             /// Check points any changes
             size_t check_point;
 
-        protected:
+        private:
             // *** Methods
             /**
              * take the iterator forward by count
              * the steps taken are minimized
              * if count is negative no action is taken
-             * @param count the steps to advance
+             *
              */
-            void advance(
-                    /// The currently referenced surface node of the tree
-                    typename btree::surface_node::ptr &currnode,
-                    /// Current key/data slot referenced
-                    unsigned short& current_slot,
-                    long long count){
-                long long remaining = count;
-                while (remaining > 0){
-                    if (current_slot + remaining < currnode->get_occupants())
-                    {
+            /**
+             * take the iterator forward by count
+             * the steps taken are minimized
+             * if count is negative no action is taken
+             * if the finish position is behind current
+             * then current will continue to internal boundary
+             * @param currnode
+             * @param current_slot
+             * @param count
+             * @param finish
+             */
+            template<typename _Iterator>
+            void advance
+            (   surface_ptr& currnode/// Current key/data slot referenced
+            ,   slot_type &current_slot
+            ,   long long count
+            ,   const _Iterator& finish
+            ){
+
+                if(currnode == nullptr) return;
+                // pre con: currnode is != nullptr
+                long long remaining = count < 0 ? -count: count;
+                // pre con: remaining >= 0
+                if(finish.currnode == currnode){
+                    current_slot = finish.current_slot;
+                    return;
+                }
+                // pre con start.currnode != currnode
+                for(;;){
+                    if (current_slot + remaining < currnode->get_occupants()){
                         current_slot += remaining;
-                        remaining = 0;
-                    }
-                    else if (currnode->get_next() != NULL_REF)
-                    {
-                        /// TODO:
-                        /// add a iterator only function here to immediately let go of iterated pages
-                        /// when memory is at a premium (which it usually is)
-                        ///
-
-                        remaining -= currnode->get_occupants();
-
+                        break;
+                    }else if (currnode->get_next() != nullptr){
                         auto context = currnode.get_context();
-
                         if (context) {
                             context->check_low_memory_state();
                         }
+                        remaining -= (currnode->get_occupants()-current_slot);
                         currnode = currnode->get_next();
                         current_slot = 0;
-                        check_point = currnode->get_changes();
-                    }
-                    else
-                    {
-                        // this is end()
+                        if(currnode == finish.currnode){
+                            current_slot += std::min<long long>(remaining,finish.current_slot);
+                            break;
+                        }
 
+
+                    }else{
                         current_slot = currnode->get_occupants();
                         remaining = 0;
                         break;
                     }
-
-                }
+                };
+                // post con: remaining is 0
+                // post con: currnode != nullptr
+                check_point = currnode->get_changes();
             }
             /**
-             * reverse the iterator
+             * let the iterator retreat from the parameter described by at
+             * @tparam _Iterator
+             * @param at
              * @param count
+             * @param start
              */
-            void retreat(
-                // The currently referenced surface node of the tree
-                typename btree::surface_node::ptr &currnode,
-                /// Current key/data slot referenced
-                unsigned short& current_slot,
-                long long count){
-                size_t remaining = count;
+            template<typename _Iterator>
+            void retreat
+            (   surface_ptr& currnode/// Current key/data slot referenced
+            ,   slot_type &current_slot
+            ,   long long count
+            ,   const _Iterator& start
+            ){
+                if(currnode == nullptr) return;
+                // pre con: currnode is != nullptr
+                long long  remaining = count < 0 ? -count: count;
+                // pre con: remaining >= 0
+                if(start.currnode == currnode){
+                    current_slot = start.current_slot;
+                    return;
+                }
+                // pre con start.currnode != currnode
                 while (remaining > 0) {
                     if (current_slot > remaining) {
                         current_slot -= remaining;
                         remaining = 0;
                     } else if (currnode->preceding != NULL_REF) {
-                        remaining -= currnode->get_occupants();
+
                         if (currnode.has_context())
                             currnode.get_context()->check_low_memory_state();
-
+                        /// |0..n-1|==n subtract remaining before currnode change if current_slot has been set to
+                        /// a value < currnode->get_occupants() - 1 then we will need to subtract that
+                        remaining -= current_slot;
                         currnode = currnode->preceding;
-
+                        if(currnode == start.currnode){
+                            current_slot = start.current_slot;
+                            remaining = 0;
+                            break;
+                        }
                         current_slot = currnode->get_occupants() - 1;
-                        check_point = currnode->get_changes();
-                    } else {
-                        current_slot = 0;
+                    } else {/// reached external start
+                        current_slot = currnode->get_occupants();
                         remaining = 0;
+                        break;
                     }
                 }
+                // post con: currnode is != nullptr and remaining == 0
+                check_point = currnode->get_changes();
             }
+        protected:
             void update_check_point(const typename btree::surface_node::ptr &currnode){
                 if(currnode.is_loaded()){
                     check_point=currnode->get_changes();
@@ -2805,12 +2914,13 @@ namespace stx
         private:
             // *** Members
             /// The currently referenced surface node of the tree
-            typename btree::surface_node::ptr      currnode;
+            typename btree::surface_node::ptr           currnode;
             /// Current key/data slot referenced
-            unsigned short          current_slot;
+            typename iterator_base::slot_type           current_slot;
             //key_type * _keys;
             //data_type * _data;
             /// Friendly to the const_iterator, so it may access the two data items directly.
+            friend class iterator_base;
             friend class const_iterator;
 
             /// Also friendly to the reverse_iterator, so it may access the two data items directly.
@@ -2885,7 +2995,7 @@ namespace stx
             /// Dereference the iterator. Do not use this if possible, use key()
             /// and data() instead. The B+ tree does not store key and data
             /// together.
-            /*inline pointer operator->() const
+            /*inline pointer operator->() constNULL_REF
 			{
 			temp_value = pair_to_value_type()( pair_type(currnode->keys()[current_slot],
 			currnode->values()[current_slot]) );
@@ -2913,6 +3023,9 @@ namespace stx
             bool is_valid() const{
                 return current_slot < currnode->get_occupants();
             }
+            void validate(){
+                iterator_base::update_check_point(currnode);
+            }
             /// Writable reference to the current data object
             inline data_type& data()
             {
@@ -2921,7 +3034,7 @@ namespace stx
             }
             inline const data_type& data() const
             {
-                //return _data[current_slot];
+                //return _data[current_slot];index
                 return currnode->get_value(current_slot);
             }
             inline data_type& value()
@@ -2994,13 +3107,13 @@ namespace stx
              * advances/retreats iterator by count steps
              * (optimized)
              * @param count if negative advances
-             * @return this
+             * @return thisreposition
              */
             inline self& operator -= (const long long count){
                 if(count > 0)
-                    iterator_base::retreat(currnode,current_slot,count);
+                    iterator_base::retreat(*this,count);
                 else
-                    iterator_base::advance(currnode,current_slot,count);
+                    iterator_base::advance(*this,-count);
                 return *this;
             }
             /**
@@ -3010,11 +3123,15 @@ namespace stx
              * @return this
              */
             inline self& operator += (const long long count) {
-                if(count > 0)
-                    iterator_base::advance(currnode,current_slot,count);
+                if(count >= 0)
+                    iterator_base::advance(*this,count);
                 else
-                    iterator_base::retreat(currnode,current_slot,count);
+                    iterator_base::retreat(*this,-count);
                 return *this;
+            }
+
+            void advance(unsigned long long count, const iterator& upper){
+                iterator_base::advance(*this,count,upper);
             }
             /// returns true if the iterator is invalid
             inline bool invalid() const {
@@ -3241,7 +3358,7 @@ namespace stx
 
             /// Current key/data slot referenced
             unsigned short          current_slot;
-
+            friend class iterator_base;
             /// Friendly to the reverse_const_iterator, so it may access the two data items directly
             friend class const_reverse_iterator;
 
@@ -3260,12 +3377,15 @@ namespace stx
                     check_point = currnode->get_changes();
                 }
             }
+            void validate(){
+                iterator_base::update_check_point(currnode);
+            }
             inline bool has_changed(){
                 if(currnode != NULL_REF) {
                     return check_point != currnode->get_changes();
                 }
                 return false;
-            }
+            }friend class iterator_base;
             bool is_valid() const{
                 return current_slot < currnode->get_occupants();
             }
@@ -3337,10 +3457,10 @@ namespace stx
             * @return this
             */
             inline self& operator -= (const long long count){
-                if(count > 0)
-                    iterator_base::retreat(currnode,current_slot,count);
+                if(count >= 0)
+                    iterator_base::retreat(*this,count);
                 else
-                    iterator_base::advance(currnode,current_slot,count);
+                    iterator_base::advance(*this,-count);
                 return *this;
             }
             /**
@@ -3350,10 +3470,10 @@ namespace stx
              * @return this
              */
             inline self& operator += (const long long count) {
-                if(count > 0)
-                    iterator_base::advance(currnode,current_slot,count);
+                if(count >= 0)
+                    iterator_base::advance(*this,count);
                 else
-                    iterator_base::retreat(currnode,current_slot,count);
+                    iterator_base::retreat(*this,-count);
                 return *this;
             }
             /// Prefix++ advance the iterator to the next slot
@@ -3521,6 +3641,7 @@ namespace stx
             unsigned short          current_slot;
 
             /// Friendly to the const_iterator, so it may access the two data items directly
+            friend class iterator_base;
             friend class iterator;
 
             /// Also friendly to the const_iterator, so it may access the two data items directly
@@ -3742,6 +3863,7 @@ namespace stx
             unsigned short                          current_slot;
 
             /// Friendly to the const_iterator, so it may access the two data itset_childems directly.
+            friend class iterator_base;
             friend class reverse_iterator;
 
             /// Evil! A temporary value_type to STL-correctly deliver operator* and
@@ -4896,7 +5018,7 @@ namespace stx
             n = interior->get_childid(slot);
         }
 
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
         slot = find_lower(surface.rget(), key);
         return (slot < surface->get_occupants() && key_equal(key, surface->get_key(slot)))
                ? iterator(surface, slot) : end();
@@ -4921,7 +5043,7 @@ namespace stx
             n = interior->get_childid(slot);
         }
 
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
 
         slot = find_lower(surface, key);
         return (slot < surface->get_occupants() && key_equal(key, surface->keys()[slot]))
@@ -4942,7 +5064,7 @@ namespace stx
             slot = find_lower(interior, key);
             n = interior->get_childid(slot);
         }
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
         slot = find_lower(surface, key);
         size_type num = 0;
 
@@ -4981,7 +5103,7 @@ namespace stx
             n = i->get_childid(slot);
 
         }
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
 
         slot = find_lower(surface, key);
         return iterator(surface, slot);
@@ -5003,7 +5125,7 @@ namespace stx
             n = static_cast<interior_node*>(n. operator->())->childid[slot];
         }
 
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
 
         slot = find_lower(surface, key);
         return const_iterator(surface, slot);
@@ -5025,7 +5147,7 @@ namespace stx
             n = interior->get_childid(slot);
         }
 
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
 
         slot = find_upper(surface, key);
         return iterator(surface, slot);
@@ -5049,7 +5171,7 @@ namespace stx
             n = interior->childid[slot];
         }
 
-        typename surface_node::ptr surface = n;
+        const typename surface_node::ptr surface = n;
 
         slot = find_upper(surface, key);
         return const_iterator(surface, slot);

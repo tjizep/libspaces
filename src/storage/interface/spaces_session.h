@@ -127,6 +127,8 @@ namespace spaces{
             set_lower(s,this->lower);
 
             this->i += position;
+            this->i.validate();
+            this->s.validate();
 
         }
         void last(){
@@ -141,6 +143,18 @@ namespace spaces{
         }
         const typename _Set::iterator& get_i() const {
             return i;
+        }
+        long long count() const {
+            return s.count(e);
+        }
+        const typename _Set::iterator& get_at(long long index) {
+            t = i;
+            t.advance(index,this->e);
+            return t;
+        }
+        void move(long long index){
+            i.advance(index,this->e);
+            position += index;
         }
         bool end() const {
             return i == e;
@@ -176,6 +190,9 @@ namespace spaces{
         typename _Set::iterator s;
 
         typename _Set::iterator e;
+
+        typename _Set::iterator t;
+
     };
 
     static const spaces::record& get_data(const spaces::mem_session::_Set::iterator& i){
