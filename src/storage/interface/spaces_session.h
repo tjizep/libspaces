@@ -149,8 +149,17 @@ namespace spaces{
         }
         const typename _Set::iterator& get_at(long long index) {
             t = i;
+
             t.advance(index,this->e);
             return t;
+        }
+        const typename _Set::iterator& get_last() {
+            t = e;
+            --t;
+            return t;
+        }
+        const typename _Set::iterator& get_first() {
+            return s;
         }
         void move(long long index){
             i.advance(index,this->e);
@@ -158,6 +167,9 @@ namespace spaces{
         }
         bool end() const {
             return i == e;
+        }
+        bool empty() const {
+            return s == e;
         }
         bool not_end() const {
             return i != e;

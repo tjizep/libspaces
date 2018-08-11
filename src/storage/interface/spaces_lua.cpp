@@ -616,6 +616,18 @@ static int l_pairs_iter_key(lua_State* L){
 	return 1;
 
 }
+static int l_pairs_iter_first_key(lua_State* L){
+
+	auto *i = spaces::get_iterator(L,1);
+	return i->get_session()->push_data(spaces::get_key(i->get_first()).get_name());
+
+}
+static int l_pairs_iter_last_key(lua_State* L){
+
+	auto *i = spaces::get_iterator(L,1);
+	return i->get_session()->push_data(spaces::get_key(i->get_first()).get_name());
+
+}
 static int l_pairs_iter_value(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
 	if(lua_gettop(L) > 1){
@@ -660,6 +672,11 @@ static int l_pairs_iter_valid(lua_State* L){
 	lua_pushboolean(L,!i->end());
 	return 1;
 }
+static int l_pairs_iter_empty(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	lua_pushboolean(L,i->empty());
+	return 1;
+}
 static int l_pairs_iter_prev(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
 	if(!i->first()){
@@ -671,6 +688,18 @@ static int l_pairs_iter_first(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
 	lua_pushboolean(L,i->first());
 	return 1;
+}
+static int l_pairs_iter_first_value(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	auto iter = i->get_first();
+	return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
+
+}
+static int l_pairs_iter_last_value(lua_State* L){
+	auto *i = spaces::get_iterator(L,1);
+	auto iter = i->get_last();
+	return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
+first
 }
 static int l_pairs_iter_close(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
@@ -685,9 +714,13 @@ static const struct luaL_Reg spaces_iter_f[] = {
 
 static const struct luaL_Reg spaces_iter_m[] = {
 	{ "first",l_pairs_iter_first },
+	{ "firstValue",l_pairs_iter_first_value },
 	{ "start",l_pairs_iter_start },
 	{ "last",l_pairs_iter_last },
+	{ "lastValue",l_pairs_iter_last_value },
 	{ "key",l_pairs_iter_key },
+	{ "firstKey",l_pairs_iter_first_key },
+	{ "lastKey",l_pairs_iter_last_key },
 	{ "count",l_pairs_iter_count },
 	{ "value",l_pairs_iter_value },
 	{ "pair",l_pairs_iter_pair },
@@ -695,6 +728,7 @@ static const struct luaL_Reg spaces_iter_m[] = {
 	{ "previous",l_pairs_iter_prev },
 	{ "valid",l_pairs_iter_valid },
 	{ "move",l_pairs_iter_move },
+	{ "empty",l_pairs_iter_empty },
     { "__gc",l_pairs_iter_close },
     { NULL, NULL }/* sentinel */
 };
