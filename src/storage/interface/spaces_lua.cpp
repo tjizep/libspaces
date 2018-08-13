@@ -545,11 +545,13 @@ static int spaces_call(lua_State *L) {
 	spaces::data lower;
 	spaces::data upper = make_inf();
 
-	if(t == 2){
+
+	if(t <= 2){
 		return push_iterator(L, s, p, lower, upper);
     }
 
-
+	//const char * tnl = lua_typename(L,o+2);
+	//const char * tnu = lua_typename(L,o+3);
 	if(t >= o + 2)
 		s->to_space_data(lower, o + 2);
 	if(t >= o + 3)
@@ -625,7 +627,7 @@ static int l_pairs_iter_first_key(lua_State* L){
 static int l_pairs_iter_last_key(lua_State* L){
 
 	auto *i = spaces::get_iterator(L,1);
-	return i->get_session()->push_data(spaces::get_key(i->get_first()).get_name());
+	return i->get_session()->push_data(spaces::get_key(i->get_last()).get_name());
 
 }
 static int l_pairs_iter_value(lua_State* L){
@@ -699,11 +701,18 @@ static int l_pairs_iter_last_value(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
 	auto iter = i->get_last();
 	return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
-first
+
 }
 static int l_pairs_iter_close(lua_State* L){
 	auto *i = spaces::get_iterator(L,1);
-	dbg_print("destroy iterator");
+	if(i->sentinel == i){
+		i->~lua_iterator();
+		dbg_print("destroy iterator");
+	}else{
+		luaL_error(L,"attempting to destroy invalid iterator");
+	}
+
+
 	return 0;
 }
 static const struct luaL_Reg spaces_iter_f[] = {
@@ -733,9 +742,10 @@ static const struct luaL_Reg spaces_iter_m[] = {
     { NULL, NULL }/* sentinel */
 };
 
-static int l_session_close(lua_State* L) { 	
-	auto s = spaces::get_session<session_t>(L, SPACES_SESSION_KEY);
-	s.~shared_ptr<session_t>();
+static int l_session_close(lua_State* L) {
+
+	auto& s = spaces::get_session<session_t>(L);
+	s = nullptr;
 	if (spaces::db_session_count == 0) {
 		stop_storage();
 	}
@@ -768,6 +778,7 @@ extern "C" int
 #ifdef _MSC_VER
 __declspec(dllexport)
 #endif
+
 luaopen_spaces(lua_State * L) {
 	dbg_print("open lua spaces");
 	start_storage();
@@ -777,6 +788,7 @@ luaopen_spaces(lua_State * L) {
 	spaces::luaopen_plib_any(L, spaces_session_m, SPACES_SESSION_LUA_TYPE_NAME, spaces_session_f, SPACES_SESSION_NAME);
 	//spaces::luaopen_plib_any(L, spaces_recursor_m, SPACES_LUA_RECUR_NAME, spaces_recursor_f, "_spaces_recursor");
     lua_pop(L,1);
+
 	return 1;
 }
 extern "C" int

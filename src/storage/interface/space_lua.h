@@ -15,6 +15,7 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 #define SPACES_ITERATOR_NAME "_spaces_iterators"
 #define SPACES_SESSION_LUA_TYPE_NAME "spacesS" //the spaces session 
 #define SPACES_SESSION_NAME "_spaces_sessions"
+#define SPACES_WEAK_NAME "__spaces_weak__"
 #define SPACES_WRAP_KEY "__$"
 
 namespace spaces{
@@ -47,9 +48,9 @@ namespace spaces{
 		ss.insert(ss.end(), s,s+l);
 		return l;
 	}
-	static void * is_udata(lua_State *L, int ud, const char* ) {
-		return lua_touserdata(L, ud);
-		//return luaL_checkudata(L, ud, tname);
+	static void * is_udata(lua_State *L, int ud, const char* tname) {
+		//return lua_touserdata(L, ud);
+		return luaL_checkudata(L, ud, tname);
 	}
 	template<typename _TypeName>
 	static _TypeName& err_check_ref_udata(lua_State *L, const char* tname, int ud = 1) {
@@ -126,12 +127,12 @@ namespace spaces{
 	}
 
 	template<typename _SessionType>
-	static typename _SessionType::ptr get_session(lua_State *L, int at = 1) {
-		typename _SessionType::ptr r = nullptr;
-		r = *err_checkudata<typename _SessionType::ptr>(L, SPACES_SESSION_NAME, at);
+	static typename _SessionType::ptr& get_session(lua_State *L, int at = 1) {
+		typename _SessionType::ptr *r = nullptr;
+		r = err_checkudata<typename _SessionType::ptr>(L, SPACES_SESSION_LUA_TYPE_NAME, at);
 
-		r->check();
-		return r;
+		(*r)->check();
+		return *r;
 	}
 	#define tofilep(L)	((FILE **)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
@@ -173,7 +174,15 @@ namespace spaces{
 		typedef typename spaces_session<_SessionType>::_Set _Set;
 		struct lua_iterator : public spaces::spaces_iterator<_Set>{
 			typedef typename spaces::spaces_iterator<_Set> super;
+			lua_iterator * sentinel;
 			lua_iterator() :session(nullptr){
+				this->sentinel = this;
+			}
+			~lua_iterator(){
+				if(this->sentinel != this){
+					err_print("destroying class with invalid sentinel");
+				}
+				this->sentinel = nullptr;
 			}
 			_Set& get_set(){
 			    return session->get_set();
@@ -351,7 +360,6 @@ namespace spaces{
 						to_space_data(s.first.get_name(), -2);	// just set the key part
 						to_space(keys,s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
 						/// add new key to table
-						/// Seems like a compiler bug if this-> isn't used then all sorts of errors
 						this->insert_or_replace(s);
 						lua_pop(L, 1);
 					}
@@ -390,12 +398,58 @@ namespace spaces{
 					break;
 			};
 		}
+		void create_weak_globals(){
+			lua_getglobal(L,SPACES_WEAK_NAME);
+			if(lua_isnil(L,-1)){
+				int ts = lua_gettop(L);
+				lua_pop(L,1);
+				ts = lua_gettop(L);
+				lua_newtable(L); // new_table={}
+				lua_newtable(L); // metatable={}
+				lua_pushliteral(L, "__mode");
+				lua_pushliteral(L, "kv");
+				lua_rawset(L, -3); // metatable.__mode='kv'
+				lua_setmetatable(L, -2); // setmetatable(new_table,metatable)
+				ts = lua_gettop(L);
+				lua_setglobal(L,SPACES_WEAK_NAME);
+				ts = lua_gettop(L);
+				lua_getglobal(L,SPACES_WEAK_NAME);
+				ts = lua_gettop(L);
+				ts = lua_gettop(L);
+			}
 
+		}
 		space* open_space(_LuaKeyMap& keys,ptr session, ui8 id) {
 			i4 t = lua_gettop(L);
 			if (!is_space(keys, -1)) {
+				create_weak_globals();
+				i4 tg = lua_gettop(L);
+				lua_pushnumber(L,id);
+				lua_gettable(L,tg);
+				i4 t1 = lua_gettop(L);
+				space* r = nullptr;
+				if(!lua_isnil(L,-1)){
+					lua_remove(L,tg);
+					r = is_space(keys,-1);
+					if(r != nullptr){
+						t1 = lua_gettop(L);
+						if(t1 - t != 1){
+							luaL_error(L,"invalid stack size");
+						}
+						return r;
+					}else{
+						luaL_error(L,"not a space");
+					}
+				}
+				lua_pop(L,1);
+
 				lua_newtable(L);
-				space* r = new space(); // spaces::create_key_from_nothing(L);
+
+				lua_pushnumber(L,id);
+				lua_pushvalue(L,-2);
+				lua_settable(L,tg);
+
+				r = new space(); // spaces::create_key_from_nothing(L);
 				// set its metatable
 				luaL_getmetatable(L, SPACES_LUA_TYPE_NAME);
 				if (lua_isnil(L, -1)) {
@@ -405,6 +459,14 @@ namespace spaces{
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
 				keys[pt] = r;
 				r->session = session;
+				lua_remove(L,tg);
+				if(is_space(keys,-1)==nullptr){
+					luaL_error(L,"not a space");
+				}
+				t1 = lua_gettop(L);
+				if(t1 - t != 1){
+					luaL_error(L,"invalid stack size");
+				}
 				return r;
 			}
 			else {
@@ -513,10 +575,10 @@ namespace spaces{
 		int push_pair(_LuaKeyMap& keys,ptr session, const spaces::key& k,const spaces::record& v) {
 			int r = push_data(k.get_name());
 			if (v.get_identity() != 0) {
-				space * r = this->open_space(keys,session,v.get_identity());
-				r->first = k;
-				r->second = v;
-				r++;
+				space * s = this->open_space(keys,session,v.get_identity());
+				s->first = k;
+				s->second = v;
+				++r;
 			}
 			else {
 				r += push_data(v.get_value());

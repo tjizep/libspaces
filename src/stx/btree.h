@@ -2768,7 +2768,7 @@ namespace stx
                 long long remaining = count < 0 ? -count: count;
                 // pre con: remaining >= 0
                 if(finish.currnode == currnode){
-                    current_slot = finish.current_slot;
+                    current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
                     return;
                 }
                 // pre con start.currnode != currnode
@@ -2785,7 +2785,7 @@ namespace stx
                         currnode = currnode->get_next();
                         current_slot = 0;
                         if(currnode == finish.currnode){
-                            current_slot += std::min<long long>(remaining,finish.current_slot);
+                            current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
                             break;
                         }
 

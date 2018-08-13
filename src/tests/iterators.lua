@@ -14,7 +14,12 @@ else
 end
 local numbers = s:numbers()
 print("all")
-
+local n = s.numbers
+print("first",n():firstKey(),n():firstValue())
+print("last",n():lastKey(),n():lastValue())
+for k,v in pairs(n) do
+    print(k,v)
+end
 while numbers:valid() do
     print("iterate", numbers:key(), numbers:value())
     numbers:next()

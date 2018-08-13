@@ -1,3 +1,7 @@
+----------------------------------------------------------------------------------------------------
+-- a simple table inspector
+-- Christiaan Pretorius chrisep2@gmail.com
+----------------------------------------------------------------------------------------------------
 local function inspect(t)
     local out = {}
     local visited = {}
@@ -22,60 +26,41 @@ local function inspect(t)
         end
         return spacer
     end
-    local function inspectv(v,level)
-        if type(v) == "table" then
-
-        elseif type(v) =="string" then
-            put({"\"",v,"\""})
-        elseif type(v) == "nil" then
-            put({"nil"})
-        else
-            put({v})
-        end
-    end
-
     local function inspectt(t,level)
         if type(t) == "table" then
-            if visited[t] ~= nil then
-                put({"..."})
+            if not visited[t] == nil then
                 return
             end
             visited[t] = level
-
-            local spacer = makespace(level)
-
             local i = 1
             local lt = #t
             if lt == 0 then
                 put({"{}"})
             else
-                visited[t] = level
-
+                local spacer = makespace(level)
                 line({spacer})
                 line({spacer,"{"})
                 for k,v in pairs(t) do
-
                     if type(k) == "number" then
                         put({spacer,"\t[",k,"] = "})
                     else
                         put({spacer,"\t",k," = "})
                     end
-
                     inspectt(v,level+1)
                     if i < lt then
                         put({","})
                     end
                     line("")
-
                     i = i + 1
                 end
-
                 put({spacer,"}"})
             end
-            visited[t] = nil
-
+        elseif type(t) =="string" then
+            put({"\"",t,"\""})
+        elseif type(t) == "nil" then
+            put({"nil"})
         else
-            inspectv(t,level)
+            put({t,})
         end
     end
     inspectt(t,0)

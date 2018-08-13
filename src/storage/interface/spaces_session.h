@@ -112,7 +112,7 @@ namespace spaces{
 
         nst::i64 position;
         spaces_iterator(): position(0){}
-
+        ~spaces_iterator(){}
         void set_upper(_Set& s,const  key& upper){
             this->e = s.lower_bound(upper);
             this->upper = upper;
