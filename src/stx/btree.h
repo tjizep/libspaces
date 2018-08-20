@@ -1167,7 +1167,6 @@ namespace stx
             inline _Loaded * operator->()
             {
                 if ((*this).ptr != NULL_REF) {
-                    validate_surface_links();
                     if ((*this).is_invalid())
                         refresh_this(this);
                 }
@@ -1192,7 +1191,6 @@ namespace stx
             inline const _Loaded * operator->() const
             {
                 load();
-                next_check();
                 return rget();
             }
 
@@ -1201,7 +1199,6 @@ namespace stx
             const _Loaded& operator*() const
             {
                 next_check();
-                load();
                 return *rget();
             }
 
@@ -1209,14 +1206,12 @@ namespace stx
             inline const _Loaded * get() const
             {
                 load();
-                next_check();
                 return rget();
             }
             /// the 'safe' pointer getter
             inline _Loaded * get()
             {
                 load();
-                next_check();
                 return rget();
             }
             bool is_loaded()const {
@@ -1875,6 +1870,7 @@ namespace stx
             }
             inline data_type &get_value(int at) {
                 init_key_allocation(at);
+                this->change();
                 return  _values[permutations[at]]  ;
             }
 
@@ -4989,17 +4985,55 @@ namespace stx
                 return r.value;
             }
         }
-        return nullptr;
+        check_low_memory_state();
+
+        node* n = root.get();
+        if (n == NULL_REF) return NULL_REF;
+        int slot = 0;
+        while (!n->issurfacenode())
+        {
+
+            interior_node* interior = static_cast<interior_node*>(n);
+            slot = find_lower(interior, key);
+            n = interior->get_childid(slot).get();
+        }
+
+        const surface_node* surface = static_cast<surface_node*>(n);
+        slot = find_lower(surface, key);
+        return (slot < surface->get_occupants() && key_equal(key, surface->get_key(slot)))
+               ? (&surface->get_value(slot)) : nullptr;
     }
     data_type * direct(const key_type& key) {
         size_t h = hash_val(key);
-        if(h && !key_lookup.empty()){
-            auto& r = key_lookup[h];
-            if(r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)){
+        if (h && !key_lookup.empty()) {
+            auto &r = key_lookup[h];
+            if (r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)) {
                 return r.value;
             }
         }
-        return nullptr;
+        check_low_memory_state();
+        data_type * result = nullptr;
+        if (get_storage()->is_readonly()) {
+            node *n = root.get();
+            if (n == NULL_REF) return NULL_REF;
+            int slot = 0;
+            while (!n->issurfacenode()) {
+
+                interior_node *interior = static_cast<interior_node *>(n);
+                slot = find_lower(interior, key);
+                n = interior->get_childid(slot).get();
+            }
+
+            surface_node *surface = static_cast<surface_node *>(n);
+            slot = find_lower(surface, key);
+
+            result = (slot < surface->get_occupants() && key_equal(key, surface->get_key(slot)))
+              ? (&surface->get_value(slot)) : nullptr;
+
+
+        }
+        return result;
+
     }
     /// Tries to locate a key in the B+ tree and returns an iterator to the
     /// key/data slot if found. If unsuccessful it returns end().

@@ -116,9 +116,14 @@ namespace spaces {
 			return l == SS ? str().data() :
 				sequence;
 		}
-		const char *c_str() const {
-			return l == SS ? str().data() :
-				sequence;
+		std::string std_str() const {
+			std::string r;
+			if(l == SS){
+				r = std::string(str().data(),str().size());
+			}else
+				r = std::string(sequence,l);
+			return r;
+
 		}
 		char *writable(){
 			return l == SS ? &str()[0] :
@@ -167,7 +172,6 @@ namespace spaces {
 			return *this;
 		}
 		astring& operator=(const std::string& right) {
-			
 			set_data(right.data(), (ui4)right.size());
 			return *this;
 		}
@@ -309,6 +313,24 @@ namespace spaces {
 		bool is_text() const {
 			return type == data_type::text;
 		}
+		std::string to_string() const {
+			switch (type) {
+				case data_type::numeric:
+					return std::to_string(get_number());
+				case data_type::boolean:
+					return std::to_string(get_number());
+				case data_type::text:
+					return sequence.std_str();
+				case data_type::function:
+					return "{FUN}";
+				case data_type::multi:
+				case data_type::infinity:
+					return "{NAN}";
+				default:
+					break;
+			}
+			return "";
+		}
 		f8 to_number() const {
 			char* end;
 			switch (type) {
@@ -317,7 +339,7 @@ namespace spaces {
 			case data_type::boolean:
 				return get_number();
 			case data_type::text:
-				return std::strtod(this->sequence.c_str(), &end);
+				return std::strtod(this->sequence.std_str().c_str(), &end);
 			case data_type::function:				
 			case data_type::multi:
 			case data_type::infinity:
@@ -407,15 +429,13 @@ namespace spaces {
 				case data_type::numeric:
 				case data_type::boolean:
 					return get_integer();
-				case data_type::text:
-					return this->sequence.hash();
 				//case data_type::function:
 				//case data_type::multi:
 				//case data_type::infinity:
 				default:
-					break;
+                    break;
 			}
-			return 0;
+			return this->sequence.hash();
 
 		}
 	};
@@ -570,6 +590,10 @@ namespace spaces {
 		void set_identity(ui8 identity) {
 			this->identity = identity;
 		}
+        template<typename _ValueType>
+        void set_value(const _ValueType& value){
+		    this->value = value;
+		}
 
 		data& get_value() {
 			return value;
@@ -634,19 +658,33 @@ namespace spaces {
 
 	};
 	template<typename _Session>
-	struct lua_space{
-		lua_space(){
+	struct session_space{
+		session_space(){
 
 		}
-		lua_space(key k, record r) : first(k),second(r){
+		session_space(key k, record r) : first(k),second(r){
 
 		}
-		~lua_space(){
+		~session_space(){
 
 		}
 
 		key first;
 		record second;
+		const std::string& get_session_name() const {
+			return session->get_name();
+		}
+		typename _Session::ptr get_session(){
+			return session;
+		}
+		const typename _Session::ptr get_session() const {
+			return session;
+		}
+		void set_session(const typename _Session::ptr& session){
+			this->session = session;
+		}
+
+	private:
 		typename  _Session::ptr session;
 	};
 }

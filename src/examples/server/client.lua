@@ -1,5 +1,5 @@
 require "spaces"
-spaces.storage("client")
+spaces.storage("data")
 spaces.observe("127.0.0.1",15003)
 spaces.replicate("127.0.0.1",16003)
 local session = spaces.open("client"); -- starts a transaction automatically

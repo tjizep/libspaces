@@ -1,5 +1,5 @@
 require("spaces")
-spaces.storage("tutorial")
+spaces.storage("data")
 local session = spaces.open("tutorial")
 local s = session:open()
 -- assign data

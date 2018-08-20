@@ -1,6 +1,6 @@
 local spaces = require 'spaces'
 --spaces.debug()
-spaces.storage("test")
+spaces.storage("data")
 spaces.setMaxMb(6500)
 --spaces.observe("localhost",15003)
 --spaces.replicate("localhost",16003)
@@ -54,8 +54,7 @@ if s == nil then
 end
 local data = s.data
 print("data: ", data)
-if data == nil thenluaL_register (L, NULL, m);
-		luaL_register(L, library_name, f);
+if data == nil then
 	s.data = {}
 	data = s.data
 end

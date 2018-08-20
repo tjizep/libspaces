@@ -107,23 +107,28 @@ namespace spaces{
 		return *k;  /* new userdatum is already on the stack */
 
 	}
+	template<typename _sT>
+	static void assign_shared_instance_from_nothing(lua_State *L, std::shared_ptr<_sT> other) {
+		size_t nbytes = sizeof(std::shared_ptr<_sT>);
+		std::shared_ptr<_sT> *k = (std::shared_ptr<_sT> *)lua_newuserdata(L, nbytes);
+		new (k) std::shared_ptr<_sT>(other);
+	}
 	template<typename _SessionType>
-	static typename _SessionType::ptr create_session(lua_State *L,const char* name, bool is_reader) {
-		typename _SessionType::ptr r = nullptr;
+	static void push_session(lua_State *L, const char *name, typename _SessionType::ptr other, bool is_reader) {
 
-		r = create_shared_instance_from_nothing<_SessionType,const char*,bool>(L,name,is_reader);
-		r->set_state(L);
+		assign_shared_instance_from_nothing<_SessionType>(L,other);
+		other->set_state(L);
 		// set its metatable
 		luaL_getmetatable(L, SPACES_SESSION_LUA_TYPE_NAME);
 		if (lua_isnil(L, -1)) {
 			luaL_error(L, "no meta table of type %s", SPACES_SESSION_LUA_TYPE_NAME);
-			return nullptr;
-		}
-		lua_setmetatable(L, -2);
 
-		r->check();
-		r->set_mode(is_reader);
-		return r;
+		}else{
+			lua_setmetatable(L, -2);
+			other->check();
+			other->set_mode(is_reader);
+		}
+
 	}
 
 	template<typename _SessionType>
@@ -147,28 +152,13 @@ namespace spaces{
 		typedef std::vector<i1> _DumpVector;
 		typedef rabbit::unordered_map<ptrdiff_t, space*> _LuaKeyMap;
 		typedef std::shared_ptr<lua_session> ptr;
-		typedef rabbit::unordered_map<std::string, ptr> sessions_type;
-		typedef std::shared_ptr<sessions_type> sessions_ptr;
+
+	private:
+		lua_State *L;
 		/// despite improvements
 		/// sometimes the type system still gets lost without
 		/// a hint
 		typedef session_type _Self;
-    private:
-		lua_State *L;
-		sessions_ptr sessions;
-		sessions_type& get_sessions(){
-			if(sessions == nullptr){
-				sessions = std::make_shared<sessions_type>();
-			}
-			return *(sessions.get());
-		}
-		const sessions_type& get_sessions() const {
-			if(sessions == nullptr){
-				err_print("invalid sessions variable");
-				throw std::exception();
-			}
-			return *(sessions.get());
-		}
 	public:
 
 		typedef typename spaces_session<_SessionType>::_Set _Set;
@@ -214,10 +204,6 @@ namespace spaces{
 			ptr session;
 
 		};
-		lua_session(const sessions_ptr& sessions, const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
-			dbg_print("create session:%s",name.c_str());
-			this->sessions = sessions;
-		}
 		lua_session(const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
 			dbg_print("create session:%s",name.c_str());
 		}
@@ -228,6 +214,9 @@ namespace spaces{
 
 		void set_state(lua_State *L) {
 			this->L = L;
+		}
+		const lua_State* get_state() const {
+			return this->L;
 		}
         bool is_integer(double n) {
 			return (n - (i8)n == 0);
@@ -247,19 +236,7 @@ namespace spaces{
 			return create_instance_from_nothing<space>(L);  /* new userdatum is already on the stack */
 
 		}
-		ptr create_session(const std::string& storage, ptr self){
-			if(self.get() != this){
-				err_print("this is not the same session");
-				throw std::exception();
-			}
-			auto s = get_sessions().find(storage);
-			if(s != get_sessions().end()){
-				return s->second;
-			}
-			auto result =  std::make_shared<_Self>(sessions,storage,self->reader());
-			get_sessions().insert(storage,result);
-			return result;
-		}
+
 		umi table_clustered_type(int at) {
 			umi n = 0;
 			if (!lua_istable(L, at)) {
@@ -344,12 +321,8 @@ namespace spaces{
 				case LUA_TTABLE: {
 					auto space = is_space(keys,at);
 					if(space!=nullptr){
-						if (space->second.get_identity()) {
-							r.set_identity(space->second.get_identity()); // a link has no identity of its own ???
-						}
-						break;
+						if (this->link(r,space)) break;
 					}
-					/// Seems like a compiler bug if this-> isn't used then all sorts of errors
 					this->resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
 					lua_pushnil(L);
 					/// will push the name and value of the current item (as returned by closure)
@@ -398,31 +371,30 @@ namespace spaces{
 					break;
 			};
 		}
-		void create_weak_globals(){
-			lua_getglobal(L,SPACES_WEAK_NAME);
+		void create_weak_globals(const std::string& _storage){
+			const char * storage = _storage.c_str();
+			lua_getglobal(L,storage);
 			if(lua_isnil(L,-1)){
 				int ts = lua_gettop(L);
 				lua_pop(L,1);
-				ts = lua_gettop(L);
 				lua_newtable(L); // new_table={}
 				lua_newtable(L); // metatable={}
 				lua_pushliteral(L, "__mode");
 				lua_pushliteral(L, "kv");
 				lua_rawset(L, -3); // metatable.__mode='kv'
 				lua_setmetatable(L, -2); // setmetatable(new_table,metatable)
-				ts = lua_gettop(L);
-				lua_setglobal(L,SPACES_WEAK_NAME);
-				ts = lua_gettop(L);
-				lua_getglobal(L,SPACES_WEAK_NAME);
-				ts = lua_gettop(L);
-				ts = lua_gettop(L);
+				lua_setglobal(L,storage);
+				lua_getglobal(L,storage);
+
 			}
 
 		}
 		space* open_space(_LuaKeyMap& keys,ptr session, ui8 id) {
 			i4 t = lua_gettop(L);
 			if (!is_space(keys, -1)) {
-				create_weak_globals();
+				dbg_print("open space: %lld on storage %s",(nst::lld)id,session->get_name().c_str());
+
+				create_weak_globals(session->get_name()+"__WkesdEkjEn");
 				i4 tg = lua_gettop(L);
 				lua_pushnumber(L,id);
 				lua_gettable(L,tg);
@@ -435,6 +407,10 @@ namespace spaces{
 						t1 = lua_gettop(L);
 						if(t1 - t != 1){
 							luaL_error(L,"invalid stack size");
+						}
+						dbg_print("open space: using cached %lld on storage %s",(nst::lld)id,r->get_session()->get_name().c_str());
+						if(r->get_session()->get_name() != session->get_name()){
+							luaL_error(L,"open space: invalid storage");
 						}
 						return r;
 					}else{
@@ -458,7 +434,7 @@ namespace spaces{
 				lua_setmetatable(L, -2);
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
 				keys[pt] = r;
-				r->session = session;
+				r->set_session(session);
 				lua_remove(L,tg);
 				if(is_space(keys,-1)==nullptr){
 					luaL_error(L,"not a space");
@@ -471,7 +447,7 @@ namespace spaces{
 			}
 			else {
 				space* r = this->get_space(keys,-1);
-				r->session = session;
+				r->set_session(session);
 				return r;
 			}
 		}
@@ -491,33 +467,59 @@ namespace spaces{
 			int at = _at;
 			if (at < 0)
 				at = lua_gettop(L) + (1 + at);//translate to absolute position
-			int lt = lua_type(L, at);
+			int lt = lua_type(L, at);switch (d.get_type()) {
+			case data_type::numeric:
+				dbg_print("spaces data: push number %.3f",d.to_number());
+				lua_pushnumber(L, d.to_number());
+				break;
+			case data_type::boolean:
+				dbg_print("spaces data: push boolean %lld",(nst::lld)d.to_number());
+				lua_pushboolean(L, (int)d.get_integer());
+				break;
+			case data_type::text:
+				dbg_print("spaces data: push text %s",d.get_sequence().data());
+				lua_pushlstring(L, d.get_sequence().data(), d.get_sequence().size());
+				break;
+			case data_type::function:
+				dbg_print("spaces data: push function ");
+				lua_pushnil(L);
+				break;
+			case data_type::infinity:
+				dbg_print("spaces data: push infinity ");
+				lua_pushnumber(L, std::numeric_limits<lua_Number>::infinity());
+				break;
+			default:
+				lua_pushnil(L);
+			}
 			switch (lt) {
 			case LUA_TNUMBER: {
 				double n = ::lua_tonumber(L, at);
+				dbg_print("set number on space [%.3f]",n);
 				d = n;
 			}break;
 			case LUA_TSTRING: {
 				size_t l = 0;
 				const char * v = ::lua_tolstring(L, at, &l);
+				dbg_print("set string on space [%s]",v);
 				d.set_text(v, l);
 			}break;
 			case LUA_TBOOLEAN: {
 				bool b = (lua_toboolean(L, at) != 0);
+				dbg_print("set boolean on space [%s]",b ? "true" : "false");
 				d = b;
 			}break;
 			case LUA_TTABLE: {
-
+				dbg_print("could not set table as space");
 				/// TODO: multi data format
-
+				luaL_error(L,"could not set table as key");
 			}break;
 			case LUA_TUSERDATA: {
-
+				dbg_print("could not set user data on space");
 				/// TODO: multi data format
 
 			}break;
 			case LUA_TFUNCTION: {
-
+				dbg_print("compile lua bytecode function into space");
 				typename _Self::_DumpVector dv;
 
 				lua_pushvalue(L, at);
@@ -529,7 +531,7 @@ namespace spaces{
 
 			}break;
 			case LUA_TNIL:
-			{
+			{	dbg_print("could not assign nil to space");
 				d.clear();
 			}break;
 			default:
@@ -541,18 +543,23 @@ namespace spaces{
 		int push_data(const spaces::data& d) {
 			switch (d.get_type()) {
 			case data_type::numeric:
+				dbg_print("spaces data: push number %.3f",d.to_number());
 				lua_pushnumber(L, d.to_number());
 				break;
 			case data_type::boolean:
+				dbg_print("spaces data: push boolean %lld",(nst::lld)d.to_number());
 				lua_pushboolean(L, (int)d.get_integer());
 				break;
 			case data_type::text:
-				lua_pushlstring(L, d.get_sequence().c_str(), d.get_sequence().size());
+				dbg_print("spaces data: push text %s",d.get_sequence().data());
+				lua_pushlstring(L, d.get_sequence().data(), d.get_sequence().size());
 				break;
 			case data_type::function:
+				dbg_print("spaces data: push function ");
 				lua_pushnil(L);
 				break;
 			case data_type::infinity:
+				dbg_print("spaces data: push infinity ");
 				lua_pushnumber(L, std::numeric_limits<lua_Number>::infinity());
 				break;
 			default:
@@ -594,7 +601,6 @@ namespace spaces{
 	}; /// lua_session
 	typedef lua_session<db_session> session_t;
 	typedef session_t::space space;
-
 
 
 }

@@ -454,6 +454,7 @@ namespace stored{
 	typedef rabbit::unordered_map<std::string, _Allocations*> _AlocationsMap;
 
 	extern _Allocations* _get_abstracted_storage(const std::string& name);
+	extern void stop();
 };
 #undef __LOG_NAME__
 #define __LOG_NAME__ __LOG_SPACES__

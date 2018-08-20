@@ -1459,7 +1459,7 @@ namespace rabbit{
 
 		iterator insert(const std::pair<_K,_V>& p){
 
-			return iterator(this, insert(p.first, p.second));
+			return this->insert(p.first, p.second);
 		}
 		/// generic template copy
 		template<class _Iter>

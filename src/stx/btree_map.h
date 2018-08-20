@@ -356,11 +356,8 @@ public:
 
     const data_type* direct(const key_type &key) const
     {
-        const data_type* dp = tree.direct(key);
-        if(dp!= nullptr)
-            return dp;
-        const_iterator i = find( key );
-        return i != end() ? &(i.data()) : nullptr;
+        return tree.direct(key);
+        
     }
     /// Tries to locate a key in the B+ tree and returns a pointer to the
     /// key/data slot if found. If unsuccessful it returns nullptr.

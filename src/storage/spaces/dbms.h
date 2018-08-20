@@ -42,8 +42,7 @@ namespace spaces{
         ,   set(storage)
         ,   id(1)
         ,   is_reader(is_reader) {
-
-            storage.rollback();
+			storage.rollback();
 		}
 		~dbms() {
 			
@@ -59,6 +58,7 @@ namespace spaces{
 			return set;
 		}
 		nst::u64 gen_id(){
+			dbg_print("storage %s generating id %lld",get_name().c_str(),(nst::lld)id);
 		    return id++;
 		}
 		void begin() {
@@ -67,7 +67,7 @@ namespace spaces{
 				resource_x.lock();
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
-                    id = 1;
+					id = 1;
                 }
 				start_id = id;
 			}

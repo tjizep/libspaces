@@ -20,6 +20,12 @@ DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::session_t session_t;
 typedef spaces::spaces_iterator<session_t::_Set> lua_iterator_t;
 typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
+static size_t breaks = 0;
+static void debug_break(){
+	if(nst::storage_debugging){
+		++breaks;
+	}
+}
 static std::string& lua_tostdstring(lua_State *L, int index){
 	thread_local std::string result;
 	result.clear();
@@ -37,35 +43,33 @@ static std::string& lua_tostdstring(lua_State *L, int index){
 }
 
 namespace spaces{
-	session_t::_LuaKeyMap keys;
 
-	space * is_space(lua_State *L, int at = 1) {
-		if (lua_istable(L, at)) {
-			ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
-			auto f = keys.find(pt);
-			if(f!=keys.end()){
-				return f->second;
-			}
-		}
-		return nullptr;
-	}
+
+	typedef state_cache<lua_State,session_t,spaces::space> state_cache_type;
+	static state_cache_type states;
+
 	space * get_space(lua_State *L, int at = 1) {
-		space * space = is_space(L,at);
-		if(space==nullptr){
+		space* r =  states.get_space(L,at);
+		if(r==nullptr){
 			luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
 		}
-		return space;
+		return r;
 	}
-	void close(ptrdiff_t pt) {
-		dbg_print("Closing spaces key... ");
-		auto f = keys.find(pt);
-		if (f!=keys.end()) {
-			delete f->second;
-			keys.erase(f);
-			dbg_print("ok ");
-		}else{
-			dbg_print("not found");
-		}
+	state_cache_type::variables_type::sessions_type& get_sessions(lua_State *L){
+		return states.get_sessions(L);
+	}
+	typename session_t::_LuaKeyMap& get_keys(lua_State *L){
+		return states.get_keys(L);
+	}
+	void add_space(lua_State *L, ptrdiff_t pt, spaces::space* r){
+		states.add_space(L,pt,r);
+	}
+	void remove_session(lua_State *L,const std::string& storage){
+		states.remove_session(L,storage);
+
+	}
+	void close_space(lua_State *L, ptrdiff_t pt) {
+		states.close_space(L,pt);
 	}
 	session_t::lua_iterator*  get_iterator(lua_State *L, int at = 1) {
 		auto * i = err_checkudata<session_t::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
@@ -84,7 +88,7 @@ namespace spaces{
 
 }
 static int  l_space_close(lua_State *L) {
-	stop_storage();
+
 	return 0;
 }
 static int l_serve_space(lua_State *L) {
@@ -152,16 +156,20 @@ static int l_open_session(lua_State *L) {
 	if (lua_isstring(L, 1)) {
 		name = lua_tostring(L,1);
 	}
-	auto s = spaces::create_session<session_t>(L,name, false);
+	auto s = spaces::states.get_sessions(L).create_session(nullptr,name);
+	spaces::push_session<session_t>(L, name, s, false);
 	s->set_mode(true); /// start a reading transaction
 	s->begin(); /// will start transaction
 	return 1;
 }
 static int l_session_open_space(lua_State *L) {
+    if(nst::storage_debugging){
+        dbg_print("debug");
+    }
 	auto s = spaces::get_session<spaces::session_t>(L);
 	s->set_mode(true); /// if the transaction is already started this wont make a difference
     s->begin(); /// will start transaction
-	session_t::space*  r = s->open_space(spaces::keys,s,0);
+	session_t::space*  r = s->open_space(spaces::get_keys(L),s,0);
 
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);
@@ -169,11 +177,13 @@ static int l_session_open_space(lua_State *L) {
 	return 1;
 }
 static int l_session_read(lua_State *L) {
+	debug_break();
 	spaces::get_session<session_t>(L);
 
 	return 0;
 }
 static int l_session_write(lua_State *L) {
+	debug_break();
 	spaces::get_session<session_t>(L);
 
 	return 0;;
@@ -198,29 +208,32 @@ static int l_session_begin_reader(lua_State *L) {
 }
 
 static int l_session_commit(lua_State *L) {
-
+	debug_break();
 	spaces::get_session<session_t>(L)->commit();
 	return 0;
 }
 
 static int l_session_rollback(lua_State *L) {
-
+	debug_break();
 	spaces::get_session<session_t>(L)->rollback();
 	return 0;
 }
 
 static int l_space_debug(lua_State* L) {
+	debug_break();
 	nst::storage_debugging = true;
 	nst::storage_info = true;
 
 	return 0;
 }
 static int l_space_quiet(lua_State* L) {
+	debug_break();
 	nst::storage_debugging = false;
 	nst::storage_info = false;
 	return 0;
 }
 static int l_configure_space(lua_State *L) {
+	debug_break();
 	if (lua_isstring(L, 1)) {
 		nst::data_directory = lua_tostring(L,1);
 		dbg_print("storage directoryt set to %s",nst::data_directory.c_str());
@@ -228,6 +241,7 @@ static int l_configure_space(lua_State *L) {
 	return 0;
 }
 static int l_setmaxmb_space(lua_State *L) {
+	debug_break();
 	nst::u64 mmb = (nst::u64)lua_tonumber(L,1);
 	dbg_print("set max mem to %lld",(nst::lld)mmb);
 	allocation_pool.set_max_pool_size((1024UL*1024UL*mmb)/2UL);
@@ -253,16 +267,18 @@ static const struct luaL_Reg spaces_f[] = {
 
 
 static int spaces_close(lua_State *L) {
+	debug_break();
 	spaces::space * p = spaces::get_space(L);
 	ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, 1));
-	spaces::close(pt);
+	spaces::close_space(L,pt);
 	return 0;
 }
 static int spaces_len(lua_State *L) {
+	debug_break();
 	int t = lua_gettop(L);
 
 	spaces::space * p = spaces::get_space(L);
-	lua_pushnumber(L, p->session->len(p));
+	lua_pushnumber(L, p->get_session()->len(p));
 	t = lua_gettop(L);
 	return 1;
 }
@@ -293,11 +309,12 @@ static int spaces_equal(lua_State *L) {
 
 static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
+	debug_break();
 	int t = lua_gettop(L);
 	if(t!=3) luaL_error(L,"invalid argument count for subscript assignment");
 	spaces::space k;
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = std::static_pointer_cast<session_t>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->get_session());
 
 	s->begin_writer();
 	s->resolve_id(p);
@@ -308,7 +325,7 @@ static int spaces_newindex(lua_State *L) {
 	if(lua_isnil(L,3)){
 		s->erase(k.first);
 	}else{
-		s->to_space(spaces::keys,k, 3);
+		s->to_space(spaces::get_keys(L),k, 3);
 		s->insert_or_replace(k);
 	}
 
@@ -319,21 +336,27 @@ static int spaces_newindex(lua_State *L) {
 /**
  * resolve a route if one is flagged
  * @param s the session which will be used
- * @param value the value of the context,key,value tuple
+ * @param value the value of the context,key,value tuple this can be replaced if the current value is a route
  * @return the original session if no route was specified
  */
-static session_t::ptr resolve_route(const session_t::ptr &s,const spaces::record& value){
+static std::pair<session_t::ptr,bool> resolve_route(lua_State*L,const session_t::ptr &s,const spaces::record& value){
 	if(value.is_flag(spaces::record::FLAG_ROUTE)){ /// this is a route
-		const char * storage = s->map_data(value).get_value().get_sequence().c_str();
+		std::string storage = s->map_data(value).get_value().get_sequence().std_str();
 		if(s->get_name() != storage ){
-			/// create a new session for the storage ??? no sessions are cached per initial session
-			auto r = s->create_session(storage, s);
-			r->set_mode(true); /// start a read transaction
-			r->begin(); /// will start transaction
-			return r;
+			dbg_print("resolving route %s -> %s on id [%lld]",s->get_name().c_str(),storage.c_str(),(nst::lld)value.get_identity());
+
+			auto r = spaces::states.get_sessions(L).create_session(nullptr,storage);
+			if(r->get_state() == nullptr){
+				dbg_print("found new session %s setting lua state",storage.c_str());
+				r->set_state(L);
+				r->set_mode(s->reader());
+			}
+			r->begin();
+
+			return std::make_pair(r,true);
 		}
 	}
-	return s;
+	return std::make_pair(s,false);
 }
 /**
  * push a space or data onto the lua stack
@@ -343,18 +366,25 @@ static session_t::ptr resolve_route(const session_t::ptr &s,const spaces::record
  * @param ps the session
  * @param key the key of potential
  * @param value
- * @return 1 if something was pushed 0 otherwize
+ * @return 1 if something was pushed 0 otherwise
  */
 static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& key, const spaces::record& value){
 	if (!value.is_flag(spaces::record::FLAG_LARGE) && value.get_identity() != 0) {
-		auto s = resolve_route(ps,value);
-		spaces::space *r = s->open_space(spaces::keys,s,value.get_identity());
+		dbg_print("push space: [%lld, %s, %lld]",(nst::lld)key.get_context(),key.get_name().to_string().c_str(),(nst::lld)value.get_identity());
+
+		auto s = resolve_route(L,ps,value);
+
+		spaces::space *r = s.first->open_space(spaces::get_keys(L),s.first,value.get_identity());
 		ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
-		spaces::keys[pt] = r;
+		spaces::add_space(L,pt,r);
 
 		r->first = key;
 		r->second = value;
-
+		if(s.second){// it was routed
+			/// stop it from routing again
+			r->second.clear_flag(spaces::record::FLAG_ROUTE);
+			r->second.get_value().clear();
+		}
 	} else {
 		ps->push_data(ps->map_data(value).get_value());
 	}
@@ -367,8 +397,9 @@ static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& k
  * @return 1
  */
 static int spaces_index(lua_State *L) {
+	debug_break();
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = std::static_pointer_cast<session_t>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->get_session());
 	s->begin(); /// use whatever mode is set
 	spaces::space k;
 
@@ -442,7 +473,7 @@ static int spaces_div(lua_State* L) {
 }
 static int spaces_tostring(lua_State *L) {
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = std::static_pointer_cast<session_t>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->get_session());
 	if (p->second.get_identity() != 0) {
 		lua_pushfstring(L, "table: %p", p->second.get_identity());
 		return 1;
@@ -464,11 +495,15 @@ static int spaces_type(lua_State* L) {
 	return 1;
 }
 static int l_pairs_iter(lua_State* L) { //i,k,v
+	int t = lua_gettop(L);
+	debug_break();
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
 
-		int r = i->get_session()->push_pair(spaces::keys,i->get_session(),spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
+		int r = i->get_session()->push_pair(spaces::get_keys(L),i->get_session(),spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
 		i->next();
+		int t2 = lua_gettop(L);
+		int d = t2 - t;
 		return r;
 	}
 	
@@ -480,6 +515,7 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
  * @param at negative position relative to top
  */
 static void set_iter_meta(lua_State* L,int at){
+	debug_break();
     if(at >= 0){
         luaL_error(L, "invalid parameter");
     }
@@ -514,6 +550,7 @@ static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const
 }
 static int push_iterator_closure(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
 
+	debug_break();
 
 	push_iterator(L,s,p,lower,upper);
 
@@ -527,20 +564,21 @@ inline const spaces::data make_inf(){
 	return inf;
 }
 static int spaces___pairs(lua_State* L) {
-
+	debug_break();
 	spaces::space* p = spaces::get_space(L,1);
-	auto s = std::static_pointer_cast<session_t>(p->session);
+	auto s = std::static_pointer_cast<session_t>(p->get_session());
 	s->begin(); /// will start a transaction
 	return push_iterator_closure(L, s, p, spaces::data(),make_inf());
 }
 
 static int spaces_call(lua_State *L) {
+	debug_break();
 	int t = lua_gettop(L);
 
 	int o = (t >= 4) ? 1: 0;
 	spaces::space* p = spaces::get_space(L,1);
-    auto s = std::static_pointer_cast<session_t>(p->session);
-    s = resolve_route(s, p->second);
+    auto s = std::static_pointer_cast<session_t>(p->get_session());
+    s = resolve_route(L, s, p->second).first;
     s->begin(); /// will start a transaction
 	spaces::data lower;
 	spaces::data upper = make_inf();
@@ -586,16 +624,19 @@ const struct luaL_Reg spaces_m[] = {
 };
 
 static int l_pairs_iter_start(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	i->start();
     return 0;
 }
 static int l_pairs_iter_last(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	i->last();
     return 0;
 }
 static int l_pairs_iter_count(lua_State* L) {
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 
 	lua_pushinteger(L,i->count());
@@ -604,7 +645,7 @@ static int l_pairs_iter_count(lua_State* L) {
 
 }
 static int l_pairs_iter_key(lua_State* L){
-
+	debug_break();
     auto *i = spaces::get_iterator(L,1);
     if(lua_gettop(L) > 1){
         long long index = lua_tonumber(L,2);
@@ -619,18 +660,19 @@ static int l_pairs_iter_key(lua_State* L){
 
 }
 static int l_pairs_iter_first_key(lua_State* L){
-
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	return i->get_session()->push_data(spaces::get_key(i->get_first()).get_name());
 
 }
 static int l_pairs_iter_last_key(lua_State* L){
-
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	return i->get_session()->push_data(spaces::get_key(i->get_last()).get_name());
 
 }
 static int l_pairs_iter_value(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	if(lua_gettop(L) > 1){
 		long long index = lua_tonumber(L,2);
@@ -646,9 +688,10 @@ static int l_pairs_iter_value(lua_State* L){
 
 }
 static int l_pairs_iter_pair(lua_State* L){
+	debug_break();
     auto *i = spaces::get_iterator(L,1);
     if (!i->end()) {
-        return i->get_session()->push_pair(spaces::keys, i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
+        return i->get_session()->push_pair(spaces::get_keys(L), i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
     }else{
         lua_pushnil(L);
         lua_pushnil(L);
@@ -656,6 +699,7 @@ static int l_pairs_iter_pair(lua_State* L){
     return 2;
 }
 static int l_pairs_iter_next(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
     if (!i->end()) {
         i->next();
@@ -663,6 +707,7 @@ static int l_pairs_iter_next(lua_State* L){
     return 0;
 }
 static int l_pairs_iter_move(lua_State* L){
+	debug_break();
 	if(lua_gettop(L) != 2) luaL_error(L,"invalid parameter to move");
 	auto *i = spaces::get_iterator(L,1);
 	long long index = lua_tonumber(L,2);
@@ -670,16 +715,19 @@ static int l_pairs_iter_move(lua_State* L){
 	return 0;
 }
 static int l_pairs_iter_valid(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	lua_pushboolean(L,!i->end());
 	return 1;
 }
 static int l_pairs_iter_empty(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	lua_pushboolean(L,i->empty());
 	return 1;
 }
 static int l_pairs_iter_prev(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	if(!i->first()){
 		i->previous();
@@ -687,23 +735,27 @@ static int l_pairs_iter_prev(lua_State* L){
     return 0;
 }
 static int l_pairs_iter_first(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	lua_pushboolean(L,i->first());
 	return 1;
 }
 static int l_pairs_iter_first_value(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	auto iter = i->get_first();
 	return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
 
 }
 static int l_pairs_iter_last_value(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	auto iter = i->get_last();
 	return push_space(L, i->get_session(), spaces::get_key(iter), spaces::get_data(iter));
 
 }
 static int l_pairs_iter_close(lua_State* L){
+	debug_break();
 	auto *i = spaces::get_iterator(L,1);
 	if(i->sentinel == i){
 		i->~lua_iterator();
@@ -743,12 +795,11 @@ static const struct luaL_Reg spaces_iter_m[] = {
 };
 
 static int l_session_close(lua_State* L) {
-
+	debug_break();
 	auto& s = spaces::get_session<session_t>(L);
+	spaces::remove_session(L,s->get_name());
 	s = nullptr;
-	if (spaces::db_session_count == 0) {
-		stop_storage();
-	}
+
 	return 0;
 }
 static const struct luaL_Reg spaces_session_f[] = {
@@ -796,6 +847,5 @@ extern "C" int
 __declspec(dllexport)
 #endif
 luaclose_spaces(lua_State * L) {
-	stop_storage();
 	return 0;
 }

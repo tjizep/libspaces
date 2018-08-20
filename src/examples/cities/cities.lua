@@ -1,7 +1,7 @@
 local spaces = require 'spaces'
 local inspect = require('inspect_meta')
 local jp = require('jsonpath')
-spaces.storage("cities") -- puts data in the cities subdirectory
+spaces.storage("data") -- puts data in the cities subdirectory
 
 local session = spaces.open("cities") -- starts a transaction automatically
 local s = session:open()

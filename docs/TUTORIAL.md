@@ -57,4 +57,4 @@ Alternative iteration
         print(k, v.population)
     end
 
-The code for this tutorial can be found [here](../src/examples/tutorial.lua) 
+The code for this tutorial can be found [here](../src/examples/tutorial/tutorial.lua) 

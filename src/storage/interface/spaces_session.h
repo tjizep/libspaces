@@ -16,7 +16,9 @@ namespace spaces{
 	extern std::atomic<long> db_session_count;
     typedef std::map<key,record> _MMap;
 
-
+    /**
+     * the database session
+     */
     struct db_session {
         typedef spaces::dbms::_Set _Set;
         spaces::dbms::ptr d;
@@ -73,38 +75,19 @@ namespace spaces{
         void commit() {
             d->commit();
         }
+        void rollback() {
+            d->rollback();
+        }
         const bool reader() const {
             return is_reader;
         }
 
 
     };
-    struct mem_session {
-        spaces::_MMap s;
-        typedef spaces::_MMap _Set;
-        nst::u64 id;
-        mem_session(bool) : id(1) {
-        }
-
-        _Set &get_set() {
-            return s;
-        }
-        nst::u64 gen_id(){
-            return id++;
-        }
-        void set_mode(bool) {
-
-        }
-        void check(){
-
-        }
-        void begin() {
-
-        }
-        void commit() {
-        }
-
-    };
+    /**
+     * iterator for space container
+     * @tparam _Set the set type which will supply elements to iterate
+     */
     template<typename _Set>
     struct spaces_iterator {
         key upper;
@@ -207,15 +190,6 @@ namespace spaces{
 
     };
 
-    static const spaces::record& get_data(const spaces::mem_session::_Set::iterator& i){
-        return (*i).second;
-    }
-    static spaces::record& get_data(spaces::mem_session::_Set::iterator& i){
-        return (*i).second;
-    }
-//static const spaces::record& get_data(const spaces::db_session::_Set::iterator& i){
-//	return i.data();
-//}
     static spaces::record& get_data(spaces::db_session::_Set::iterator& i){
         return i.data();
     }
@@ -224,12 +198,6 @@ namespace spaces{
     }
 
 
-    static const spaces::key& get_key(const spaces::mem_session::_Set::iterator& i){
-        return (*i).first;
-    }
-//static spaces::key& get_key(spaces::mem_session::_Set::iterator& i){
-//	return (*i).first;
-//}
     static const spaces::key& get_key(const spaces::db_session::_Set::iterator& i){
         return i.key();
     }
@@ -239,50 +207,77 @@ namespace spaces{
     static ptrdiff_t get_count(const spaces::db_session::_Set::iterator& i, const spaces::db_session::_Set::iterator& j) {
         return i.count(j);
     }
-    static ptrdiff_t get_count(const spaces::mem_session::_Set::iterator& i, const spaces::mem_session::_Set::iterator& j) {
-        ptrdiff_t cnt = 0;
-        spaces::mem_session::_Set::iterator ii = i;
-
-        while(ii != j){
-            ++cnt;
-            ++ii;
-        }
-        return cnt;
-
-    }
-
+    /**
+     * the session keeps storage and transactional state as well
+     * as enforcing some relational integrity
+     * @tparam _SessionType the base session type - can be associated
+     * with a specific language implementation
+     */
     template<typename _SessionType>
     class spaces_session {
     public:
         typedef std::shared_ptr<spaces_session> ptr;
-    protected:
+
 
         _SessionType session;
         spaces::key data_key;
         spaces::record large;
 
+
+    protected:
     public:
-        typedef lua_space<spaces_session> space;
+        typedef session_space<spaces_session> space;
         typedef typename _SessionType::_Set _Set;
+        /**
+         * construct session specifying initial transaction mode
+         * @param name of session storage
+         * @param reader transaction mode - true for reader
+         */
         spaces_session(const std::string& name, bool reader) : session(name,reader) {
 
         }
         ~spaces_session() {
 
         }
+        /**
+         *
+         * @return the session internal type
+         */
         _SessionType& get_session_type(){
             return session;
         }
+        /**
+         * return the storage name associated with session dbms
+         * @return storage name for session
+         */
+        const std::string& get_name() const {
+            return session.get_name();
+        }
+        /**
+         *
+         * @return the database management system for this session
+         */
         spaces::dbms::ptr get_dbms(){
             return session.get_dbms();
         }
+        /**
+         * set the global memory limit in megabytes
+         * @param mm limit megabytes
+         */
         void set_max_memory_mb(const ui8& mm){
             session.set_max_memory_mb(mm);
         }
-
+        /**
+         * set the new transaction mode for session
+         * does not affect other storages
+         * @param readr
+         */
         void set_mode(bool readr){
             session.set_mode(readr);
         }
+        /**
+         * start a transaction in writing mode
+         */
         void begin_writer(){
             this->set_mode(false);
             this->begin();
@@ -301,7 +296,7 @@ namespace spaces{
             session.commit();
         }
         void rollback() {
-
+            session.rollback();
         }
         const bool reader() const {
             return session.reader();
@@ -365,6 +360,11 @@ namespace spaces{
         void erase(spaces::key& k){
             session.get_set().erase(k);
         }
+        /**
+         * insert a key value pair applying fragmentation for large buckets
+         * @param k the key
+         * @param v value with data
+         */
         void insert_or_replace(spaces::key& k, spaces::record& v) {
             const ui4 MAX_BUCKET = 100;
             if(v.size() >  MAX_BUCKET){
@@ -396,14 +396,50 @@ namespace spaces{
         void insert_or_replace(space& p) {
             insert_or_replace(p.first,p.second);
         }
+        /**
+         *
+         * @param p
+         * @param override
+         */
         void resolve_id(space* p, bool override = false) {
             resolve_id(p->first, p->second,override);
         }
-
+        /**
+         * links another space (other) with a value originating in this session or storage
+         * assigns a external name to the value of local and sets the ROUTE flag
+         * if other originates externally
+         * @tparam _OtherSessionType
+         * @param local the value object belonging to this session and storage
+         * @param other the session space that belongs to potentialy another session
+         * @return true if something has been linked
+         */
+        template<class _OtherSessionType>
+        bool link(spaces::record& local, const _OtherSessionType* other){
+            if(other->second.get_identity()) {
+                local.set_identity(other->second.get_identity()); // a link has no identity of its own ???
+                // here we will differentiate between native and external spaces
+                // external spaces are not always remote
+                auto os = other->get_session();
+                if(this->get_name()!= os->get_name()){
+                    local.set_value(os->get_name());
+                    local.set_flag(spaces::record::FLAG_ROUTE);
+                }
+                return true;
+            }
+            return false;
+        }
+        /**
+         * maps large data into memory by check FLAG_LARGE and then collecting
+         * fragments
+         * @tparam _DataType
+         * @param original
+         * @return
+         */
         template<typename _DataType>
         spaces::record& map_data(_DataType& original){
 
             if(original.is_flag(spaces::record::FLAG_LARGE)){
+                dbg_print("mapping large data");
                 spaces::key data_key;
                 ui4 index = 0;
                 std::string buffer;
@@ -424,29 +460,223 @@ namespace spaces{
             }
             return const_cast<spaces::record&>(original);
         }
-
+        /**
+         * sets an id in second if its 0
+         * starts by first finding the value in the local storage to check that the
+         * id has not been set before since where dealing with a representation
+         * if the identity has not been set then assign a new identity and store it.
+         * other transactions will only see this change if they started
+         * after this transaction committed
+         * read only transactions will fail -
+         * it is contract that this operation will be avoided in read only transactions
+         * and thus cause an unrecoverable error.
+         * This operation is fairly expensive due to all the due diligence and complexity of
+         * the linking contract.
+         * @param first the key to order within storage
+         * @param second the value which will receive an id
+         * @param override force an id into second even if one is found this will orphan the children
+         *
+         */
         void resolve_id(spaces::key& first, spaces::record& second, bool override = false) {
             if (override || second.get_identity() == 0) {
                 auto& s = session.get_set();
                 auto i = s.find(first);
                 if (i != s.end()) {
-                    second = this->map_data(get_data(i));
+                    second = this->map_data(get_data(i)); /// update to the latest version
                 }
                 if (override || second.get_identity() == 0) {
-                    second.set_identity(session.gen_id()); /// were gonna be a parent now so we will need an actual identity
+                    auto nid = session.gen_id();
+                    if(override && second.get_identity() != 0){
+                        dbg_print("storage [%s] space [%s] overriding id: %lld -> %lld",this->get_name().c_str(),first.get_name().to_string().c_str(),(nst::lld)second.get_identity(),(nst::lld)nid);
+                    }
+                    second.set_identity(nid); /// were gonna be a parent now so we will need an actual identity
                     insert_or_replace(first,second);
                 }
             }
+            dbg_print("storage [%s] space [%s] resolved id: %lld",this->get_name().c_str(),first.get_name().to_string().c_str(),(nst::lld)second.get_identity());
         }
 
-
+        /**
+         *
+         * @param p the space that will receive an id
+         * @param override force a new id even if one is found
+         */
         void resolve_id(space& p, bool override = false) {
             resolve_id(&p);
         }
 
     };
+    template<class _SessionResultType>
+    class sessions_map {
+    public:
+        typedef typename _SessionResultType::ptr ptr;
+        /**
+        * sessions map to
+        */
+        typedef rabbit::unordered_map<std::string, ptr> sessions_type;
+        typedef std::shared_ptr<sessions_type> sessions_ptr;
+    private:
+        sessions_type sessions;
+        sessions_type& get_sessions(){
+            return sessions;
+        }
+        const sessions_type& get_sessions() const {
+            return sessions;
+        }
+    public:
+        /**
+         * this object is not copyable
+         * @return
+         */
+        sessions_map & operator=(const sessions_map&) = delete;
+        sessions_map(const sessions_map&) = delete;
+        sessions_map(){
 
-}
+        }
+
+        /**this->get_name()
+         * create a new or return an existing session with the named storage
+         * 'storage' and register it in internal sessions map
+         * @tparam _SessionResultType
+         * @param self the shared pointer to this
+         * @param storage name of storage to use
+         * @return pointer of new session with same type as self
+         */
+
+        typename _SessionResultType::ptr create_session(ptr caller,const std::string& storage){
+            auto s = this->get_sessions().find(storage);
+            if(s != this->get_sessions().end()){
+                return std::static_pointer_cast<_SessionResultType>(s->second);
+            }
+            bool reader = caller==nullptr ? true : caller->reader();
+            auto result =  std::make_shared<_SessionResultType>(storage,reader);
+            this->get_sessions()[storage] = result;
+            return result;
+        }
+        bool remove(const std::string& storage){
+            auto s = this->get_sessions().find(storage);
+            size_t before = this->size();
+            if(s != this->get_sessions().end()){
+                this->get_sessions().erase(s);
+                size_t after = this->size();
+                return true;
+            }
+            return false;
+        }
+        size_t size() const {
+            return get_sessions().size();
+        }
+        bool empty() const {
+            return get_sessions().empty();
+        }
+
+    };
+    template<typename _SessionT>
+    class state_variables{
+    public:
+        typedef std::shared_ptr<state_variables> ptr;
+        typedef spaces::sessions_map< _SessionT > sessions_type;
+    public:
+        // disable any copying
+        state_variables & operator=(const state_variables&) = delete;
+        state_variables(const state_variables&) = delete;
+
+        state_variables(){};
+        sessions_type sessions;
+        bool empty(){
+            return sessions.empty();
+        }
+    };
+
+#include <storage/transactions/abstracted_storage.h>
+    template<typename _TState,typename _SessionT,typename _TSpace>
+    class state_cache{
+    public:
+        typedef state_variables<_SessionT> variables_type;
+        typedef rabbit::unordered_map<ptrdiff_t, typename variables_type::ptr> _StateCache;
+    private:
+        _StateCache states;
+        typename _SessionT::_LuaKeyMap keys;
+
+    public:
+        // disable any copying
+        state_cache & operator=(const state_cache&) = delete;
+        state_cache(const state_cache& other) = delete;
+        state_cache(){}
+        void remove_state(_TState *L){
+            auto state = get_state(L);
+            auto& s = state->sessions;
+            if(state->empty()){
+                states.erase((ptrdiff_t)L);
+
+            }
+            if(states.empty() && keys.empty()){
+                stored::stop();
+            }
+        }
+        typename variables_type::ptr get_state(_TState *L){
+            typename variables_type::ptr result = nullptr;
+            auto s = states.find((ptrdiff_t)L);
+            if(s!=states.end()){
+                result = s->second;
+            }else{
+                result = std::make_shared<variables_type>();
+                states[(ptrdiff_t)L] = result;
+            }
+            return result;
+
+        }
+        void remove_session(_TState *L,const std::string& storage){
+            auto state = get_state(L);
+            auto& s = state->sessions;
+            s.remove(storage);
+            remove_state(L);
+
+        }
+        typename variables_type::sessions_type& get_sessions(_TState *L){
+            return get_state(L)->sessions;
+        }
+        typename _SessionT::_LuaKeyMap& get_keys(_TState *L){
+            //auto& keys = get_state(L)->keys;
+            return keys;
+        }
+        _TSpace * is_space(_TState *L, int at = 1) {
+            if (lua_istable(L, at)) {
+                //auto& keys = get_state(L)->keys;
+                ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
+                auto f = keys.find(pt);
+                if(f!=keys.end()){
+                    return f->second;
+                }
+            }
+            return nullptr;
+        }
+        _TSpace * get_space(_TState *L, int at = 1) {
+            _TSpace * space = is_space(L,at);
+
+            return space;
+        }
+        void close_space(_TState *L, ptrdiff_t pt) {
+            dbg_print("Closing spaces key... ");
+            auto state = get_state(L);
+            //auto& keys = state->keys;
+            auto f = keys.find(pt);
+            if (f!=keys.end()) {
+                delete f->second;
+                keys.erase(f);
+                dbg_print("ok ");
+            }else{
+                dbg_print("not found");
+            }
+
+            remove_state(L);
+        }
+        void add_space(_TState *L, ptrdiff_t pt, _TSpace* r){
+            //auto& keys = get_state(L)->keys;
+            keys[pt] = r; //get_state(L)->
+        }
+    };
+};
 
 
 #endif //SPACES_SPACES_SESSION_H

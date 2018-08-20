@@ -56,9 +56,12 @@ static thread_local std::string _t_str;
 void start_storage() {
 	variables.open();
 }
-void stop_storage() {
-	variables.close();
+namespace stored{
+	void stop() {
+		variables.close();
+	}
 }
+
 namespace nst = ::stx::storage;
 namespace stx{
 	namespace storage{
