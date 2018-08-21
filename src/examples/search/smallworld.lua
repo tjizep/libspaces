@@ -10,7 +10,7 @@ local spaces = require "spaces"
 ----------------------------------------------------------------------------------------------------
 -- creates a new sw object for use
 --
-local function Create(s,worldSize,sampleSize,calcDistance)
+local function Create(groot,worldSize,sampleSize,calcDistance)
     -- spaces.storage(storage) should be called before this function
     ------------------------------------------------------------------------------------------------
     ---
@@ -23,22 +23,22 @@ local function Create(s,worldSize,sampleSize,calcDistance)
     local ts = temp:open()
     ------------------------------------------------------------------------------------------------
     -- initialize the persistent data structures
-    function Nodes()
-        if s.index==nil then
-            s.index = {nodes={}}
+    local function Nodes()
+        if groot.index==nil then
+            groot.index = {nodes={}}
         end
-        return s.index.nodes
+        return groot.index.nodes
     end
-    function Stats()
-        if s.stats==nil then
-            s.stats = {count=0}
+    local function Stats()
+        if groot.stats==nil then
+            groot.stats = {count=0}
         end
-        return s.stats
+        return groot.stats
     end
     ------------------------------------------------------------------------------------------------
     -- alloc temp instance
     local function instance(val)
-        local c = ival + 1
+        local c = ival
         ival = ival + 1
         val[c] = {}
         return val[c]

@@ -40,7 +40,22 @@ namespace spaces{
 #endif
 		return 1; ///returns the library
 	}
-	
+
+	class top_check{
+        lua_State *L;
+        int d;
+        int t;
+    public:
+        top_check(lua_State *L,int d):L(L),d(d){
+            t = lua_gettop(L);
+        }
+        ~top_check(){
+        	int tt = lua_gettop(L);
+            if(tt-t != d){
+                luaL_error(L,"invalid stack size expecting %d got %d",d,tt-t);
+            }
+        }
+	};
 	
 	static size_t lua_tostdstring(lua_State *L,std::string& ss, int at){
 		size_t l = 0;
@@ -394,7 +409,7 @@ namespace spaces{
 			if (!is_space(keys, -1)) {
 				dbg_print("open space: %lld on storage %s",(nst::lld)id,session->get_name().c_str());
 
-				create_weak_globals(session->get_name()+"__WkesdEkjEn");
+				create_weak_globals(session->get_name());
 				i4 tg = lua_gettop(L);
 				lua_pushnumber(L,id);
 				lua_gettable(L,tg);
@@ -467,30 +482,7 @@ namespace spaces{
 			int at = _at;
 			if (at < 0)
 				at = lua_gettop(L) + (1 + at);//translate to absolute position
-			int lt = lua_type(L, at);switch (d.get_type()) {
-			case data_type::numeric:
-				dbg_print("spaces data: push number %.3f",d.to_number());
-				lua_pushnumber(L, d.to_number());
-				break;
-			case data_type::boolean:
-				dbg_print("spaces data: push boolean %lld",(nst::lld)d.to_number());
-				lua_pushboolean(L, (int)d.get_integer());
-				break;
-			case data_type::text:
-				dbg_print("spaces data: push text %s",d.get_sequence().data());
-				lua_pushlstring(L, d.get_sequence().data(), d.get_sequence().size());
-				break;
-			case data_type::function:
-				dbg_print("spaces data: push function ");
-				lua_pushnil(L);
-				break;
-			case data_type::infinity:
-				dbg_print("spaces data: push infinity ");
-				lua_pushnumber(L, std::numeric_limits<lua_Number>::infinity());
-				break;
-			default:
-				lua_pushnil(L);
-			}
+			int lt = lua_type(L, at);
 			switch (lt) {
 			case LUA_TNUMBER: {
 				double n = ::lua_tonumber(L, at);

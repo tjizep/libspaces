@@ -310,6 +310,7 @@ static int spaces_equal(lua_State *L) {
 static int spaces_newindex(lua_State *L) {
 	// will be t,k,v <-> 1,2,3
 	debug_break();
+	spaces::top_check tc(L,0);
 	int t = lua_gettop(L);
 	if(t!=3) luaL_error(L,"invalid argument count for subscript assignment");
 	spaces::space k;
@@ -320,8 +321,6 @@ static int spaces_newindex(lua_State *L) {
 	s->resolve_id(p);
     k.first.set_context(p->second.get_identity());
 	s->to_space_data( k.first.get_name(), 2);
-
-
 	if(lua_isnil(L,3)){
 		s->erase(k.first);
 	}else{
@@ -369,6 +368,7 @@ static std::pair<session_t::ptr,bool> resolve_route(lua_State*L,const session_t:
  * @return 1 if something was pushed 0 otherwise
  */
 static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& key, const spaces::record& value){
+	spaces::top_check tc(L,1);
 	if (!value.is_flag(spaces::record::FLAG_LARGE) && value.get_identity() != 0) {
 		dbg_print("push space: [%lld, %s, %lld]",(nst::lld)key.get_context(),key.get_name().to_string().c_str(),(nst::lld)value.get_identity());
 
@@ -397,6 +397,7 @@ static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& k
  * @return 1
  */
 static int spaces_index(lua_State *L) {
+	spaces::top_check tc(L,1);
 	debug_break();
 	spaces::space* p = spaces::get_space(L,1);
 	auto s = std::static_pointer_cast<session_t>(p->get_session());
@@ -499,11 +500,10 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 	debug_break();
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
-
+		spaces::top_check tc(L,2);
 		int r = i->get_session()->push_pair(spaces::get_keys(L),i->get_session(),spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
 		i->next();
-		int t2 = lua_gettop(L);
-		int d = t2 - t;
+
 		return r;
 	}
 	
