@@ -495,13 +495,19 @@ static int spaces_type(lua_State* L) {
 	lua_pushstring(L, "table");
 	return 1;
 }
+/**
+ * move the iterator one forward
+ * @param L
+ * @return 0
+ */
 static int l_pairs_iter(lua_State* L) { //i,k,v
-	int t = lua_gettop(L);
 	debug_break();
+
 	auto *i = spaces::get_iterator(L,lua_upvalueindex(1));
 	if (!i->end()) {
 		spaces::top_check tc(L,2);
-		int r = i->get_session()->push_pair(spaces::get_keys(L),i->get_session(),spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
+		auto s = resolve_route(L,i->get_session(),spaces::get_data(i->get_i())).first;
+		int r = s->push_pair(spaces::get_keys(L),s,spaces::get_key(i->get_i()),spaces::get_data(i->get_i()));
 		i->next();
 
 		return r;
@@ -527,7 +533,7 @@ static void set_iter_meta(lua_State* L,int at){
     if(at < 0)
         lua_setmetatable(L, at-1);
 }
-static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
+static int push_iterator(lua_State* L, session_t::ptr s, const spaces::space* p, const spaces::data& lower, const spaces::data& upper){
 
 
 	spaces::key f,e ;
@@ -548,9 +554,7 @@ static int push_iterator(lua_State* L, session_t::ptr s, spaces::space* p, const
 
 	return 1;
 }
-static int push_iterator_closure(lua_State* L, session_t::ptr s, spaces::space* p, const spaces::data& lower, const spaces::data& upper){
-
-	debug_break();
+static int push_iterator_closure(lua_State* L, session_t::ptr s, const spaces::space* p, const spaces::data& lower, const spaces::data& upper){
 
 	push_iterator(L,s,p,lower,upper);
 
@@ -564,9 +568,12 @@ inline const spaces::data make_inf(){
 	return inf;
 }
 static int spaces___pairs(lua_State* L) {
+	spaces::top_check tc(L,1);
 	debug_break();
 	spaces::space* p = spaces::get_space(L,1);
 	auto s = std::static_pointer_cast<session_t>(p->get_session());
+	auto resolved = resolve_route(L, s, p->second);
+	s = resolved.first;
 	s->begin(); /// will start a transaction
 	return push_iterator_closure(L, s, p, spaces::data(),make_inf());
 }

@@ -642,10 +642,13 @@ namespace spaces{
         }
         _TSpace * is_space(_TState *L, int at = 1) {
             if (lua_istable(L, at)) {
-                //auto& keys = get_state(L)->keys;
                 ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
                 auto f = keys.find(pt);
                 if(f!=keys.end()){
+                    if(f->second->second.is_flag(spaces::record::FLAG_NEVER_SET)){
+                        err_print("invalid object or memory corruption detected");
+                        return nullptr;
+                    }
                     return f->second;
                 }
             }
@@ -662,17 +665,23 @@ namespace spaces{
             //auto& keys = state->keys;
             auto f = keys.find(pt);
             if (f!=keys.end()) {
-                delete f->second;
+                _TSpace* space = f->second;
                 keys.erase(f);
-                dbg_print("ok ");
+                if(space->second.is_flag(spaces::record::FLAG_NEVER_SET)){
+                    err_print("invalid object or memory corruption detected");
+                }else {
+                    delete space;
+                    dbg_print("ok ");
+                }
             }else{
-                dbg_print("not found");
+                dbg_print("closing space not found");
             }
 
             remove_state(L);
         }
         void add_space(_TState *L, ptrdiff_t pt, _TSpace* r){
             //auto& keys = get_state(L)->keys;
+
             keys[pt] = r; //get_state(L)->
         }
     };

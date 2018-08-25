@@ -11,6 +11,9 @@ local spaces = require "spaces"
 -- creates a new sw object for use
 --
 local function Create(groot,worldSize,sampleSize,calcDistance)
+    ------------------------------------------------------------------------------------------------
+    -- fyi groot is the afrikaans word for big and not the character in the movie
+    --
     -- spaces.storage(storage) should be called before this function
     ------------------------------------------------------------------------------------------------
     ---
@@ -20,6 +23,7 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     local ival =1
 
     local temp = spaces.open("temp"..os.clock())
+    --groot.temp = {}
     local ts = temp:open()
     ------------------------------------------------------------------------------------------------
     -- initialize the persistent data structures
@@ -37,8 +41,12 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     end
     ------------------------------------------------------------------------------------------------
     -- alloc temp instance
-    local function instance(val)
+    local function instance(val,name)
+
         local c = ival
+        if name then
+            print("instance",name,c)
+        end
         ival = ival + 1
         val[c] = {}
         return val[c]
@@ -74,10 +82,10 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ------------------------------------------------------------------------------------------------
     -- create ordered temporary viewed set
     local function Viewed()
+
         if not ts.viewed then
             ts.viewed = {}
         end
-
         return instance(ts.viewed)
     end
 
@@ -102,6 +110,10 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ------------------------------------------------------------------------------------------------
     -- return the k.th or last distance
     local function kDistance(set,k)
+        if set == nil then
+            return 0
+        end
+
         return set():key(math.min(k,#set))
     end
 
@@ -134,8 +146,8 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
             --- look at the friends of the current candidate
             --- attempt to find a closer friend of friends
 
-
             for dist,node in pairs(current.friends) do
+
                 --- do not visit the node again
                 if globalUnordered[node.name] == nil then
                     local candidate = { name=node.name, value=node.value, friends=node.friends }
@@ -146,8 +158,31 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
                     candidates[candidate.distance] = candidate
                     --- add viewed set in order of closeness
                     viewed[candidate.distance] = candidate
+                    local tn = viewed[candidate.distance].name
+                    local tv = viewed[candidate.distance].value
+                    --print(query,"->viewed (n="..#viewed..")",tn,tv)
                 end
             end
+
+        end
+        local hasTable = false
+        for k,v in pairs(viewed) do
+            if type(v.name) == 'table' then
+                hasTable = true
+                break
+            end
+
+        end
+
+        if hasTable then
+
+            for k,v in pairs(viewed) do
+                --print(print(type(v)).." "..type(v.name))
+                spaces.debug()
+                print(v.name)
+                spaces.quiet()
+            end
+
         end
         for k,v in pairs(visitedUnordered) do
             globalUnordered[k] = v

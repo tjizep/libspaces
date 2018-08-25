@@ -310,9 +310,14 @@ namespace spaces{
 				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
 				auto f = keys.find(pt);
 				if(f!=keys.end()){
+					if(f->second->second.is_flag(spaces::record::FLAG_NEVER_SET)){
+						err_print("invalid object or memory corruption detected");
+						luaL_error(L,"not a valid space (invalid flag)");
+					}
 					return f->second;
 				}
 			}
+
 			return nullptr;
 		}
 		space * get_space(_LuaKeyMap& keys, int at = 1) {
@@ -386,7 +391,15 @@ namespace spaces{
 					break;
 			};
 		}
-		void create_weak_globals(const std::string& _storage){
+		/**
+		 * create or retrieve the weak globals table for the _storage and return the top
+		 * of the stack for the caller
+		 * @post: lua stack is one larger than it was before
+		 * @param _storage
+		 * @return the top is returned
+		 */
+		int create_weak_globals(const std::string& _storage){
+			top_check tc(L,1);
 			const char * storage = _storage.c_str();
 			lua_getglobal(L,storage);
 			if(lua_isnil(L,-1)){
@@ -402,27 +415,31 @@ namespace spaces{
 				lua_getglobal(L,storage);
 
 			}
-
+			return lua_gettop(L);
 		}
+		/**
+		 * @post lua stack increased by one
+		 * @param keys the current keys table for the lua state
+		 * @param session for with underlying transaction and storage
+		 * @param id of object valid within storage
+		 * @return a valid space pointer added to global weak table for current session storage
+		 * the return value will contain the session passed
+		 */
 		space* open_space(_LuaKeyMap& keys,ptr session, ui8 id) {
-			i4 t = lua_gettop(L);
+			top_check tc(L,1);
 			if (!is_space(keys, -1)) {
 				dbg_print("open space: %lld on storage %s",(nst::lld)id,session->get_name().c_str());
 
-				create_weak_globals(session->get_name());
-				i4 tg = lua_gettop(L);
+				i4 tg = create_weak_globals(session->get_name());
+
 				lua_pushnumber(L,id);
 				lua_gettable(L,tg);
-				i4 t1 = lua_gettop(L);
+
 				space* r = nullptr;
 				if(!lua_isnil(L,-1)){
 					lua_remove(L,tg);
 					r = is_space(keys,-1);
 					if(r != nullptr){
-						t1 = lua_gettop(L);
-						if(t1 - t != 1){
-							luaL_error(L,"invalid stack size");
-						}
 						dbg_print("open space: using cached %lld on storage %s",(nst::lld)id,r->get_session()->get_name().c_str());
 						if(r->get_session()->get_name() != session->get_name()){
 							luaL_error(L,"open space: invalid storage");
@@ -454,10 +471,6 @@ namespace spaces{
 				if(is_space(keys,-1)==nullptr){
 					luaL_error(L,"not a space");
 				}
-				t1 = lua_gettop(L);
-				if(t1 - t != 1){
-					luaL_error(L,"invalid stack size");
-				}
 				return r;
 			}
 			else {
@@ -474,11 +487,21 @@ namespace spaces{
 			v->insert(v->end(), (const _DumpVector::value_type*)p, ((const _DumpVector::value_type*)(p)) + sz);
 			return 0;
 		}
-
+		/**
+		 * place lua variable at stack position _at into data object d
+		 * the valid lua types are
+		 * LUA_TNUMBER, LUA_TSTRING, LUA_TBOOLEAN, LUA_TTABLE, LUA_TUSERDATA
+		 * LUA_TFUNCTION, LUA_TNIL
+		 * @post if no compatible data is found an error is thrown
+		 * @post stack top remains unchanged
+		 * @param d the receiving data object
+		 * @param _at stack pointer to lua varable
+		 */
 		void to_space_data
 		(	 spaces::data& d
 			, int _at = 2
 		) {
+			top_check tc(L,0);
 			int at = _at;
 			if (at < 0)
 				at = lua_gettop(L) + (1 + at);//translate to absolute position

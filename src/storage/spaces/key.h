@@ -555,7 +555,8 @@ namespace spaces {
 
 		enum FLAGS{
 			FLAG_LARGE = 0,
-			FLAG_ROUTE = 1
+			FLAG_ROUTE = 1,
+            FLAG_NEVER_SET = 16
 		};
 
 		static const bool use_encoding = true;
@@ -570,7 +571,7 @@ namespace spaces {
 			this->flags |= (1ul << (ui4)flag);
 		}
 		void clear_flag(FLAGS flag){
-			this->flags |= ~(1ul << (ui4)flag) ;
+			this->flags &= (~(1ul << (ui4)flag)) ;
 
 		}
 		bool is_flag(FLAGS flag) const {
