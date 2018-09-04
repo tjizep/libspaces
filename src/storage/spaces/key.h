@@ -33,7 +33,7 @@ namespace spaces {
 		typedef typename std::vector<char, stx::storage::allocation::pool_alloc_tracker<char>> tracked_buffer;
 	private:
 		static const i4 SS = 256;
-		ui4 l;
+		i4 l;
 		i1 sequence[sizeof(tracked_buffer)];
 		tracked_buffer & make_long() {
 			new (sequence) tracked_buffer();
@@ -148,7 +148,7 @@ namespace spaces {
 			if (r == 0) {
 				return l - right.l;
 			}
-			return r;		
+			return r;
 		}
 		astring() : l(0){
             *((nst::u64*)sequence) = 0ull;
@@ -250,10 +250,6 @@ namespace spaces {
 			clear();
 			type = data_type::numeric;
 			get_number() = r;
-			double t = get_number();
-			if(t != r){
-				err_print("assignment failed");
-			}
 			return *this;
 		}
 		data& operator=(const std::string& r) {
@@ -299,10 +295,15 @@ namespace spaces {
 		bool operator != (const data&r) const {
 			return compare(r) != 0;
 		}
+        bool operator == (const data&r) const {
+            return compare(r) != 0;
+        }
 		bool operator < (const data& r) const {
 			return compare(r) < 0;
-			
 		}
+        bool operator <= (const data& r) const {
+            return compare(r) <= 0;
+        }
 
 		astring& get_sequence(){
 			return sequence;
@@ -460,23 +461,22 @@ namespace spaces {
 		}
 
 		bool operator != (const key&r) const {
-			if (context != r.context) return true;
-			if (name != r.name) return true;
-			return false;
+            return (context != r.context || name != r.name ) ;
 		}
 		bool operator == (const key&r) const {
 			return !(*this != r);
 		}
 		bool operator < (const key&r) const {
-			if (context != r.context) return context < r.context;			
-			int l = name.compare(r.name);
-			if (l < 0) return true;
-			return false;
+			if (context != r.context) return context < r.context;
+            return (name.compare(r.name) < 0);
 		}
+        bool operator <= (const key&r) const {
+           return !(r < *this);
+
+        }
 		bool found (const key&r) const {
-			if (context != r.context) return false;
-			if (name != r.name) return false;
-			return true;
+            return (context == r.context && name == r.name) ;
+
 		}
 		ui8 get_context() const {
 			return this->context;

@@ -21,7 +21,7 @@ namespace spaces{
 	class dbms {
 	public:
 
-
+		friend dbms_memmanager;
 		typedef stx::storage::allocation::pool_alloc_tracker<key> _KeyAllocator;
 		typedef stx::btree_map<key, record, stored::abstracted_storage, std::less<key>, _KeyAllocator> _Set;
 	private:
@@ -33,20 +33,28 @@ namespace spaces{
 
 		const bool is_reader;
 		static const nst::stream_address ID_ADDRESS = 8;
+	protected:
+		bool writer() const {
+			return  !is_reader; // this->is_reader;
+		}
+
 	public:
 		bool reader() const {
-			return  this->is_reader;
+			return  is_reader; // this->is_reader;
 		}
+
+
 		dbms(const std::string& name,bool is_reader)
-        :   storage(name)
+        :   storage(name,is_reader)
         ,   set(storage)
         ,   id(1)
-        ,   is_reader(is_reader) {
+        ,   is_reader(is_reader)
+		{
 			storage.rollback();
 		}
 		~dbms() {
 			
-			dbg_print("stopping dbms as a %s...%s", this->is_reader ? "reader" : "writer",storage.get_name().c_str());
+			dbg_print("stopping dbms as a %s...%s", this->reader() ? "reader" : "writer",storage.get_name().c_str());
 			this->rollback();
 			dbg_print("ok %s", storage.get_name().c_str());
 		}
@@ -62,7 +70,7 @@ namespace spaces{
 		    return id++;
 		}
 		void begin() {
-			
+
 			if (!this->storage.is_transacted()) {
 				resource_x.lock();
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
@@ -81,7 +89,9 @@ namespace spaces{
 			
             if (this->storage.is_transacted()) {
 				dbg_print("rollback  %s on %s",this->storage.get_version().toString().c_str(),storage.get_name().c_str());
-                this->storage.rollback();
+
+				this->storage.rollback();
+				set.clear();
                 resource_x.unlock();
             }
 
@@ -115,7 +125,7 @@ namespace spaces{
 			if (this->storage.is_transacted()){
 
 				try{
-					if(this->is_reader){
+					if(this->reader()){
 						dbg_print("commit readonly rollback %s on %s",nst::tostring(this->storage.get_version()),storage.get_name().c_str());
 						this->storage.rollback();
 
@@ -176,21 +186,32 @@ namespace spaces{
             }
         }
         void manage_memory(){
-			if(buffer_allocation_pool.is_near_depleted()){
-				stored::reduce_all();
+			//::stx::memory_low_state = true;
+            if(buffer_allocation_pool.is_near_depleted()){
+				//stored::reduce_all();
 			}
 			/// allocation_pool.is_near_factor(0.75)
             if(allocation_pool.is_near_depleted()) {
 				::stx::memory_low_state = true;
-                for (auto a = active.begin(); a != active.end(); ++a) {
-                    spaces::dbms::ptr dbms = a->second;
-                    dbms->check_set_resources();
-                }
-            }else{
-				::stx::memory_low_state = false;
-			}
+				nst::f64 alloc_before = allocation_pool.get_total_allocated();
+				while(allocation_pool.is_near_factor(0.65)){
+					std::this_thread::sleep_for (std::chrono::milliseconds(100));
+					nst::f64 alloc_after = allocation_pool.get_total_allocated();
+					for (auto a = active.begin(); a != active.end(); ++a) {
+						spaces::dbms::ptr dbms = a->second;
+						//dbms->check_set_resources();
+					}
+					std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << std::endl;
+
+				}
+
+
+            }
+			::stx::memory_low_state = false;
+
         }
 	public:
+
 		dbms_memmanager()
 		:   canceling(false)
 		,	started(false)
@@ -223,7 +244,7 @@ namespace spaces{
                         manage_memory();
                     }
 
-                    std::this_thread::sleep_for (std::chrono::milliseconds(50));
+                    std::this_thread::sleep_for (std::chrono::milliseconds(500));
                 }
 			}catch (...){
 			    err_print("dbms memory management error");

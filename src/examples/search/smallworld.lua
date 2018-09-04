@@ -9,10 +9,14 @@
 local spaces = require "spaces"
 ----------------------------------------------------------------------------------------------------
 -- creates a new sw object for use
---
-local function Create(groot,worldSize,sampleSize,calcDistance)
+-- worldSize is the maximum friends a that will be added to each node at a time
+-- the friends list size can definitely grow larger
+-- sample size is BF over priority queue searches that will be done to approach
+-- the closest node to the query parameter
+----------------------------------------------------------------------------------------------------
+local function Create(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
-    -- fyi groot is the afrikaans word for big and not the character in the movie
+    -- f.y.i.: 'groot' is the afrikaans word for large and not the character in that movie
     --
     -- spaces.storage(storage) should be called before this function
     ------------------------------------------------------------------------------------------------
@@ -21,10 +25,19 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ---
     ------------------------------------------------------------------------------------------------
     local ival =1
-
-    local temp = spaces.open("temp"..os.clock())
+    local seed = 0
     --groot.temp = {}
+    local temp = spaces.open("temp"..os.clock())
+    print("opening")
     local ts = temp:open()
+    local function metricSeed()
+        -- function used for emulating a priority queue - because spaces are unique ordered sets
+        seed = seed + 1
+        return seed /1e8
+    end
+    local function metric(a,b)
+        return metricFunction(a,b) + metricSeed()
+    end
     ------------------------------------------------------------------------------------------------
     -- initialize the persistent data structures
     local function Nodes()
@@ -42,27 +55,29 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ------------------------------------------------------------------------------------------------
     -- alloc temp instance
     local function instance(val,name)
-
-        local c = ival
         if name then
             print("instance",name,c)
         end
-        ival = ival + 1
-        val[c] = {}
-        return val[c]
+        val[0] = {}
+        return val[0]
     end
     ------------------------------------------------------------------------------------------------
     -- initialize temporary global view sets
     local function GlobalUnorderedViewSet()
         if ts.globalUnordered == nil then
+            --print("create globalUnordered")
             ts.globalUnordered = {}
+
+
         end
-        return instance(ts.globalUnordered)
+
+        return {} --instance(ts.globalUnordered)
     end
     ------------------------------------------------------------------------------------------------
     -- ordered global view set
     local function GlobalViewed()
         if not ts.globalViewed then
+            --print("create globalViewed")
             ts.globalViewed = {}
         end
 
@@ -73,6 +88,7 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     -- create ordered temporary canditates
     local function Candidates()
         if not ts.candidates then
+            --print("create candidates")
             ts.candidates = {}
         end
 
@@ -84,6 +100,7 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     local function Viewed()
 
         if not ts.viewed then
+            --print("create viewed")
             ts.viewed = {}
         end
         return instance(ts.viewed)
@@ -93,10 +110,11 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     -- create temporary viewed set
     local function VisitedUnordered()
         if not ts.visitedUnordered then
+            --print("create visitedUnordered")
             ts.visitedUnordered = {}
         end
 
-        return instance(ts.visitedUnordered)
+        return {} --instance(ts.visitedUnordered)
     end
 
     ------------------------------------------------------------------------------------------------
@@ -122,10 +140,12 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ------------------------------------------------------------------------------------------------
     -- search nodes
     -- the similarity with dijkstras algorithm is neither coincidental nor accidental
-    local function searchNodes(query,entry, globalUnordered)
+    local function searchNodes(query, entry, globalUnordered)
+
+        local doDebug = false
         local lowerBound = 0
         local candidates,viewed, visitedUnordered = Candidates(),Viewed(),VisitedUnordered()
-        local distance = calcDistance(query,entry.value)
+        local distance = metric(query,entry.value)
         local candidate = { name=entry.name, value=entry.value, friends=entry.friends,distance=distance }
         globalUnordered[entry.name] = candidate
         visitedUnordered[entry.name] = candidate
@@ -137,6 +157,7 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
 
             --- find the k lower bound of the current ordered viewed set
             lowerBound = kDistance(viewed, worldSize);
+
             if current.distance > lowerBound then
                 break
             end
@@ -146,43 +167,33 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
             --- look at the friends of the current candidate
             --- attempt to find a closer friend of friends
 
+
             for dist,node in pairs(current.friends) do
 
                 --- do not visit the node again
                 if globalUnordered[node.name] == nil then
-                    local candidate = { name=node.name, value=node.value, friends=node.friends }
-                    candidate.distance = calcDistance(query,candidate.value)
+                    local dist = metric(query,node.value)
+                    local candidate = { name=node.name, value=node.value, friends=node.friends,distance = dist }
                     --- remember the closest nodes for all k instances of k search
-                    globalUnordered[node.name] = candidate.distance
+                    globalUnordered[node.name] = dist
                     --- add candidates in order of closeness
-                    candidates[candidate.distance] = candidate
+                    candidates[dist] = candidate
                     --- add viewed set in order of closeness
-                    viewed[candidate.distance] = candidate
-                    local tn = viewed[candidate.distance].name
-                    local tv = viewed[candidate.distance].value
-                    --print(query,"->viewed (n="..#viewed..")",tn,tv)
+                    viewed[dist] = candidate
+                    if doDebug then
+                        local tn = viewed[dist].name
+                        local tv = viewed[dist].value
+                        print(query,"->viewed (n="..#viewed..")",type(tn),tn,tv)
+                    end
                 end
             end
 
         end
-        local hasTable = false
-        for k,v in pairs(viewed) do
-            if type(v.name) == 'table' then
-                hasTable = true
-                break
-            end
-
-        end
-
-        if hasTable then
-
+        if doDebug then
+            print("viewed count "..#viewed)
             for k,v in pairs(viewed) do
-                --print(print(type(v)).." "..type(v.name))
-                spaces.debug()
-                print(v.name)
-                spaces.quiet()
+                print(k,type(v.name))
             end
-
         end
         for k,v in pairs(visitedUnordered) do
             globalUnordered[k] = v
@@ -193,15 +204,19 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
 
     ------------------------------------------------------------------------------------------------
     -- finds nodes closest to query parameter according to distance function
-    local function search (self,query)
-
+    local function search (self, query)
+        collectgarbage("collect") -- or we will get an invalid reference count error
+        temp:rollback()
+        temp:write()
         local nodes = Nodes()
         local globalUnordered,global = GlobalUnorderedViewSet(),GlobalViewed()
-
+        local added = {}
         for i=1,sampleSize do
+
             local viewed = searchNodes(query,getRandomNode(nodes),globalUnordered)
             for k,v in pairs(viewed) do
                 global[k] = v
+                added[v.name] = 1
             end
         end
         return global
@@ -210,8 +225,8 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
     ------------------------------------------------------------------------------------------------
     -- add a node
     -- name should be unique
-    local function add(self,value)
-        --temp:begin()
+    local function add(self, value)
+
         local nodes = Nodes()
         local stats = Stats()
         local name = stats.count + 1
@@ -232,7 +247,7 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
         stats.count = stats.count + 1
         local toadd = nodes[name] -- use the persisted version
         local i = 0
-        for other,value in pairs(viewed) do
+        for _,value in pairs(viewed) do
             if i >= worldSize then
                 break
             end
@@ -242,7 +257,6 @@ local function Create(groot,worldSize,sampleSize,calcDistance)
             toadd.friends[pvalue.name] = pvalue
             pvalue.friends[name] = toadd
         end
-        --temp:rollback()
     end
 
     ------------------------------------------------------------------------------------------------

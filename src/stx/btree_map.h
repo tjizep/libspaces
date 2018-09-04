@@ -537,10 +537,13 @@ public:
     /// inserts the default object data_type().
     inline data_type& operator[](const key_type& key)
     {
+
+
         data_type* dp = tree.direct(key);
         if(dp!= nullptr)
             return *dp;
         iterator i = insert( value_type(key, data_type()) ).first;
+
         return i.data();
     }
 
@@ -673,10 +676,16 @@ public:
 
 	}
 
-	/// retor an iterator from an initializer pair
+	/// restore an iterator from an initializer pair
 	void restore_iterator(iterator& out, const typename iterator::initializer_pair& init){
 		out.from_initializer(tree, init);
 	}
+    const typename btree_impl::count_checker& get_cc() const{
+        return tree.get_cc();
+    }
+    typename btree_impl::count_checker& get_cc() {
+        return tree.get_cc();
+    }
 };
 
 } // namespace stx

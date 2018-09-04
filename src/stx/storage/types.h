@@ -2,7 +2,7 @@
 #define _STX_STORAGE_TYPES_H_
 
 #include <type_traits>
-
+#include <Poco/DateTimeFormatter.h>
 template <typename T, typename NameGetter>
 class has_member_impl {
 private:
@@ -103,7 +103,9 @@ namespace stx{
 			typedef std::pair<stream_address,version_type> resource_descriptor;
 			typedef std::vector<resource_descriptor> resource_descriptors;
 
-
+			static std::string current_time(){
+				return  Poco::DateTimeFormatter::format(Poco::Timestamp(),"%Y%m%d %H:%M:%s");
+			}
 
 	};
 	extern bool memory_low_state;
@@ -176,12 +178,13 @@ namespace std {
 			return r;
 		}
     };
+
 };
 
-#define dbg_print(x,...)          do {  if (nst::storage_debugging) (printf("[DBG][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
-#define wrn_print(x,...)          do {  if (nst::storage_info) (printf("[WRN][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
-#define err_print(x,...)          do {  if (true) (printf("[ERR][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
-#define inf_print(x,...)          do {  if (nst::storage_info) (printf("[INF][%s] " x "\n", __LOG_NAME__, ##__VA_ARGS__)); } while(0)
+#define dbg_print(x,...)          do {  if (nst::storage_debugging) (printf("[DBG][%s][%s] " x "\n", __LOG_NAME__, nst::current_time().c_str(), ##__VA_ARGS__)); } while(0)
+#define wrn_print(x,...)          do {  if (nst::storage_info) (printf("[WRN][%s][%s] " x "\n", __LOG_NAME__, nst::current_time().c_str(), ##__VA_ARGS__)); } while(0)
+#define err_print(x,...)          do {  if (true) (printf("[ERR][%s][%s] " x "\n", __LOG_NAME__, nst::current_time().c_str(), ##__VA_ARGS__)); } while(0)
+#define inf_print(x,...)          do {  if (nst::storage_info) (printf("[INF][%s][%s] " x "\n", __LOG_NAME__, nst::current_time().c_str(), ##__VA_ARGS__)); } while(0)
 #endif
 
 ///_STX_STORAGE_TYPES_H_

@@ -7,7 +7,7 @@ local SmallWorld = require('smallworld')
 
 spaces.storage("data")
 -----------------------------------------------------------------------------------------------
--- create smallworld index called 'leventy' with world size 2 and sample size 3
+-- create a smallworld index called 'leventy' with world size 2 and sample size 3
 -- use larger values with bigger datasets or where the dimensionality or entropy of
 -- the values measured is high like thought vectors, documents, dna samples etc
 -----------------------------------------------------------------------------------------------

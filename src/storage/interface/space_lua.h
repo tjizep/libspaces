@@ -141,7 +141,6 @@ namespace spaces{
 		}else{
 			lua_setmetatable(L, -2);
 			other->check();
-			other->set_mode(is_reader);
 		}
 
 	}
@@ -170,6 +169,7 @@ namespace spaces{
 
 	private:
 		lua_State *L;
+		nst::i64 iterators_created;
 		/// despite improvements
 		/// sometimes the type system still gets lost without
 		/// a hint
@@ -219,7 +219,7 @@ namespace spaces{
 			ptr session;
 
 		};
-		lua_session(const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader) {
+		lua_session(const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader),iterators_created(0) {
 			dbg_print("create session:%s",name.c_str());
 		}
 		~lua_session() {
@@ -239,7 +239,19 @@ namespace spaces{
 		lua_iterator* create_iterator(ptr session) {
 			auto i = create_instance_from_nothing<lua_iterator>(L); /* new userdatum is already on the stack */
 			i->set_session(session);
+			++iterators_created;
 			return i;
+		}
+		void close_iterator(lua_iterator* i){
+			--iterators_created;
+		}
+		void check_cc(){
+			nst::i64 added = iterators_created*4;
+			if(this->get_set().get_cc().failed(added)){
+				nst::lld fc = this->get_set().get_cc().failed_count(added);
+				err_print("surface reference count mismatch %lld on %s",fc,this->get_name().c_str());
+				this->get_set().get_cc().reset();
+			}
 		}
 		lua_iterator*  get_iterator(int at = 1) {
 			lua_iterator * i = err_checkudata<lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
@@ -249,7 +261,6 @@ namespace spaces{
 		}
 		space* create_space_from_nothing() {
 			return create_instance_from_nothing<space>(L);  /* new userdatum is already on the stack */
-
 		}
 
 		umi table_clustered_type(int at) {
@@ -282,7 +293,6 @@ namespace spaces{
 
 			return n;
 		}
-
 		template<typename _VectorType>
 		struct vector_reader_state {
 			vector_reader_state() :state(0) {};
@@ -339,24 +349,36 @@ namespace spaces{
 			int lt = lua_type(L, at);
 			switch (lt) {
 				case LUA_TTABLE: {
+
 					auto space = is_space(keys,at);
 					if(space!=nullptr){
-						if (this->link(r,space)) break;
+						check_cc();
+						if (this->link(r,space)){
+							check_cc();
+						    break;
+                        }
 					}
+					check_cc();
 					this->resolve_id(d,r,true); /// assign an identity to p (its leaves will need it)
+
+					check_cc();
 					lua_pushnil(L);
 					/// will push the name and value of the current item (as returned by closure)
 					/// on the stack
+
 					while (lua_next(L, at) != 0) {
 						typename _Self::space s;
 						s.first.set_context(r.get_identity()); //
 						to_space_data(s.first.get_name(), -2);	// just set the key part
 						to_space(keys,s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
 						/// add new key to table
+						check_cc();
 						this->insert_or_replace(s);
+						check_cc();
+
 						lua_pop(L, 1);
 					}
-
+					check_cc();
 				}break;
 				case LUA_TUSERDATA: {
 					/// add the link here
@@ -440,7 +462,9 @@ namespace spaces{
 					lua_remove(L,tg);
 					r = is_space(keys,-1);
 					if(r != nullptr){
-						dbg_print("open space: using cached %lld on storage %s",(nst::lld)id,r->get_session()->get_name().c_str());
+						dbg_space("open space: using cached:",r->first,r->second);
+
+
 						if(r->get_session()->get_name() != session->get_name()){
 							luaL_error(L,"open space: invalid storage");
 						}
@@ -453,9 +477,9 @@ namespace spaces{
 
 				lua_newtable(L);
 
-				lua_pushnumber(L,id);
-				lua_pushvalue(L,-2);
-				lua_settable(L,tg);
+				//lua_pushnumber(L,id);
+				//lua_pushvalue(L,-2);
+				//lua_settable(L,tg);
 
 				r = new space(); // spaces::create_key_from_nothing(L);
 				// set its metatable
@@ -471,6 +495,8 @@ namespace spaces{
 				if(is_space(keys,-1)==nullptr){
 					luaL_error(L,"not a space");
 				}
+				dbg_space("open space: new:",r->first,r->second);
+
 				return r;
 			}
 			else {
@@ -600,6 +626,7 @@ namespace spaces{
 				space * s = this->open_space(keys,session,v.get_identity());
 				s->first = k;
 				s->second = v;
+				dbg_space("push_pair:",s->first,s->second);
 				++r;
 			}
 			else {

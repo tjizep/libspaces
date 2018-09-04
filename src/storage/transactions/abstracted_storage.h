@@ -119,15 +119,16 @@ namespace stored{
 			get_allocations().reduce();
 		}
 
-		abstracted_storage(std::string name)
+		abstracted_storage(std::string name, bool reader = true)
 		:	name(name)
 		,	_allocations( NULL)
 		,	_transaction(NULL)
 		,	order (0)
-		,	writer (false)
+		,	writer (!reader)
+
 		,	boot(1)
 		{
-			begin(false);
+			begin(!reader);
 		}
 
 		~abstracted_storage() {

@@ -188,6 +188,7 @@ namespace stx
         storage::stream_address w;
     };
 
+
     /// an iterator intializer pair
     typedef std::pair<mini_pointer, unsigned short> initializer_pair;
 
@@ -453,7 +454,8 @@ namespace stx
         typedef std::pair<key_type, data_type>      pair_type;
 
         /// the automatic node reference type
-        typedef std::shared_ptr<node_ref> node_ref_ptr;
+        //typedef std::shared_ptr<node_ref> node_ref_ptr;
+
 
     public:
         // *** Static Constant Options and Values of the B+ Tree
@@ -568,17 +570,17 @@ namespace stx
                 (*this).context = context;
             }
 
-            base_proxy() :context(NULL), ptr(NULL_REF), w(0)
+            explicit base_proxy() :context(NULL), ptr(NULL_REF), w(0)
             {
 
             }
 
-            base_proxy(const _Ptr& ptr)
+            explicit base_proxy(_Ptr ptr)
                     : context(NULL), ptr(ptr), w(0) {
 
             }
 
-            base_proxy(const _Ptr& ptr, stream_address w)
+            explicit base_proxy(const _Ptr& ptr, stream_address w)
                     : context(NULL), ptr(ptr), w(0) {
 
             }
@@ -600,11 +602,11 @@ namespace stx
         };
 
         template<typename _Loaded>
-        class pointer_proxy : public base_proxy<typename _Loaded::base_type::shared_ptr>{
+        class pointer_proxy : public base_proxy<typename _Loaded::base_type*>{
         public:
 
-            typedef base_proxy<typename _Loaded::base_type::shared_ptr> base_type;
-            typedef base_proxy<typename _Loaded::base_type::shared_ptr> super;
+            typedef base_proxy<typename _Loaded::base_type*> base_type;
+            typedef base_proxy<typename _Loaded::base_type*> super;
         private:
 
 
@@ -616,7 +618,7 @@ namespace stx
 
 
         public:
-            typedef std::shared_ptr<_Loaded> loaded_ptr;
+            typedef _Loaded* loaded_ptr;
             typedef loaded_ptr& loaded_ptr_ref;
         public:
             inline void realize(const mini_pointer& m, btree * context) {
@@ -629,17 +631,6 @@ namespace stx
 
 
             }
-            inline bool has_context() const {
-                return super::has_context();
-            }
-
-            btree* get_context() const {
-                return super::get_context();
-            }
-
-            void set_context(btree* context) {
-                super::set_context(context);
-            }
 
 
 
@@ -648,8 +639,8 @@ namespace stx
 
             void create(btree * context, stream_address w) {
 
-                super::w = w;
-                set_context(context);
+                this->w = w;
+                this->set_context(context);
 
                 if (!w)
                 {
@@ -660,7 +651,7 @@ namespace stx
                     }
                     context->get_storage()->allocate(super::w, stx::storage::create);
                     context->get_storage()->complete();
-                    get_context()->change(this->ptr, this->get_where());
+                    this->get_context()->change(this->ptr, this->get_where());
                 }
                 (*this).set_state(created);
 
@@ -677,7 +668,7 @@ namespace stx
                         break;
                     default:
                         (*this).set_state(changed);
-                        get_context()->change(this->ptr, this->get_where());
+                        this->get_context()->change(this->ptr, this->get_where());
 
                 }
 
@@ -740,7 +731,7 @@ namespace stx
 
             }
             void unlink() {
-                typename btree::node* n = (*this).rget();
+                node* n = (*this).rget();
                 if (n != NULL_REF)
                     update_links(n);
             }
@@ -748,26 +739,32 @@ namespace stx
             /// if the state is set to loaded and a valid wHere is set the proxy will change state to unloaded
             void unload_only() {
 
-                if ((*this).get_state() == loaded && super::w) {
+                if ((*this).get_state() == loaded && this->w) {
                     BTREE_ASSERT((*this).ptr != NULL_REF);
 
                     (*this).ptr = NULL_REF;
 
                 }
+                if(is_loaded()){
+                    err_print("page still loaded");
+                }
             }
 
             void unload(bool release = true, bool write_data = true) {
                 if (write_data)
-                    save(*get_context());
+                    save(*this->get_context());
                 if (release) {
                     unload_only();
+                }
+                if(is_loaded()){
+                    err_print("page still loaded");
                 }
             }
 
 
             /// removes held references without saving dirty data and resets state
             void clear() {
-                if (super::w && (*this).ptr != NULL_REF) {
+                if (this->w && (*this).ptr != NULL_REF) {
 
                     (*this).ptr = NULL_REF;
 
@@ -782,10 +779,10 @@ namespace stx
                         l->preceding.rget()->unload_next();
                         l->preceding.unload(true, false);
                     }
-                    if (l->get_next().is_loaded()) {
+                    if (l->get_next().is_loaded()) {const
                         surface_node * n = const_cast<typename btree::surface_node*>(l->get_next().rget_surface());
-                        n->preceding.unload(true, false);
-                        n->unload_next();
+                        const_cast<typename btree::surface_node*>(n)->preceding.unload(true, false);
+                        const_cast<typename btree::surface_node*>(n)->unload_next();
                     }
                 }
                 else {
@@ -810,7 +807,7 @@ namespace stx
 
                         }
                         if
-                                (s == (*this).ptr.get() && s->get_address() != (*this).get_where()
+                                (s == (*this).ptr && s->get_address() != (*this).get_where()
                                 ) {
                             err_print("self address check failed");
                             throw bad_access();
@@ -887,8 +884,8 @@ namespace stx
             NO_INLINE void load_this(pointer_proxy* p) {//
                 null_check();
                 /// this is hidden from the MSVC inline optimizer which seems to be overactive
-                if (has_context()) {
-                    (*p) = (*p).get_context()->load(((super*)p)->w);
+                if (this->has_context()) {
+                    (*p) = ((*p).get_context()->load(((super*)p)->w));
                 }
                 else {
                     err_print("no context supplied");
@@ -900,8 +897,8 @@ namespace stx
             NO_INLINE void refresh_this(pointer_proxy* p) {//
                 if (!version_reload) return;
                 null_check();
-                if (has_context()) {
-                    (*p).get_context()->refresh(p->w, std::static_pointer_cast<node>(this->ptr));
+                if (this->has_context()) {
+                    (*p).get_context()->refresh(p->w, static_cast<node*>(this->ptr));
                 }
                 else {
                     err_print("no context supplied");
@@ -913,7 +910,7 @@ namespace stx
                 if (!version_reload) return;
                 null_check();
                 /// this is hidden from the MSVC inline optimizer which seems to be overactive
-                if (has_context()) {
+                if (this->has_context()) {
 
                     (*p).get_context()->load(((super*)p)->w, rget());
 
@@ -968,7 +965,7 @@ namespace stx
             void load() {
                 null_check();
                 if ((*this).ptr == NULL_REF) {
-                    if (super::w) {
+                    if (this->w) {
                         /// (*this) = (*this).get_context()->load(super::w);
                         /// replaced by
                         load_this(this);
@@ -989,44 +986,48 @@ namespace stx
                 pointer_proxy* p = const_cast<pointer_proxy*>(this);
                 p->load();
             }
-            const typename std::shared_ptr<_Loaded> shared() const {
-                return std::static_pointer_cast<_Loaded>(this->ptr);
+            const loaded_ptr shared() const {
+                return static_cast<loaded_ptr>(this->ptr);
             }
-            typename std::shared_ptr<_Loaded> shared() {
-                return std::static_pointer_cast<_Loaded>(this->ptr);
+            loaded_ptr shared() {
+                return static_cast<loaded_ptr>(this->ptr);
             }
             /// lets the pointer go relinquishing any states or members held
             /// and returning the relinquished resource
             _Loaded* release()
             {
                 null_check();
-                _Loaded*r = static_cast<_Loaded*>(super::ptr);
-                super::w = 0;
-                super::ptr = nullptr;
+                loaded_ptr r = static_cast<loaded_ptr>(this->ptr);
+                this->w = 0;
+                this->ptr = nullptr;
 
                 return r;
             }
-            pointer_proxy(const std::nullptr_t ptr)
-                    : super()
+            // ** Contructors
+            explicit pointer_proxy(const std::nullptr_t)
+            {
+
+            }
+            pointer_proxy(loaded_ptr ptr)
+            :   super(ptr)
             {
 
             }
 
-            pointer_proxy(const std::shared_ptr<_Loaded>& ptr)
-                    : super(ptr)
-            {
-
-            }
             /// constructs using given state and referencing the pointer if its not NULL_REF
-            pointer_proxy(const loaded_ptr_ref ptr, stream_address w, states s)
+            pointer_proxy(loaded_ptr ptr, stream_address w, states s)
                     : super(ptr, w, s)
             {
 
             }
 
             /// installs pointer with clocksynch for LRU evictionset_address_change
+            pointer_proxy(const pointer_proxy<_Loaded> & left)
+            {
+                *this = left;
+                clock_synch();
+            }
             pointer_proxy(const base_type & left)
-                    : super(NULL_REF)
             {
                 *this = left;
                 clock_synch();
@@ -1043,52 +1044,60 @@ namespace stx
             {
 
             }
+            pointer_proxy& operator=(const base_type &left) {
+                if (this != &left) {
 
-            pointer_proxy& operator=(const base_type &left)
+                    /// dont back propagate a context
+                    if (left.has_context()) {
+                        this->set_context(left.get_context());
+                    }
+
+                    if (this->ptr != left.ptr)
+                    {
+
+                        this->ptr = left.ptr;
+
+                    }
+                    this->w = left.w;
+
+
+                }
+                return *this;
+            }
+            pointer_proxy& operator=(const pointer_proxy &left)
             {
 
                 if (this != &left) {
 
                     /// dont back propagate a context
                     if (left.has_context()) {
-                        set_context(left.get_context());
+                        this->set_context(left.get_context());
                     }
 
-                    if (super::ptr != left.ptr)
+                    if (this->ptr != left.ptr)
                     {
 
-                        super::ptr = left.ptr;
+                        this->ptr = left.ptr;
 
                     }
-                    super::w = left.w;
+                    this->w = left.w;
 
 
                 }
                 return *this;
             }
 
-            pointer_proxy& operator=(const pointer_proxy &left)
-            {
-                if (this != &left)
-                    (*this) = static_cast<const base_type&>(left);
-                return *this;
-            }
-            /// reference counted assingment of raw pointers used usually at creation time
-            pointer_proxy& operator=(const loaded_ptr_ref left)
+
+            pointer_proxy& operator=(const _Loaded* left)
             {
 
-                if (super::ptr != left)
-                {
-
-                    super::ptr = left;
-
-
+                if (this->ptr != left){
+                    this->ptr = (_Loaded*)left;
                 }
                 if (NULL_REF == left) {
                     (*this).ptr = NULL_REF;
-                    super::w = 0;
+                    this->w = 0;
                 }
-
                 return *this;
             }
 
@@ -1098,12 +1107,16 @@ namespace stx
             /// extra and possibly invalid comparisons
             /// this also means that the virtual address is
             /// allocated instantiation time to ensure uniqueness
+            inline bool operator!=(const pointer_proxy& left) const
+            {
 
+                return this->not_equal(left);
+            }
 
             inline bool operator!=(const super& left) const
             {
 
-                return super::not_equal(left);
+                return this->not_equal(left);
             }
 
             /// equality defined by virtual stream address
@@ -1111,17 +1124,22 @@ namespace stx
             inline bool operator==(const super& left) const
             {
 
-                return super::equals(left);
+                return this->equals(left);
+            }
+            inline bool operator==(const pointer_proxy& left) const
+            {
+
+                return this->equals(left);
             }
             bool operator!=(const std::nullptr_t n) const{
-                return !(this->ptr == n && super::w == 0);
+                return !(this->ptr == n && this->w == 0);
             }
             bool operator==(const std::nullptr_t n) const{
-                return this->ptr == n && super::w == 0;
+                return this->ptr == n && this->w == 0;
             }
             /// return true if the member is not set
             bool empty() const {
-                if((*this).ptr != NULL_REF && super::w == 0){
+                if((*this).ptr != NULL_REF && this->w == 0){
                     err_print("loaded pointer has no representation");
                 }
                 return (*this).ptr == NULL_REF;
@@ -1129,42 +1147,42 @@ namespace stx
             /// return the raw member ptr without loading
             /// just the non const version
 
-            inline _Loaded * rget()
+            inline loaded_ptr rget()
             {
 
-                _Loaded * r = static_cast<_Loaded*>(super::ptr.get());
-
+                loaded_ptr r = static_cast<loaded_ptr>(this->ptr);
+                r->check_deleted();
                 return r;
             }
 
             /// return the raw member ptr without loading
 
-            inline const _Loaded * rget() const
+            inline const loaded_ptr rget() const
             {
-                const _Loaded * r = static_cast<const _Loaded*>(super::ptr.get());
-
+                const loaded_ptr r = static_cast<const loaded_ptr>(this->ptr);
+                r->check_deleted();
                 return r;
             }
             /// cast to its current type shared form
             loaded_ptr cast_shared(){
-                return std::static_pointer_cast<_Loaded>((*this).ptr);
+                return static_cast<loaded_ptr>((*this).ptr);
             }
             bool is_valid() const {
-                if (has_context())
-                    return get_context()->is_valid(rget(), super::w);
+                if (this->has_context())
+                    return this->get_context()->is_valid(rget(), this->w);
                 return true;
             }
 
             /// is this node transactionally invalid
 
             bool is_invalid() const {
-                if (has_context())
-                    return get_context()->is_invalid(shared(), super::w);
+                if (this->has_context())
+                    return this->get_context()->is_invalid(shared(), this->w);
                 return false;
             }
             /// 'natural' ref operator returns the pointer with loading
 
-            inline _Loaded * operator->()
+            inline loaded_ptr operator->()
             {
                 if ((*this).ptr != NULL_REF) {
                     if ((*this).is_invalid())
@@ -1174,7 +1192,9 @@ namespace stx
                     load();
                 }
                 next_check();
-                return static_cast<_Loaded*>(super::ptr.get());
+                rget()->check_deleted();
+
+                return static_cast<loaded_ptr>(this->ptr);
             }
 
             /// 'natural' deref operator returns the pointer with loading
@@ -1188,9 +1208,10 @@ namespace stx
 
             /// 'natural' ref operator returns the pointer with loading - through const violation
 
-            inline const _Loaded * operator->() const
+            inline const loaded_ptr operator->() const
             {
                 load();
+
                 return rget();
             }
 
@@ -1234,13 +1255,15 @@ namespace stx
         public:
             typedef node base_type;
             /// ++11 shared pointer for thread safe memory management
-            typedef std::shared_ptr<node> shared_ptr;
+            typedef node * shared_ptr;
             /// raw pointer types
             typedef node * raw_ptr;
             typedef const raw_ptr const_raw_ptr;
 
         public:
             int is_deleted;
+            ptrdiff_t refs;
+
         private:
 
             /// occupants: since all pages are the same size - its like a block of flats
@@ -1284,11 +1307,32 @@ namespace stx
                 is_deleted = 0;
                 last_found = 0;
                 changes = 0;
+                refs = 0;
 
             }
 
             ~node() {
                 is_deleted = 1;
+            }
+            void ref(){
+                refs++;
+                this->context->stats.iterators_away++;
+            }
+            void unref(){
+                if(refs==0){
+                    err_print("invalid reference count");
+                }
+                if(this->context == NULL_REF){
+                    err_print("invalid context");
+                }
+                if(this->context->stats.iterators_away==0){
+                    err_print("invalid reference count");
+                }
+                refs--;
+                this->context->stats.iterators_away--;
+            }
+            bool is_ref()const {
+                return refs!=0;
             }
 
             void set_context(btree * context) {
@@ -1487,7 +1531,7 @@ namespace stx
             typedef typename _Alloc::template rebind<interior_node>::other alloc_type;
 
             /// ++11 shared pointer for threadsafe nmemory management
-            typedef std::shared_ptr<interior_node> shared_ptr;
+            typedef interior_node* shared_ptr;
 
             /// persisted reference type providing unobtrusive page management
             typedef pointer_proxy<interior_node> ptr;
@@ -1697,7 +1741,7 @@ namespace stx
 
             typedef node base_type;
             /// ++11 shared pointer for threadsafe nmemory management
-            typedef std::shared_ptr<surface_node> shared_ptr;
+            typedef surface_node* shared_ptr;
 
             /// smart persistence pointer for unobtrusive page storage management
             typedef pointer_proxy<surface_node> ptr;
@@ -1738,9 +1782,17 @@ namespace stx
             /// initialize a key at a specific position
             void init_key_allocation(int at) {
                 if (permutations[at] == surfaceslotmax) {
+
                     if (allocated == surfaceslotmax) {
-                        err_print("cannot allocate any more keys");
-                        throw bad_format();
+                        if(this->get_occupants() < allocated){
+                            for(nst::u16 p = this->get_occupants(); p < surfaceslotmax;++p) {
+                                permutations[p] = surfaceslotmax;
+                            }
+                            allocated = this->get_occupants();
+                        }else{
+                            err_print("cannot allocate any more keys");
+                            throw bad_format();
+                        }
                     }
                     permutations[at] = allocated;
                     ++allocated;
@@ -1965,32 +2017,7 @@ namespace stx
 
 
             /// assignment
-            surface_node& operator=(const surface_node& right) {
-                this->deallocate_data();
-
-                std::copy(right.permutations, &right.permutations[surfaceslotmax], this->permutations);
-                this->allocated = right.allocated;
-                key_type* _keys = this->_keys;
-                data_type* _values = this->_values;
-                const key_type* _rkeys = right._keys;
-                const data_type* _rvalues = right._values;
-                for(nst::u16 i = 0; i < right.allocated;++i){
-                    nst::u16 p = this->permutations[i];
-                    if(p != surfaceslotmax){
-                        _keys[p] = _rkeys[p];
-                        _values[p] = _rvalues[p];
-                    }
-                }
-                set_occupants(right.get_occupants());
-                (*this).context = right.context;
-                (*this).level = right.level;
-                (*this).next = right.next;
-                (*this).preceding = right.preceding;
-                (*this).address = right.address;
-                (*this).last_found = right.last_found;
-                (*this).transaction = right.transaction;
-                (*this).hashed = right.hashed;
-            }
+            surface_node& operator=(const surface_node& right) = delete;
             /// sorts the page if it hasn't been
 
             template< typename key_compare >
@@ -2064,25 +2091,24 @@ namespace stx
                 if (encoded_key_size > 0) {
                     err_print("cannot decode encoded pages or invalid format");
                     throw bad_format();
-                } else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        key_type & key = get_key(k);
-                        storage.retrieve(buffer, reader, key);
-                    }
                 }
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    key_type & key = get_key(k);
+                    storage.retrieve(buffer, reader, key);
+                }
+
                 (*this).hashed = 0;
                 if (encoded_value_size > 0) {
                     err_print("cannot decode encoded pages or invalid format");
                     throw bad_format();
-                } else {
-                    bool add_hash = (storage.is_readonly() && !(::stx::memory_low_state)) ;
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.retrieve(buffer, reader, get_value(k));
-                        if(add_hash){
-                            ++((*this).hashed);/// only add hash cache when readonly
-                            loading_context->add_hash(self, k);
-                        }
-                    }
+                }
+                bool add_hash = 0; //(storage.is_readonly() && !(::stx::memory_low_state)) ;
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    storage.retrieve(buffer, reader, get_value(k));
+                    //if(add_hash){
+                    //    ++((*this).hashed);/// only add hash cache when readonly
+                    //    loading_context->add_hash(self, k);
+                    //}
                 }
 
                 size_t d = reader - buffer.begin();
@@ -2092,15 +2118,7 @@ namespace stx
                     err_print("surface nodes of invalid size");
                     throw bad_format();
                 }
-
-                if
-                        (
-                        has_typedef_attached_values<key_type>::value
-                        || has_typedef_attached_values<data_type>::value
-                        ) {
-                    //transfer_attached(buffer);
-                    dbg_print("transfer attached");
-                }
+                dbg_print("loading surface %lld %lld bytes",(nst::lld)this->get_address(),(nst::lld)d);
                 this->transaction = storage.current_transaction_order();
                 if(this->transaction == 0){
                     err_print("the transaction supplied is empty");
@@ -2118,12 +2136,9 @@ namespace stx
                 bool direct_encode = false;
                 nst::i32 encoded_key_size = 0; // (nst::i32)interp.encoded_size(_keys, (*this).get_occupants());
                 nst::i32 encoded_value_size = 0; // (nst::i32)interp.encoded_values_size(values(), (*this).get_occupants());
-                if (!interp.encoded(btree::allow_duplicates)) {
-                    encoded_key_size = 0;
-                }
-                if (!interp.encoded_values(btree::allow_duplicates)) {
-                    encoded_value_size = 0;
-                }
+                encoded_key_size = 0;
+                encoded_value_size = 0;
+
                 ptrdiff_t storage_use = leb128::signed_size((*this).get_occupants());
                 storage_use += leb128::signed_size((*this).level);
                 storage_use += leb128::signed_size(encoded_key_size);
@@ -2131,26 +2146,14 @@ namespace stx
                 storage_use += leb128::signed_size(preceding.get_where());
                 storage_use += leb128::signed_size(next.get_where());
 
-                if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
-                    //storage_use += encoded_key_size;
-                } else {
-                    encoded_key_size = 0;
-                    storage_use += sizeof(key_type) * (*this).allocated;
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage_use += storage.store_size(get_key(k));
-                    }
-
+                storage_use += sizeof(key_type) * (*this).allocated;
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    storage_use += storage.store_size(get_key(k));
                 }
-                if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
-                    //storage_use += interp.encoded_values_size(values(), (*this).get_occupants());
-                } else {
-                    encoded_value_size = 0;
-                    storage_use += sizeof(data_type) * (*this).allocated;
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage_use += storage.store_size(get_value(k));
-                    }
+                storage_use += sizeof(data_type) * (*this).allocated;
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    storage_use += storage.store_size(get_value(k));
                 }
-
                 buffer.resize(storage_use);
                 if (buffer.size() != (size_t)storage_use) {
                     err_print("storage resize failed");
@@ -2164,27 +2167,19 @@ namespace stx
                 writer = leb128::write_signed(writer, preceding.get_where());
                 writer = leb128::write_signed(writer, next.get_where());
 
-                if (encoded_key_size > 0 && interp.encoded(btree::allow_duplicates)) {
-                    //interp.encode(writer, keys(), (*this).get_occupants());
-                } else {
-
-
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.store(writer, get_key(k));
-                    }
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    storage.store(writer, get_key(k));
                 }
-                if (encoded_value_size > 0 && interp.encoded_values(btree::allow_duplicates)) {
-                    //interp.encode_values(buffer, writer, values(), (*this).get_occupants());
-                } else {
-                    for (u16 k = 0; k < (*this).get_occupants(); ++k) {
-                        storage.store(writer, get_value(k));
-                    }
+
+                for (u16 k = 0; k < (*this).get_occupants(); ++k) {
+                    storage.store(writer, get_value(k));
                 }
 
                 ptrdiff_t d = writer - buffer.begin();
                 if (d > storage_use) {
                     BTREE_ASSERT(d <= storage_use);
                 }
+                dbg_print("saving surface %lld %lld bytes",(nst::lld)this->get_address(),(nst::lld)d);
                 buffer.resize(d);
 
             }
@@ -2200,7 +2195,7 @@ namespace stx
                     ,   value(right.value) {}
 
             cache_data(const typename surface_node::shared_ptr& node,key_type* key,data_type* value)
-                    :   node(node.get())
+                    :   node(node)
                     ,   key(key)
                     ,   value(value)
             {
@@ -2211,6 +2206,9 @@ namespace stx
                 key = right.key;
                 value = right.value;
 				return *this;
+            }
+            ~cache_data(){
+
             }
             typename surface_node::raw_ptr node;
             key_type* key;
@@ -2232,6 +2230,7 @@ namespace stx
         /// TODO: the memory used by these is not counted
         typedef rabbit::unordered_map<stream_address, typename node::shared_ptr> _AddressedNodes;
         typedef rabbit::unordered_map<stream_address, typename surface_node::shared_ptr> _AddressedSurfaceNodes;
+        typedef rabbit::unordered_map<stream_address, typename interior_node::shared_ptr> _AddressedInteriorNodes;
         //typedef std::unordered_map<stream_address, node*> _AddressedNodes;
 
 
@@ -2245,10 +2244,10 @@ namespace stx
         /// therefore providing consistency to updates to any
         /// node
 
-        _AddressedNodes		    nodes_loaded;
-        _AddressedNodes		    interiors_loaded;
-        _AddressedSurfaceNodes	surfaces_loaded;
-        _AddressedNodes		    modified;
+        _AddressedNodes		        nodes_loaded;
+        _AddressedInteriorNodes		interiors_loaded;
+        _AddressedSurfaceNodes	    surfaces_loaded;
+        _AddressedNodes		        modified;
 
         void erase_hash(const key_type& key){
             size_t h = hash_val(key);
@@ -2264,7 +2263,7 @@ namespace stx
         typename node::const_raw_ptr get_loaded(stream_address w) const {
             auto i = nodes_loaded.find(w);
             if (i != nodes_loaded.end())
-                return (*i).second.get();
+                return (*i).second;
             else
                 return NULL_REF;
             return nullptr;
@@ -2302,12 +2301,12 @@ namespace stx
         void change(const typename node::shared_ptr& n, stream_address w) {
             if (n->issurfacenode()) {
 
-                change(std::static_pointer_cast<surface_node>(n), w);
+                change(static_cast<surface_node*>(n), w);
 
             }
             else {
 
-                change(std::static_pointer_cast<interior_node>(n), w);
+                change(static_cast<interior_node*>(n), w);
 
             }
 
@@ -2429,14 +2428,14 @@ namespace stx
                 return;
             }
             if (n->issurfacenode()) {
-                typename surface_node::ptr s = std::static_pointer_cast<surface_node>(n);
+                typename surface_node::ptr s = static_cast<surface_node*>(n);
                 s.set_context(this);
                 s.set_where(w);
                 save(s);
 
             }
             else {
-                typename interior_node::ptr s = std::static_pointer_cast<interior_node>(n);
+                typename interior_node::ptr s = static_cast<interior_node*>(n);
                 s.set_context(this);
                 s.set_where(w);
                 save(s);
@@ -2456,14 +2455,8 @@ namespace stx
 
             return load(w, nullptr);
         }
-        bool is_valid(const typename node::shared_ptr& page) const {
-            return is_valid(page.get());
-        }
         bool is_valid(const node* page) const {
             return is_valid(page,page->get_address());
-        }
-        bool is_valid(const typename node::shared_ptr& page, stream_address w) const {
-            return is_valid(page.get(),w);
         }
         bool is_valid(const node* page, stream_address w) const {
 
@@ -2666,7 +2659,29 @@ namespace stx
             /// Also friendly to the base btree class, because erase_iter() needs
             /// to read the currnode and current_slot values directly.
             friend class btree<key_type, data_type, storage_type, value_type, key_compare, key_interpolator, traits, allow_duplicates>;
-            iterator_base() : check_point(0){};
+        public:
+            // *** Methods
+            iterator_base() : check_point(0){
+
+            }
+            iterator_base(slot_type slot, const surface_ptr& currnode)
+            :   check_point(0)
+            ,   current_slot(slot)
+            ,   current_ptr(currnode)
+            {
+
+                ref();
+            };
+            iterator_base(const iterator_base& other) : check_point(0){
+                this->assign(other);
+            };
+            iterator_base& operator=(const iterator_base& other){
+                this->assign(other);
+                return *this;
+            }
+            ~iterator_base(){
+                unref();
+            };
             /**
              * reposition the iterator towards the end specified by finish
              * if finish does not exist then the iterator will
@@ -2701,12 +2716,11 @@ namespace stx
              * @param finish
              */
             template<typename _Iterator>
-            void advance
-            (   _Iterator& at
-            ,   long long count
-            ,   const _Iterator& finish = _Iterator()
+            void base_advance
+            (   long long count
+            ,   const _Iterator& finish
             ) {
-                advance(at.currnode,at.current_slot,count,finish);
+                _advance(count,finish);
             }
             /**
              * reverses the iterator up to start if start does not
@@ -2718,19 +2732,38 @@ namespace stx
              * @param start
              */
             template<typename _Iterator>
-            void retreat
-            (   _Iterator& at///
-            ,   long long count
-            ,   const _Iterator& start = _Iterator()
+            void base_retreat
+            (   long long count
+            ,   const _Iterator& start
             ) {
-                retreat(at.currnode,at.current_slot,count,start);
+                _retreat(count,start);
             }
+            void ref(){
 
+                if(current_ptr.is_loaded()){
+                    auto surface = current_ptr.rget_surface();
+                    surface->ref();
+                }
+
+            }
+            void unref(){
+                if(current_ptr.is_loaded()){
+                    auto surface = current_ptr.rget_surface();
+                    surface->unref();
+
+                }
+
+            }
+        private:
+            // *** Members
+            /// The currently referenced surface node of the tree
+            surface_ptr current_ptr;
         protected:
             // *** Members
-
             /// Check points any changes
             size_t check_point;
+            /// Current key/data slot referenced
+            slot_type           current_slot;
 
         private:
             // *** Methods
@@ -2752,49 +2785,45 @@ namespace stx
              * @param finish
              */
             template<typename _Iterator>
-            void advance
-            (   surface_ptr& currnode/// Current key/data slot referenced
-            ,   slot_type &current_slot
-            ,   long long count
+            void _advance
+            (   long long count
             ,   const _Iterator& finish
             ){
 
-                if(currnode == nullptr) return;
+                if(get_current() == nullptr) return;
                 // pre con: currnode is != nullptr
                 long long remaining = count < 0 ? -count: count;
                 // pre con: remaining >= 0
-                if(finish.currnode == currnode){
-                    current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
+                if(finish.get_current() == get_current()){
+                    this->current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
                     return;
                 }
                 // pre con start.currnode != currnode
                 for(;;){
-                    if (current_slot + remaining < currnode->get_occupants()){
-                        current_slot += remaining;
+                    if (this->current_slot + remaining < get_current()->get_occupants()){
+                        this->current_slot += remaining;
                         break;
-                    }else if (currnode->get_next() != nullptr){
-                        auto context = currnode.get_context();
-                        if (context) {
-                            context->check_low_memory_state();
-                        }
-                        remaining -= (currnode->get_occupants()-current_slot);
-                        currnode = currnode->get_next();
-                        current_slot = 0;
-                        if(currnode == finish.currnode){
-                            current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
+                    }else if (get_current()->get_next() != nullptr){
+                        auto context = get_current().get_context();
+                        if (context) context->check_low_memory_state();
+                        remaining -= (get_current()->get_occupants()-current_slot);
+                        assign_current(get_current()->get_next());
+                        this->current_slot = 0;
+                        if(get_current() == finish.get_current()){
+                            this->current_slot = std::min<long long>(current_slot+remaining,finish.current_slot);
                             break;
                         }
 
 
                     }else{
-                        current_slot = currnode->get_occupants();
+                        this->current_slot = get_current()->get_occupants();
                         remaining = 0;
                         break;
                     }
                 };
                 // post con: remaining is 0
                 // post con: currnode != nullptr
-                check_point = currnode->get_changes();
+                check_point = get_current()->get_changes();
             }
             /**
              * let the iterator retreat from the parameter described by at
@@ -2804,59 +2833,56 @@ namespace stx
              * @param start
              */
             template<typename _Iterator>
-            void retreat
-            (   surface_ptr& currnode/// Current key/data slot referenced
-            ,   slot_type &current_slot
-            ,   long long count
+            void _retreat
+            (   long long count
             ,   const _Iterator& start
             ){
-                if(currnode == nullptr) return;
+                if(get_current() == nullptr) return;
                 // pre con: currnode is != nullptr
                 long long  remaining = count < 0 ? -count: count;
                 // pre con: remaining >= 0
-                if(start.currnode == currnode){
-                    current_slot = start.current_slot;
+                if(start.get_current() == get_current()){
+                    this->current_slot = start.current_slot;
                     return;
                 }
                 // pre con start.currnode != currnode
                 while (remaining > 0) {
-                    if (current_slot > remaining) {
-                        current_slot -= remaining;
+                    if (this->current_slot > remaining) {
+                        this->current_slot -= remaining;
                         remaining = 0;
-                    } else if (currnode->preceding != NULL_REF) {
+                    } else if (get_current()->preceding != NULL_REF) {
 
-                        if (currnode.has_context())
-                            currnode.get_context()->check_low_memory_state();
+                        // if (currnode.has_context()) currnode.get_context()->check_low_memory_state();
                         /// |0..n-1|==n subtract remaining before currnode change if current_slot has been set to
                         /// a value < currnode->get_occupants() - 1 then we will need to subtract that
                         remaining -= current_slot;
-                        currnode = currnode->preceding;
-                        if(currnode == start.currnode){
-                            current_slot = start.current_slot;
+                        assign_current(get_current()->preceding);
+                        if(get_current() == start.get_current()){
+                            this->current_slot = start.current_slot;
                             remaining = 0;
                             break;
                         }
-                        current_slot = currnode->get_occupants() - 1;
+                        this->current_slot = get_current()->get_occupants() - 1;
                     } else {/// reached external start
-                        current_slot = currnode->get_occupants();
+                        this->current_slot = get_current()->get_occupants();
                         remaining = 0;
                         break;
                     }
                 }
                 // post con: currnode is != nullptr and remaining == 0
-                check_point = currnode->get_changes();
+                check_point = get_current()->get_changes();
             }
         protected:
-            void update_check_point(const typename btree::surface_node::ptr &currnode){
-                if(currnode.is_loaded()){
-                    check_point=currnode->get_changes();
+            void update_check_point(){
+                if(current_ptr.is_loaded()){
+                    check_point=get_current()->get_changes();
                 }else{
                     check_point = 0;
                 }
             }
-            bool has_changed(const typename btree::surface_node::ptr &currnode){
-                if(currnode.is_loaded()){
-                    auto changes = currnode->get_changes();
+            bool has_changed(){
+                if(current_ptr.is_loaded()){
+                    auto changes = current_ptr->get_changes();
                     if(check_point != changes){
                         check_point = changes;
                         return true;
@@ -2867,6 +2893,33 @@ namespace stx
                 }
 
                 return false;
+            }
+            void assign(const iterator_base& other){
+
+                unref();
+                this->current_slot = other.current_slot;
+                current_ptr = other.current_ptr;
+                ref();
+
+            }
+            void assign_current(const surface_ptr & other){
+
+                unref();
+                current_ptr = other;
+                ref();
+
+            }
+            surface_ptr &get_current(){
+                if(current_ptr != NULL_REF && !current_ptr.is_loaded()){
+                    current_ptr->ref();
+                }
+                return current_ptr;
+            }
+            const surface_ptr &get_current() const {
+                if(current_ptr != NULL_REF && !current_ptr.is_loaded()){
+                    current_ptr->ref();
+                }
+                return current_ptr;
             }
 
         };
@@ -2909,10 +2962,8 @@ namespace stx
 
         private:
             // *** Members
-            /// The currently referenced surface node of the tree
-            typename btree::surface_node::ptr           currnode;
-            /// Current key/data slot referenced
-            typename iterator_base::slot_type           current_slot;
+
+
             //key_type * _keys;
             //data_type * _data;
             /// Friendly to the const_iterator, so it may access the two data items directly.
@@ -2936,7 +2987,7 @@ namespace stx
 
             /// assign pointer caches
             void assign_pointers() {
-                iterator_base::update_check_point(currnode);
+                iterator_base::update_check_point();
 
                 //_data = &currnode->values()[0];
                 //_keys = &currnode->keys()[0];
@@ -2950,30 +3001,31 @@ namespace stx
 
             /// Default-Constructor of a mutable iterator
             inline iterator()
-                    : currnode(NULL_REF), current_slot(0) //, _data(NULL_REF), _keys(NULL_REF)
+                    : iterator_base(0, NULL_REF) //, _data(NULL_REF), _keys(NULL_REF)
             { }
 
             /// Initializing-Constructor of a mutable iterator
-            inline iterator(typename btree::surface_node::ptr l, unsigned short s)
-                    : currnode(l), current_slot(s)
+            inline iterator(const btree* source,typename btree::surface_node::ptr l, unsigned short s)
+                    : iterator_base(s,l)
             {
                 assign_pointers();
             }
 
             /// Initializing-Constructor-pair of a mutable iterator
             inline iterator(const initializer_pair& initializer)
-                    : currnode(initializer.first), current_slot(initializer.second) //, _data(NULL_REF), _keys(NULL_REF)
+                    : iterator_base(initializer.second,initializer.first) //, _data(NULL_REF), _keys(NULL_REF)
             {
                 assign_pointers();
             }
 
             /// Copy-constructor from a reverse iterator
             inline iterator(const reverse_iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot) //, _data(NULL_REF), _keys(NULL_REF)
+                    : iterator_base(it) //, _data(NULL_REF), _keys(NULL_REF)
             {
                 assign_pointers();
             }
 
+            ~iterator(){}
             /// The next to operators have been comented out since they will cause
             /// problems in shared mode because they cannot 'render' logical
             /// keys(), (keys pointed to but  not  loaded) may be fixed with
@@ -2994,7 +3046,7 @@ namespace stx
             /*inline pointer operator->() constNULL_REF
 			{
 			temp_value = pair_to_value_type()( pair_type(currnode->keys()[current_slot],
-			currnode->values()[current_slot]) );
+			get_current()->values()[current_slot]) );
 			return &temp_value;
 			}*/
 
@@ -3002,12 +3054,12 @@ namespace stx
             inline const key_type& key() const
             {
                 //return _keys[current_slot];
-                return this->currnode->get_key(current_slot);
+                return this->get_current()->get_key(this->current_slot);
             }
             inline key_type& key()
             {
                 //return _keys[current_slot];
-                key_type& test = this->currnode->get_key(current_slot);
+                key_type& test = this->get_current()->get_key(this->current_slot);
                 return test;
             }
             key_type* operator->() {
@@ -3017,21 +3069,21 @@ namespace stx
                 return key();
             }
             bool is_valid() const{
-                return current_slot < currnode->get_occupants();
+                return this->current_slot < this->get_current()->get_occupants();
             }
             void validate(){
-                iterator_base::update_check_point(currnode);
+                iterator_base::update_check_point();
             }
             /// Writable reference to the current data object
             inline data_type& data()
             {
                 //return _data[current_slot];
-                return currnode->get_value(current_slot);
+                return this->get_current()->get_value(this->current_slot);
             }
             inline const data_type& data() const
             {
                 //return _data[current_slot];index
-                return currnode->get_value(current_slot);
+                return this->get_current()->get_value(this->current_slot);
             }
             inline data_type& value()
             {
@@ -3043,32 +3095,32 @@ namespace stx
             }
             /// return true if the iterator is valid
             inline bool loadable() const {
-                return currnode.has_context();
+                return this->get_current().has_context();
             }
             /// iterator construction pair
             inline initializer_pair construction() const {
                 mini_pointer m;
-                currnode.make_mini(m);
-                return std::make_pair(m, current_slot);
+                this->get_current().make_mini(m);
+                return std::make_pair(m, this->current_slot);
             }
             inline bool has_changed(){
-                return iterator_base::has_changed(currnode);
+                return iterator_base::has_changed();
             }
 
             /// refresh finction to load the latest version of the current node
             /// usually only used for debugging
             void refresh() {
-                if (currnode != NULL_REF) {
-                    currnode.refresh();
+                if (this->get_current() != NULL_REF) {
+                    this->get_current().refresh();
                 }
             }
 
             /// iterator constructing pair
             template<typename _MapType>
             inline bool from_initializer(_MapType& context, const initializer_pair& init) {
-                currnode.realize(init.first, &context);
-                if (current_slot < currnode->get_occupants()) {
-                    current_slot = init.second;
+                this->get_current().realize(init.first, &context);
+                if ( this->current_slot < this->get_current()->get_occupants()) {
+                     this->current_slot = init.second;
                     assign_pointers();
                     return true;
                 }
@@ -3076,9 +3128,9 @@ namespace stx
             }
 
             inline bool from_initializer(const initializer_pair& init) {
-                currnode.realize(init.first, currnode.get_context());
-                if (current_slot < currnode->get_occupants()) {
-                    current_slot = init.second;
+                this->get_current().realize(init.first, this->get_current().get_context());
+                if ( this->current_slot < this->get_current()->get_occupants()) {
+                     this->current_slot = init.second;
                     assign_pointers();
                     return true;
                 }
@@ -3086,15 +3138,15 @@ namespace stx
 
             }
             inline iterator& operator= (const initializer_pair& init) {
-                currnode.realize(init.first, currnode.get_context());
-                current_slot = init.second;
+                this->get_current().realize(init.first, this->get_current().get_context());
+                 this->current_slot = init.second;
                 assign_pointers();
                 return *this;
             }
 
             inline iterator& operator= (const iterator& other) {
-                currnode = other.currnode;
-                current_slot = other.current_slot;
+                iterator_base::assign(other) ;
+                 this->current_slot = other.current_slot;
                 iterator_base::check_point = other.iterator_base::check_point;
                 assign_pointers();
                 return *this;
@@ -3107,9 +3159,9 @@ namespace stx
              */
             inline self& operator -= (const long long count){
                 if(count > 0)
-                    iterator_base::retreat(*this,count);
+                    iterator_base::base_retreat(count,iterator());
                 else
-                    iterator_base::advance(*this,-count);
+                    iterator_base::base_advance(-count,iterator());
                 return *this;
             }
             /**
@@ -3120,30 +3172,30 @@ namespace stx
              */
             inline self& operator += (const long long count) {
                 if(count >= 0)
-                    iterator_base::advance(*this,count);
+                    iterator_base::base_advance(count,iterator());
                 else
-                    iterator_base::retreat(*this,-count);
+                    iterator_base::base_retreat(-count,iterator());
                 return *this;
             }
 
             void advance(unsigned long long count, const iterator& upper){
-                iterator_base::advance(*this,count,upper);
+                iterator_base::base_advance(count,upper);
             }
             /// returns true if the iterator is invalid
             inline bool invalid() const {
-                return (!currnode.has_context() || currnode.get_where() == 0);
+                return (!this->get_current().has_context() || this->get_current().get_where() == 0);
             }
 
             /// clear context references
             inline void clear() {
-                current_slot = 0;
-                currnode.set_context(NULL);
+                 this->current_slot = 0;
+                this->get_current().set_context(NULL);
                 initialize_pointers();
             }
 
             /// returns true if the iterator is valid
             inline bool valid() const {
-                return (currnode.has_context() && currnode.get_where() != 0);
+                return (this->get_current().has_context() && this->get_current().get_where() != 0);
             }
 
             /// mechanism to quickly count the keys between this and another iterator
@@ -3151,8 +3203,8 @@ namespace stx
             inline stx::storage::u64 count(const self& to) const
             {
 
-                typename btree::surface_node::ptr last_node = to.currnode;
-                typename btree::surface_node::ptr first_node = currnode;
+                typename btree::surface_node::ptr last_node = to.get_current();
+                typename btree::surface_node::ptr first_node = this->get_current();
                 typename stx::storage::u64 total = 0ull;
                 auto context = first_node.get_context();
                 while (first_node != NULL_REF && first_node != last_node)
@@ -3161,15 +3213,12 @@ namespace stx
                     total += first_node->get_occupants();
 
                     first_node = first_node->get_next();
-                    if (context) {
-                        context->check_low_memory_state();
-                    }
-
+                    //if (context) context->check_low_memory_state();
 
                 }
 
                 total += to.current_slot;
-                total -= current_slot;
+                total -=  this->current_slot;
 
                 return total;
             }
@@ -3178,11 +3227,11 @@ namespace stx
             inline self& operator++()
             {
 
-                if (current_slot + 1 < currnode->get_occupants())
+                if ( this->current_slot + 1 < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++ this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
                     /// TODO:
                     /// add a iterator only function here to immediately let go of iterated pages
@@ -3190,20 +3239,18 @@ namespace stx
                     ///
 
 
-                    auto context = currnode.get_context();
+                    auto context = this->get_current().get_context();
 
-                    if (context) {
-                        context->check_low_memory_state();
-                    }
-                    currnode = currnode->get_next();
-                    current_slot = 0;
+                    if (context) context->check_low_memory_state();
+                    this->assign_current(this->get_current()->get_next()) ;
+                     this->current_slot = 0;
                     assign_pointers();
                 }
                 else
                 {
                     // this is end()
 
-                    current_slot = currnode->get_occupants();
+                     this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return *this;
@@ -3216,25 +3263,24 @@ namespace stx
                 self tmp = *this;   // copy ourselves
 
 
-                if (current_slot + 1 < currnode->get_occupants())
+                if ( this->current_slot + 1 < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++ this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    //if (this->get_current().has_context()) this->get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->get_next();
+                    this->assign_current(this->get_current()->get_next());
 
-                    current_slot = 0;
+                     this->current_slot = 0;
                     assign_pointers();
                 }
                 else
                 {
                     // this is end()
 
-                    current_slot = currnode->get_occupants();
+                     this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return tmp;
@@ -3242,31 +3288,30 @@ namespace stx
 
             /// return the proxy context
             const void * context() const {
-                return currnode.get_context();
+                return this->get_current().get_context();
             }
             /// --Prefix backstep the iterator to the last slot
             inline self& operator--()
             {
 
-                if (current_slot > 0)
+                if ( this->current_slot > 0)
                 {
-                    --current_slot;
+                    -- this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    //if (get_current().has_context()) get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->preceding;
+                    this->assign_current(this->get_current()->preceding);
 
-                    current_slot = currnode->get_occupants() - 1;
+                     this->current_slot = this->get_current()->get_occupants() - 1;
                     assign_pointers();
                 }
                 else
                 {   assign_pointers();
                     // this is begin()
                     assign_pointers();
-                    current_slot = 0;
+                     this->current_slot = 0;
                 }
 
                 return *this;
@@ -3278,22 +3323,21 @@ namespace stx
 
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot > 0)
+                if ( this->current_slot > 0)
                 {
-                    --current_slot;
+                    -- this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    //if (get_current().has_context())get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->preceding;
-                    current_slot = currnode->get_occupants() - 1;
+                    this->assign_current(this->get_current()->preceding);
+                     this->current_slot = this->get_current()->get_occupants() - 1;
                     assign_pointers();
                 }
                 else
                 {
-                    current_slot = 0;
+                     this->current_slot = 0;
 
                 }
 
@@ -3303,13 +3347,13 @@ namespace stx
             /// Equality of iterators
             inline bool operator==(const self& x) const
             {
-                return (x.currnode == currnode) && (x.current_slot == current_slot);
+                return (x.get_current() == this->get_current()) && (x.current_slot ==  this->current_slot);
             }
 
             /// Inequality of iterators
             inline bool operator!=(const self& x) const
             {
-                return (x.currnode != currnode) || (x.current_slot != current_slot);
+                return (x.get_current() != this->get_current()) || (x.current_slot !=  this->current_slot);
             }
         };
 
@@ -3349,11 +3393,7 @@ namespace stx
 
         private:
             // *** Members
-            /// The currently referenced surface node of the tree
-            typename btree::surface_node::ptr      currnode;
 
-            /// Current key/data slot referenced
-            unsigned short          current_slot;
             friend class iterator_base;
             /// Friendly to the reverse_const_iterator, so it may access the two data items directly
             friend class const_reverse_iterator;
@@ -3369,46 +3409,49 @@ namespace stx
         public:
             // *** Methods
             void set_check_point() const {
-                if(currnode != NULL_REF){
-                    check_point = currnode->get_changes();
+                if(this->get_current() != NULL_REF){
+                    check_point = this->get_current()->get_changes();
                 }
             }
             void validate(){
-                iterator_base::update_check_point(currnode);
+                iterator_base::update_check_point();
             }
             inline bool has_changed(){
-                if(currnode != NULL_REF) {
-                    return check_point != currnode->get_changes();
+                if(this->get_current() != NULL_REF) {
+                    return check_point != this->get_current()->get_changes();
                 }
                 return false;
-            }friend class iterator_base;
+            }
             bool is_valid() const{
-                return current_slot < currnode->get_occupants();
+                return  this->current_slot < this->get_current()->get_occupants();
+            }
+            ~const_iterator(){
+
             }
             /// Default-Constructor of a const iterator
             inline const_iterator()
-                    : currnode(NULL_REF), current_slot(0)
+                    : iterator_base(NULL_REF)
             { }
 
             /// Initializing-Constructor of a const iterator
-            inline const_iterator(const typename btree::surface_node::ptr l, unsigned short s)
-                    : currnode(l), current_slot(s)
+            inline const_iterator(const btree* source, const typename btree::surface_node::ptr l, unsigned short s)
+                    : iterator_base(s,l)
             {   set_check_point();
             }
 
             /// Copy-constructor from a mutable iterator
             inline const_iterator(const iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             {   set_check_point();
             }
             /// Copy-constructor from a mutable reverse iterator
             inline const_iterator(const reverse_iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             {   set_check_point();
             }
             /// Copy-constructor from a const reverse iterator
             inline const_iterator(const const_reverse_iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             {   set_check_point();
             }
             /// Dereference the iterator. Do not use this if possible, use key()
@@ -3416,8 +3459,8 @@ namespace stx
             /// together.
             inline reference operator*() const
             {
-                temp_value = pair_to_value_type()(pair_type(currnode->get_key(current_slot),
-                                                            currnode->get_value(current_slot)));
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->get_key (this->current_slot),
+                                                            this->get_current()->get_value (this->current_slot)));
                 return temp_value;
             }
 
@@ -3426,25 +3469,25 @@ namespace stx
             /// together.
             inline pointer operator->() const
             {
-                temp_value = pair_to_value_type()(pair_type(currnode->get_key(current_slot),
-                                                            currnode->get_value(current_slot)));
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->get_key (this->current_slot),
+                                                            this->get_current()->get_value (this->current_slot)));
                 return &temp_value;
             }
 
             /// Key of the current slot
             inline const key_type& key() const
             {
-                return currnode->get_key(current_slot);
+                return this->get_current()->get_key (this->current_slot);
             }
 
             /// Read-only reference to the current data object
             inline const data_type& data() const
             {
-                return currnode->get_value(current_slot);
+                return this->get_current()->get_value (this->current_slot);
             }
             /// return change id for current page
             inline size_t change_id(){
-                return currnode->get_changes();
+                return this->get_current()->get_changes();
             }
             /**
             * advances/retreats iterator by count steps
@@ -3476,23 +3519,22 @@ namespace stx
             inline self& operator++()
             {
 
-                if (current_slot + 1 < currnode->get_occupants())
+                if (this->current_slot + 1 < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    //if (get_current().has_context()) get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->get_next();
+                    this->assign_current(this->get_current()->get_next());
                     set_check_point();
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
                 else
                 {
                     // this is end()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return *this;
@@ -3504,23 +3546,22 @@ namespace stx
 
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot + 1 < currnode->get_occupants())
+                if (this->current_slot + 1 < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    if (this->get_current().has_context()) this->get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->get_next();
+                    this->assign_current(this->get_current()->get_next());
                     set_check_point();
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
                 else
                 {
                     // this is end()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return tmp;
@@ -3530,23 +3571,22 @@ namespace stx
             inline self& operator--()
             {
 
-                if (current_slot > 0)
+                if (this->current_slot > 0)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    if (this->get_current().has_context()) this->get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->preceding;
+                    this->assign_current(this->get_current()->preceding);
                     set_check_point();
-                    current_slot = currnode->get_occupants() - 1;
+                    this->current_slot = this->get_current()->get_occupants() - 1;
                 }
                 else
                 {
                     // this is begin()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return *this;
@@ -3558,24 +3598,23 @@ namespace stx
 
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot > 0)
+                if (this->current_slot > 0)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
 
-                    if (currnode.has_context())
-                        currnode.get_context()->check_low_memory_state();
+                    //if (get_current().has_context()) get_current().get_context()->check_low_memory_state();
 
-                    currnode = currnode->preceding;
+                    this->assign_current(this->get_current()->preceding);
                     set_check_point();
-                    current_slot = currnode->get_occupants() - 1;
+                    this->current_slot = this->get_current()->get_occupants() - 1;
                 }
                 else
                 {
                     // this is begin()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return tmp;
@@ -3584,13 +3623,13 @@ namespace stx
             /// Equality of iterators
             inline bool operator==(const self& x) const
             {
-                return (x.currnode == currnode) && (x.current_slot == current_slot);
+                return (x.get_current() == this->get_current()) && (x.current_slot ==  this->current_slot);
             }
 
             /// Inequality of iterators
             inline bool operator!=(const self& x) const
             {
-                return (x.currnode != currnode) || (x.current_slot != current_slot);
+                return (x.get_current() != this->get_current()) || (x.current_slot !=  this->current_slot);
             }
         };
 
@@ -3630,11 +3669,7 @@ namespace stx
 
         private:
             // *** Members
-            /// The currently referenced surface node of the tree
-            typename btree::surface_node::ptr      currnode;
 
-            /// Current key/data slot referenced
-            unsigned short          current_slot;
 
             /// Friendly to the const_iterator, so it may access the two data items directly
             friend class iterator_base;
@@ -3652,33 +3687,36 @@ namespace stx
 
         public:
             // *** Methods
+            ~reverse_iterator(){
 
+            }
             /// Default-Constructor of a reverse iterator
             inline reverse_iterator()
-                    : currnode(NULL_REF), current_slot(0)
+                    : iterator_base(NULL_REF)
             { }
 
             /// Initializing-Constructor of a mutable reverse iterator
-            inline reverse_iterator(typename btree::surface_node::ptr l, unsigned short s)
-                    : currnode(l), current_slot(s)
+            inline reverse_iterator(const btree* source, typename btree::surface_node::ptr l, unsigned short s)
+                    : iterator_base(s,l)
             { }
 
             /// Copy-constructor from a mutable iterator
             inline reverse_iterator(const iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             { }
 
             inline reverse_iterator& operator=(const reverse_iterator& other) {
-                currnode = other.currnode;
-                current_slot = other.current_slot;
+                iterator_base::assign(other) ;
+                this->assign_current(other.get_current());
+                this->current_slot = other.current_slot;
             }
             /// Dereference the iterator, this is not a value_type& because key and
             /// value are not stored together
             inline reference operator*() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot - 1],
-                                                            currnode->values()[current_slot - 1]));
+                BTREE_ASSERT(this->current_slot > 0);
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->keys()[this->current_slot - 1],
+                                                            this->get_current()->values()[this->current_slot - 1]));
                 return temp_value;
             }
 
@@ -3687,49 +3725,49 @@ namespace stx
             /// together.
             inline pointer operator->() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot - 1],
-                                                            currnode->values()[current_slot - 1]));
+                BTREE_ASSERT(this->current_slot > 0);
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->keys()[this->current_slot - 1],
+                                                            this->get_current()->values()[this->current_slot - 1]));
                 return &temp_value;
             }
 
             /// Key of the current slot
             inline const key_type& key() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                return currnode->keys()[current_slot - 1];
+                BTREE_ASSERT(this->current_slot > 0);
+                return this->get_current()->keys()[this->current_slot - 1];
             }
             /// refresh function to load the latest version of the current node
             /// usually only used for debugging
             void refesh() {
-                if ((*this).currenode != NULL_REF) {
-                    currnode.refresh();
+                if ((*this).get_current() != NULL_REF) {
+                    this->get_current().refresh();
                 }
             }
             /// Writable reference to the current data object
             /// TODO: mark node as changed for update correctness
             inline data_type& data() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                return currnode->values()[current_slot - 1];
+                BTREE_ASSERT(this->current_slot > 0);
+                return this->get_current()->values()[this->current_slot - 1];
             }
 
             /// Prefix++ advance the iterator to the next slot
             inline self& operator++()
             {
-                if (current_slot > 1)
+                if (this->current_slot > 1)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    currnode = currnode->preceding;
-                    current_slot = currnode->get_occupants();
+                    this->assign_current(this->get_current()->preceding);
+                    this->current_slot = this->get_current()->get_occupants();
                 }
                 else
                 {
                     // this is begin() == rend()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return *this;
@@ -3740,19 +3778,19 @@ namespace stx
             {
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot > 1)
+                if (this->current_slot > 1)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    currnode = currnode->preceding;
-                    current_slot = currnode->get_occupants();
+                    this->assign_current(this->get_current()->preceding);
+                    this->current_slot = this->get_current()->get_occupants();
                 }
                 else
                 {
                     // this is begin() == rend()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return tmp;
@@ -3761,19 +3799,19 @@ namespace stx
             /// Prefix-- backstep the iterator to the last slot
             inline self& operator--()
             {
-                if (current_slot < currnode->get_occupants())
+                if (this->current_slot < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    currnode = currnode->get_next();
-                    current_slot = 1;
+                    this->assign_current(this->get_current()->get_next());
+                    this->current_slot = 1;
                 }
                 else
                 {
                     // this is end() == rbegin()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return *this;
@@ -3784,19 +3822,19 @@ namespace stx
             {
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot < currnode->get_occupants())
+                if (this->current_slot < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    currnode = currnode->get_next();
-                    current_slot = 1;
+                    this->assign_current(this->get_current()->get_next());
+                    this->current_slot = 1;
                 }
                 else
                 {
                     // this is end() == rbegin()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return tmp;
@@ -3805,19 +3843,19 @@ namespace stx
             /// Equality of iterators
             inline bool operator==(const self& x) const
             {
-                return (x.currnode == currnode) && (x.current_slot == current_slot);
+                return (x.get_current() == this->get_current()) && (x.current_slot ==  this->current_slot);
             }
 
             /// Inequality of iterators
             inline bool operator!=(const self& x) const
             {
-                return (x.currnode != currnode) || (x.current_slot != current_slot);
+                return (x.get_current() != this->get_current()) || (x.current_slot !=  this->current_slot);
             }
         };
 
         /// STL-like read-only reverse iterator object for B+ tree items. The
         /// iterator points to a specific slot number in a surface.
-        class const_reverse_iterator
+        class const_reverse_iterator : public iterator_base
         {
         public:
             // *** Types
@@ -3852,12 +3890,6 @@ namespace stx
         private:
             // *** Members
 
-            /// The currently referenced surface node of the tree
-            const typename btree::surface_node::ptr        currnode;
-
-            /// One slot past the current key/data slot referenced.
-            unsigned short                          current_slot;
-
             /// Friendly to the const_iterator, so it may access the two data itset_childems directly.
             friend class iterator_base;
             friend class reverse_iterator;
@@ -3869,30 +3901,32 @@ namespace stx
 
         public:
             // *** Methods
+            ~const_reverse_iterator(){
 
+            }
             /// Default-Constructor of a const reverse iterator
             inline const_reverse_iterator()
-                    : currnode(NULL_REF), current_slot(0)
+                    : iterator_base(NULL_REF)
             { }
 
             /// Initializing-Constructor of a const reverse iterator
-            inline const_reverse_iterator(const typename btree::surface_node::ptr l, unsigned short s)
-                    : currnode(l), current_slot(s)
+            inline const_reverse_iterator(const btree* source,const typename btree::surface_node::ptr l, unsigned short s)
+                    : iterator_base(s,l)
             { }
 
             /// Copy-constructor from a mutable iterator
             inline const_reverse_iterator(const iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             { }
 
             /// Copy-constructor from a const iterator
             inline const_reverse_iterator(const const_iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             { }
 
             /// Copy-constructor from a mutable reverse iterator
             inline const_reverse_iterator(const reverse_iterator &it)
-                    : currnode(it.currnode), current_slot(it.current_slot)
+                    : iterator_base(it)
             { }
 
             /// Dereference the iterator. Do not use this if possible, use key()
@@ -3900,9 +3934,9 @@ namespace stx
             /// together.
             inline reference operator*() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot - 1],
-                                                            currnode->values()[current_slot - 1]));
+                BTREE_ASSERT(this->current_slot > 0);
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->keys()[this->current_slot - 1],
+                                                            this->get_current()->values()[this->current_slot - 1]));
                 return temp_value;
             }
 
@@ -3911,42 +3945,42 @@ namespace stx
             /// together.
             inline pointer operator->() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                temp_value = pair_to_value_type()(pair_type(currnode->keys()[current_slot - 1],
-                                                            currnode->values()[current_slot - 1]));
+                BTREE_ASSERT(this->current_slot > 0);
+                temp_value = pair_to_value_type()(pair_type(this->get_current()->keys()[this->current_slot - 1],
+                                                            this->get_current()->values()[this->current_slot - 1]));
                 return &temp_value;
             }
 
             /// Key of the current slot
             inline const key_type& key() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                return currnode->keys()[current_slot - 1];
+                BTREE_ASSERT(this->current_slot > 0);
+                return this->get_current()->keys()[this->current_slot - 1];
             }
 
             /// Read-only reference to the current data object
             inline const data_type& data() const
             {
-                BTREE_ASSERT(current_slot > 0);
-                return currnode->values()[current_slot - 1];
+                BTREE_ASSERT(this->current_slot > 0);
+                return this->get_current()->values()[this->current_slot - 1];
             }
 
             /// Prefix++ advance the iterator to the previous slot
             inline self& operator++()
             {
-                if (current_slot > 1)
+                if (this->current_slot > 1)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    currnode = currnode->preceding;
-                    current_slot = currnode->get_occupants();
+                    this->assign_current(this->get_current()->preceding);
+                    this->current_slot = this->get_current()->get_occupants();
                 }
                 else
                 {
                     // this is begin() == rend()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return *this;
@@ -3957,19 +3991,19 @@ namespace stx
             {
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot > 1)
+                if (this->current_slot > 1)
                 {
-                    --current_slot;
+                    --this->current_slot;
                 }
-                else if (currnode->preceding != NULL_REF)
+                else if (this->get_current()->preceding != NULL_REF)
                 {
-                    currnode = currnode->preceding;
-                    current_slot = currnode->get_occupants();
+                    this->assign_current(this->get_current()->preceding);
+                    this->current_slot = this->get_current()->get_occupants();
                 }
                 else
                 {
                     // this is begin() == rend()
-                    current_slot = 0;
+                    this->current_slot = 0;
                 }
 
                 return tmp;
@@ -3978,19 +4012,19 @@ namespace stx
             /// Prefix-- backstep the iterator to the next slot
             inline self& operator--()
             {
-                if (current_slot < currnode->get_occupants())
+                if (this->current_slot < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    currnode = currnode->get_next();
-                    current_slot = 1;
+                    this->assign_current(this->get_current()->get_next());
+                    this->current_slot = 1;
                 }
                 else
                 {
                     // this is end() == rbegin()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return *this;
@@ -4001,19 +4035,19 @@ namespace stx
             {
                 self tmp = *this;   // copy ourselves
 
-                if (current_slot < currnode->get_occupants())
+                if (this->current_slot < this->get_current()->get_occupants())
                 {
-                    ++current_slot;
+                    ++this->current_slot;
                 }
-                else if (currnode->get_next() != NULL_REF)
+                else if (this->get_current()->get_next() != NULL_REF)
                 {
-                    currnode = currnode->get_next();
-                    current_slot = 1;
+                    this->assign_current(this->get_current()->get_next());
+                    this->current_slot = 1;
                 }
                 else
                 {
                     // this is end() == rbegin()
-                    current_slot = currnode->get_occupants();
+                    this->current_slot = this->get_current()->get_occupants();
                 }
 
                 return tmp;
@@ -4022,17 +4056,65 @@ namespace stx
             /// Equality of iterators
             inline bool operator==(const self& x) const
             {
-                return (x.currnode == currnode) && (x.current_slot == current_slot);
+                return (x.get_current() == this->get_current()) && (x.current_slot ==  this->current_slot);
             }
 
             /// Inequality of iterators
             inline bool operator!=(const self& x) const
             {
-                return (x.currnode != currnode) || (x.current_slot != current_slot);
+                return (x.get_current() != this->get_current()) || (x.current_slot !=  this->current_slot);
             }
         };
 
     public:
+        class count_checker{
+        private:
+        public:
+            nst::i64 initial_references;
+            nst::i64 initial_surfaces;
+            const btree* set;
+
+            count_checker(){
+
+                reset(nullptr);
+
+            }
+            count_checker(const btree* set){
+
+                reset(set);
+
+            }
+            void reset(){
+                this->reset(this->set);
+            }
+            void reset(const btree* set){
+                if(set) {
+                    this->set = set;
+                    this->initial_references = set->count_surface_uses() ;
+                    this->initial_surfaces = set->surfaces_loaded.size();
+                }else{
+                    this->set = nullptr;
+                    this->initial_references = 0;
+                    this->initial_surfaces = 0;
+                }
+            }
+            ~count_checker(){
+            }
+            nst::i64 failed_count(nst::i64 added) const {
+                nst::i64 current_surfaces = set->surfaces_loaded.size();
+                nst::i64 delta_surfaces = current_surfaces-this->initial_surfaces;
+                nst::i64 calculated_delta_references = ((delta_surfaces) *3) + ((delta_surfaces)*2) + added;
+                nst::i64 actual_delta_references = this->get_current_total_refs() - initial_references;
+                return actual_delta_references - calculated_delta_references ;
+            }
+            bool failed(nst::i64 added) const {
+                return failed_count(added) > 0;
+            }
+
+            nst::i64 get_current_total_refs() const {
+                return this->set->count_surface_uses();
+            }
+        };
         // *** Small Statistics Structure
 
         /** A small struct containing basic statistics about the B+ tree. It can be
@@ -4059,6 +4141,9 @@ namespace stx
            
             ptrdiff_t       max_use;
 
+            /// iterators away
+            stx::storage::i64       iterators_away;
+
             /// number of pages changed since last flush
             size_t changes;
 
@@ -4082,9 +4167,12 @@ namespace stx
                     , interiornodes(0)
                     , use(0)
                     , surface_use(0)
-                    , interior_use(0)                 
+                    , interior_use(0)
+                    , max_use(0)
+                    , iterators_away(0)
                     , changes(0)
                     , last_surface_size(0)
+
             {
             }
             /// Return the total number of nodes
@@ -4119,7 +4207,7 @@ namespace stx
         typename surface_node::ptr   last_surface;
 
         /// Other small statistics about the B+ tree
-        tree_stats  stats;
+        mutable tree_stats  stats;
 
         /// use lz4 in mem compression otherwize use zlib
 
@@ -4144,9 +4232,11 @@ namespace stx
         /// storage
         storage_type *storage;
 
+        count_checker cc;
+
         void initialize_contexts() {
 
-
+            cc.reset(this);
             root.set_context(this);
             headsurface.set_context(this);
             last_surface.set_context(this);
@@ -4264,7 +4354,12 @@ namespace stx
             std::swap(key_less, from.key_less);
             std::swap(allocator, from.allocator);
         }
-
+        count_checker& get_cc() {
+            return cc;
+        }
+        const count_checker& get_cc() const{
+            return cc;
+        }
     public:
         // *** Key and Value Comparison Function Objects
 
@@ -4404,30 +4499,32 @@ namespace stx
         }
     private:
 
-        void unlink_surface_nodes(){
+        void unlink_surface_nodes(size_t mloaded){
             size_t il = interiors_loaded.size();
             size_t sl = surfaces_loaded.size();
-            if(sl > 8){
+            if(sl > mloaded){
                 for(auto i = interiors_loaded.begin(); i!=interiors_loaded.end(); ++i){
-                    typename interior_node::shared_ptr interior = std::static_pointer_cast<interior_node>((*i).second);
-                    interior->clear_surfaces();
+                    i->second->clear_surfaces();
                 }
             }
-
-
-
-
-
         }
 
 
         /// unlink all nodes from tree
         void raw_unlink_nodes_2() {
-            this->headsurface.unlink();
+            this->headsurface.unlink();(*this).headsurface.unload_only();
+                (*this).root.unload_only();
+                (*this).last_surface.unload_only();
+
             this->last_surface.unlink();
             this->headsurface.set_context(this);
             this->last_surface.set_context(this);
             this->root.set_context(this);
+
+            (*this).headsurface.unload_only();
+            (*this).root.unload_only();
+            (*this).last_surface.unload_only();
+
             ///typedef std::vector<node::ptr,::sta::tracker<node::ptr,::sta::bt_counter>> _LinkedList;
 
             size_t c = 0;
@@ -4435,35 +4532,41 @@ namespace stx
             /// NB: it wont work with std::unordered_map only with rabbit::unordered_map
             for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
 
-                typename surface_node::shared_ptr surface = std::static_pointer_cast<surface_node>((*n).second);
+                typename surface_node::shared_ptr surface = n->second;
                 typename surface_node::ptr saved = surface;
 
                 saved.unlink();
                 ++c;
             }
+
+        }
+        void destroy_surfaces(){
+            typename surface_node::alloc_type surface_allocator;
             for (auto n = surfaces_loaded.begin(); n != surfaces_loaded.end(); ++n) {
                 typename surface_node::shared_ptr surface = (*n).second;
-                size_t cnt = surface.use_count();
-                if (cnt == 3) {
+                if(surface->refs == 0) {
                     surface->deallocate_data(this);
-                    if(n->first != surface->get_address()){
+                    if (n->first != surface->get_address()) {
                         err_print("invalid persistent address");
                         throw bad_pointer();
                     }
+                    inf_print("destroying %lld in storage %s",(nst::lld)surface->get_address(),get_storage()->get_name().c_str());
+                    surface_allocator.destroy(surface);
+                    surface_allocator.deallocate(surface, 1);
 
                     nodes_loaded.erase(n->first);
                     surfaces_loaded.erase(n->first);
-
-                    size_t after = surface.use_count();
-                    if(after != 1){
-                        err_print("could not remove all references");
-                        throw bad_access();
-                    };
-
                 }
-
             }
-
+        }
+        void destroy_interiors(){
+            typename interior_node::alloc_type interior_allocator;
+            for(auto n = interiors_loaded.begin(); n != interiors_loaded.end(); ++n){
+                nodes_loaded.erase(n->first);
+                interior_allocator.destroy(n->second);
+                interior_allocator.deallocate(n->second, 1);
+            }
+            interiors_loaded.clear();
         }
         /// unlink nodes
         void raw_unlink_nodes() {
@@ -4530,15 +4633,21 @@ namespace stx
             ptrdiff_t save_tot = btree_totl_used;
             flush();
             if (reduce) {
+                if(stats.iterators_away > 0){
+                    return;
+                }
+                this->key_lookup.clear();
                 size_t nodes_before = nodes_loaded.size();
                 size_t surfaces_before = surfaces_loaded.size();
-                //if (nodes_before > 32) {
-                    unlink_surface_nodes();
-                    raw_unlink_nodes_2();
 
-                //}
+                clear();
+                initialize_contexts();
                 size_t nodes_after = nodes_loaded.size();
                 size_t surfaces_after = surfaces_loaded.size();
+                if(surfaces_after < surfaces_before){
+                    dbg_print("surface nodes remaining %lld",(nst::lld)surfaces_after);
+                }
+
                 if (save_tot > btree_totl_used)
                     inf_print("total tree use %.8g MiB after flush , nodes removed %lld (%lld)remaining %lld",
                                 (double) btree_totl_used / (1024.0 * 1024.0),
@@ -4572,12 +4681,18 @@ namespace stx
             }
 
             typename surface_node::shared_ptr allocate_shared_surface(){
-                typedef typename _Alloc::template rebind<typename surface_node::shared_ptr>::other shared_alloc_type;
-                return std::allocate_shared<surface_node>(shared_alloc_type(allocator));
+
+                typename surface_node::alloc_type allocator;
+                auto r = allocator.allocate(1);
+                allocator.construct(r);
+                return r;
             }
             typename interior_node::shared_ptr allocate_shared_interior(){
-                typedef typename _Alloc::template rebind<typename interior_node::shared_ptr>::other shared_alloc_type;
-                return std::allocate_shared<interior_node>(shared_alloc_type(allocator));
+
+                typename interior_node::alloc_type allocator;
+                auto r = allocator.allocate(1);
+                allocator.construct(r);
+                return r;
             }
 
             /// Allocate and initialize a surface node
@@ -4597,9 +4712,13 @@ namespace stx
                 n->preceding.set_context(this);
 
                 if (n.get_where()) {
+                    nst::lld nla = nodes_loaded.size();
+                    nst::lld nw = n.get_where();
                     n->set_address(n.get_where());
                     nodes_loaded[n.get_where()] = pn;
                     surfaces_loaded[n.get_where()] = pn;
+                    nst::lld nl = nodes_loaded.size();
+                    dbg_print("there are %lld nodes loaded",nl);
                 }
                 else {
                     err_print("no address supplied");
@@ -4635,7 +4754,7 @@ namespace stx
             int reloads;
             void reload()
             {
-                bool do_reload = version_reload;
+                bool do_reload = false ; //version_reload;
                 nst::i64 sa = 0;
                 nst::stream_address b = 0;
                 if (do_reload) {
@@ -4679,10 +4798,14 @@ namespace stx
                     initialize_contexts();
 
                 }
-
             }
 
 
+            /// count surface uses
+            size_t count_surface_uses() const {
+
+                return stats.iterators_away;
+            }
 
             /// orphan the nodes which are still referenced
 
@@ -4696,18 +4819,30 @@ namespace stx
             {
                 if (root != NULL_REF)
                 {
+                    if(stats.iterators_away > 0){
+                        err_print("invalid reference count");
+                        throw bad_access();
+                    }
+
 
                     (*this).headsurface = NULL_REF;
                     (*this).root = NULL_REF;
                     (*this).last_surface = NULL_REF;
 
-                    unlink_local_nodes();
-                    orphan_remaining();
+                    unlink_surface_nodes(0);
+                    //raw_unlink_nodes_2();
+                    destroy_interiors();
+                    destroy_surfaces();
+                    this->key_lookup.clear();
+                    nodes_loaded.clear();
 
+                    interiors_loaded.clear();
                     modified.clear();
-
+                    (*this).key_lookup.clear();
+                    surfaces_loaded.clear();
 
                     stats = tree_stats();
+
 
 
                 }
@@ -4744,8 +4879,7 @@ namespace stx
             inline iterator begin()
             {
                 check_low_memory_state();
-
-                return iterator(headsurface, 0);
+                return iterator(this,headsurface, 0);
             }
 
             /// Constructs a read/data-write iterator that points to the first invalid
@@ -4757,7 +4891,7 @@ namespace stx
                 last.set_context(this);
                 stats.last_surface_size = last != NULL_REF ? o : 0;
 
-                return iterator(last, (short)stats.last_surface_size);/// avoids loading the whole page
+                return iterator(this,last, (short)stats.last_surface_size);/// avoids loading the whole page
 
             }
 
@@ -4765,7 +4899,7 @@ namespace stx
             /// in the first surface of the B+ tree.
             inline const_iterator begin() const
             {
-                return const_iterator(headsurface, 0);
+                return const_iterator(this,headsurface, 0);
             }
 
             /// Constructs a read-only constant iterator that points to the first
@@ -4776,8 +4910,7 @@ namespace stx
                 typename node::ptr last = last_surface;
                 last.set_context((btree*)this);
                 last = last_surface;
-
-                return const_iterator(last, last.get_where() != 0 ? last->get_occupants() : 0);
+                return const_iterator(this,last, last.get_where() != 0 ? last->get_occupants() : 0);
             }
 
             /// Constructs a read/data-write reverse iterator that points to the first
@@ -4785,8 +4918,7 @@ namespace stx
             inline reverse_iterator rbegin()
             {
                 check_low_memory_state();
-
-                return reverse_iterator(end());
+                return reverse_iterator(this,end());
             }
 
             /// Constructs a read/data-write reverse iterator that points to the first
@@ -4794,22 +4926,22 @@ namespace stx
             inline reverse_iterator rend()
             {
 
-
-                return reverse_iterator(begin());
+                check_low_memory_state();
+                return reverse_iterator(this,begin());
             }
 
             /// Constructs a read-only reverse iterator that points to the first
             /// invalid slot in the last surface of the B+ tree. Uses STL magic.
             inline const_reverse_iterator rbegin() const
             {
-                return const_reverse_iterator(end());
+                return const_reverse_iterator(this,end());
             }
 
             /// Constructs a read-only reverse iterator that points to the first slot
             /// in the first surface of the B+ tree. Uses STL magic.
             inline const_reverse_iterator rend() const
             {
-                return const_reverse_iterator(begin());
+                return const_reverse_iterator(this,begin());
             }
 
             private:
@@ -5004,6 +5136,7 @@ namespace stx
                ? (&surface->get_value(slot)) : nullptr;
     }
     data_type * direct(const key_type& key) {
+
         size_t h = hash_val(key);
         if (h && !key_lookup.empty()) {
             auto &r = key_lookup[h];
@@ -5011,11 +5144,14 @@ namespace stx
                 return r.value;
             }
         }
+
         check_low_memory_state();
         data_type * result = nullptr;
         if (get_storage()->is_readonly()) {
+            if (root == NULL_REF)
+                return NULL_REF;
             node *n = root.get();
-            if (n == NULL_REF) return NULL_REF;
+
             int slot = 0;
             while (!n->issurfacenode()) {
 
@@ -5053,9 +5189,10 @@ namespace stx
         }
 
         const typename surface_node::ptr surface = n;
+
         slot = find_lower(surface.rget(), key);
         return (slot < surface->get_occupants() && key_equal(key, surface->get_key(slot)))
-               ? iterator(surface, slot) : end();
+               ? iterator(this,surface, slot) : end();
     }
 
     /// Tries to locate a key in the B+ tree and returns an constant iterator
@@ -5081,7 +5218,7 @@ namespace stx
 
         slot = find_lower(surface, key);
         return (slot < surface->get_occupants() && key_equal(key, surface->keys()[slot]))
-               ? const_iterator(surface, slot) : end();
+               ? const_iterator(this,surface, slot) : end();
     }
 
     /// Tries to locate a key in the B+ tree and returns the number of
@@ -5122,7 +5259,9 @@ namespace stx
 
         if (root == NULL_REF) return end();
 
-
+        if(!root.is_loaded()){
+            dbg_print("root not loaded");
+        }
         typename node::ptr n = root;
 
 
@@ -5140,7 +5279,8 @@ namespace stx
         const typename surface_node::ptr surface = n;
 
         slot = find_lower(surface, key);
-        return iterator(surface, slot);
+
+        return iterator(this, surface, slot);
     }
 
     /// Searches the B+ tree and returns a constant iterator to the
@@ -5162,7 +5302,8 @@ namespace stx
         const typename surface_node::ptr surface = n;
 
         slot = find_lower(surface, key);
-        return const_iterator(surface, slot);
+
+        return const_iterator(this,surface, slot);
     }
 
     /// Searches the B+ tree and returns an iterator to the first pair
@@ -5184,7 +5325,8 @@ namespace stx
         const typename surface_node::ptr surface = n;
 
         slot = find_upper(surface, key);
-        return iterator(surface, slot);
+
+        return iterator(this,surface, slot);
     }
 
     /// Searches the B+ tree and returns a constant iterator to the
@@ -5208,7 +5350,9 @@ namespace stx
         const typename surface_node::ptr surface = n;
 
         slot = find_upper(surface, key);
-        return const_iterator(surface, slot);
+
+
+        return const_iterator(this,surface, slot);
     }
 
     /// Searches the B+ tree and returns both lower_bound() and upper_bound().
@@ -5313,54 +5457,6 @@ namespace stx
         }
     }
 
-    private:
-    /// Recursively copy nodes from another B+ tree object
-    struct node* copy_recursive(const node *n)
-    {
-        if (n->issurfacenode())
-        {
-            const surface_node *surface = static_cast<const surface_node*>(n);
-            surface_node *newsurface = allocate_surface();
-
-            newsurface->set_occupants(surface->get_occupants());
-            std::copy(surface->keys(), surface->keys() + surface->get_occupants(), newsurface->keys());
-            std::copy(surface->values(), surface->values() + surface->get_occupants(), newsurface->values());
-
-            if (headsurface == NULL_REF)
-            {
-                headsurface = last_surface = newsurface;
-                newsurface->set_next(NULL_REF);
-                newsurface->preceding = newsurface->get_next();
-            }
-            else
-            {
-                newsurface->preceding = last_surface;
-                last_surface.change_before();
-                last_surface->set_next(newsurface);
-                last_surface = newsurface;
-                last_surface.next_check();
-            }
-            last_surface.next_check();
-            newsurface.next_check();
-            return newsurface;
-        }
-        else
-        {
-            const interior_node *interior = static_cast<const interior_node*>(n);
-            interior_node *newinterior = allocate_interior(interior->level);
-
-            newinterior->set_occupants(interior->get_occupants());
-            std::copy(interior->keys, interior->keys + interior->get_occupants(), newinterior->keys);
-
-            for (unsigned short slot = 0; slot <= interior->get_occupants(); ++slot)
-            {
-                newinterior->childid[slot] = copy_recursive(interior->childid[slot]);
-
-            }
-
-            return newinterior;
-        }
-    }
 
     public:
     // *** Public Insertion Functions
@@ -5419,6 +5515,8 @@ namespace stx
     }
 
     private:
+
+
     // *** Private Insertion Functions
 
     /// Start the insertion descent at the current root and handle root
@@ -5435,10 +5533,10 @@ namespace stx
             last_surface = allocate_surface();
             headsurface = last_surface;
             root = last_surface;
+
         }
 
         std::pair<iterator, bool> r = insert_descend(root, 0, 0, key, value, &newkey, newchild);
-
 
         if (newchild != NULL_REF)
         {
@@ -5453,6 +5551,7 @@ namespace stx
             root.change();
             //newroot->set_modified();
             root = newroot;
+
         }
 
         // increment itemcount if the item was inserted
@@ -5478,7 +5577,7 @@ namespace stx
 		* slot. If the node overflows, then it must be split and the new split
 		* node inserted into the parent. Unroll / this splitting up to the root.
 		*/
-    std::pair<iterator, bool> insert_descend(typename node::ptr n, stream_address source, int child_at,
+    std::pair<iterator, bool> insert_descend(const typename node::ptr &n, stream_address source, int child_at,
                                              const key_type& key, const data_type& value,
                                              key_type* splitkey, typename node::ptr& splitnode)
     {
@@ -5494,6 +5593,7 @@ namespace stx
 
             BTREE_PRINT("btree::insert_descend into " << interior->get_childid(at) << std::endl);
 
+
             std::pair<iterator, bool> r = insert_descend(interior->get_childid(at), interior.get_where(), at,
                                                          key, value, &newkey, newchild);
 
@@ -5503,6 +5603,8 @@ namespace stx
                 newchild.change();
                 if (interior->isfull())
                 {
+
+
                     split_interior_node(interior, splitkey, splitnode, at);
 
                     BTREE_PRINT("btree::insert_descend done split_interior: putslot: " << at << " putkey: " << newkey << " upkey: " << *splitkey << std::endl);
@@ -5517,6 +5619,7 @@ namespace stx
 
                     // check if insert at is in the split sibling node
                     BTREE_PRINT("btree::insert_descend switch: " << at << " > " << interior->get_occupants() + 1 << std::endl);
+
 
                     if (at == interior->get_occupants() + 1 && interior->get_occupants() < splitnode->get_occupants())
                     {
@@ -5552,15 +5655,18 @@ namespace stx
                         interior = splitnode;
                         BTREE_PRINT("btree::insert_descend switching to splitted node " << interior << " at " << at << std::endl);
                     }
+
                 }
 
                 // put pointer to child node into correct at
+
 
                 BTREE_ASSERT(at >= 0 && at <= ref->get_occupants());
                 interior.change_before();
 
                 int i = interior->get_occupants();
                 interior_node * ref = interior.rget();
+
                 while (i > at)
                 {
                     ref->set_key(i, ref->get_key(i - 1));
@@ -5570,26 +5676,27 @@ namespace stx
 
                 interior->set_key(at ,newkey);
                 interior->set_childid(at + 1, newchild);
-
                 interior->inc_occupants();
+
             }
 
             return r;
         }
         else // n->issurfacenode() == true
         {
-            typename surface_node::ptr surface = n;
 
+            typename surface_node::ptr surface = n;
             int at = surface->find_lower(key_less, key_terp, key);
 
             if (!allow_duplicates && at < surface->get_occupants() && key_equal(key, surface->get_key(at)))
             {
                 surface.change();
-                return std::pair<iterator, bool>(iterator(surface, at), false);
+                return std::pair<iterator, bool>(iterator(this,surface, at), false);
             }
-
+            nst::i64 added = 0;
             if (surface->isfull())
             {
+
                 split_surface_node(surface, splitkey, splitnode);
 
                 // check if insert at is in the split sibling node
@@ -5599,8 +5706,10 @@ namespace stx
                     surface = splitnode;
 
                 }
+                added = 4;
 
-
+            }else{
+                added = 1;
             }
             // mark node as going to change
 
@@ -5614,7 +5723,7 @@ namespace stx
             surfactant->insert_(at, key, value);
             i = at - 1;
             typename surface_node::ptr splitsurface = splitnode;
-
+            ++added;
             //surface->insert(at, key, value);
             surface.next_check();
 
@@ -5626,7 +5735,7 @@ namespace stx
                 *splitkey = key;
             }
 
-            return std::pair<iterator, bool>(iterator(surface, i + 1), true);
+            return std::pair<iterator, bool>(iterator(this,surface, i + 1), true);
 
         }
     }
@@ -5834,7 +5943,7 @@ namespace stx
     /// Erase the key/data pair referenced by the iterator.
     void erase(iterator iter)
     {
-        BTREE_PRINT("btree::erase_iter(" << iter.currnode << "," << iter.current_slot << ") on btree size " << size() << std::endl);
+        BTREE_PRINT("btree::erase_iter(" << iter.get_current() << "," << iter.current_slot << ") on btree size " << size() << std::endl);
 
         if (selfverify) verify();
 
@@ -6192,14 +6301,14 @@ namespace stx
 
             // if this is not the correct surface, get next step in recursive
             // search
-            if (surface != iter.currnode)
+            if (surface != iter.get_current())
             {
                 return btree_not_found;
             }
 
             if (iter.current_slot >= surface->get_occupants())
             {
-                BTREE_PRINT("Could not find iterator (" << iter.currnode << "," << iter.current_slot << ") to erase. Invalid surface node?" << std::endl);
+                BTREE_PRINT("Could not find iterator (" << iter.get_current() << "," << iter.current_slot << ") to erase. Invalid surface node?" << std::endl);
 
                 return btree_not_found;
             }

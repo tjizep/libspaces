@@ -531,7 +531,7 @@ namespace storage{
 		u64 exists_count;
 		Poco::Data::BLOB encoded_block;
 		Poco::UInt64 current_size;
-		std::string current_version;
+		Poco::Data::BLOB current_version;
 		block_type current_block;
 		block_type compressed_block;
 
@@ -616,11 +616,12 @@ namespace storage{
 		void add_buffer(const address_type& w, const version_type& version, const block_type& block){
 			current_address = w;
 			current_size = block.size()*sizeof(typename block_type::value_type);
-			current_version.clear();
 			current_address = w;
 			/// assumes block_type is some form of stl vector container
 			current_size = block.size()*sizeof(typename block_type::value_type);
-			current_version = version.toString(); //nst::tostring();
+			char temp[sizeof(Poco::UUID)];
+			version.copyTo(temp);
+			current_version.assignRaw(temp,sizeof(temp));
 			encoded_block.clear();
 			if(!block.empty()){
 				//compress_block
@@ -634,6 +635,10 @@ namespace storage{
 
 			insert_stmt->execute();
 
+		}
+		void blob_to_version(version_type& version,const Poco::Data::BLOB& blob){
+
+			version.copyFrom(blob.rawContent());
 		}
 
 		/// returns true if the buffer with address specified by w has been retrieved
@@ -666,7 +671,7 @@ namespace storage{
 			if(this->repl!=nullptr){
 				version_type temp_version;
 				if(this->repl->read_replicants(current_block,temp_version,w)){
-					current_version = temp_version.toString();
+					temp_version.copyFrom(current_version.rawContent());
 					return true;
 				}else{
 					return false;
@@ -684,6 +689,7 @@ namespace storage{
 			current_block.clear();
 			if(current_address == selector_address){
 				//decompress_zlibh(current_block, encoded_block.content());
+
 				current_block.resize(encoded_block.size());
 				if (current_block.size() > 0) {					
 					memcpy(&current_block[0], &(encoded_block.content()[0]), encoded_block.size());
@@ -916,6 +922,16 @@ namespace storage{
 			}
 			return false;
 		}
+		version_type from_current() const {
+			version_type r;
+			if(current_version.size() == sizeof(Poco::UUID)){
+				r.copyFrom(current_version.rawContent());
+			}else{
+				err_print("invalid current version size");
+			}
+
+			return r;
+		}
 	protected:
 		block_type read_block;
 		/// allocate without checking memory use (used in move and some other operations)
@@ -948,7 +964,7 @@ namespace storage{
 							return read_block;
 						}
 						if(how == storage_action::write||how == storage_action::read){
-							result = create_block(which,version_type(this->current_version));
+							result = create_block(which,from_current());
 						}else {
 							throw InvalidStorageAction();
 						}
@@ -1046,7 +1062,7 @@ namespace storage{
 				return (*finder).second->get_version() ;
 			}
 			if(get_buffer(w)){
-				this->versions[w] = version_type(this->current_version);
+				this->versions[w] = version_type(this->from_current());
 				return this->versions[w];
 			}
 

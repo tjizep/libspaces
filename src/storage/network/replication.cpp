@@ -110,7 +110,7 @@ namespace spaces{
 
         });
         srv.bind("addObserver", [&storage](const std::string& name, const std::string &oip, nst::u32 oport){
-            dbg_print("block_replication_server::addObserver(%s, %s, %lld)",name.c_str(),oip.c_str(),(nst::fi64)oport);
+            dbg_print("block_replication_server::addObserver(%s, %s, %lld)",name.c_str(),oip.c_str(),(nst::lld)oport);
             dbg_print("block_replication_server::adding notifier for observer ");
             /// the notifier is a new connection to the remote notification observer server
             /// it will be called when ever there is a change to the local file system

@@ -659,9 +659,9 @@ namespace rabbit{
 				for(size_type c = 0; c < esize; ++c){
 					clusters[c].clear();
 				}
-				_ElPair element;
+
 				for(size_type e = 0; e < get_data_size(); ++e){
-					keys[e] = element;
+					keys[e] = _ElPair();
 				}
 				set_exists(get_data_size(),true);
 				collisions = 0;

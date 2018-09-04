@@ -574,6 +574,9 @@ namespace stx{
 
 
 						get_shared()->allocated += requested + overhead() ;
+						nst::f64 alloc_after = get_shared()->allocated;
+
+
 						u8 * a = new u8[requested];
 						//memset(a,0,requested);
 						_Allocated result(a,requested);

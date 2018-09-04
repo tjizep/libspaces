@@ -8,11 +8,16 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <stx/storage/types.h>
 #include <storage/spaces/key.h>
 #include <storage/spaces/dbms.h>
 #include <rabbit/unordered_map>
 
 namespace spaces{
+    static void dbg_space(const char * prefix,const spaces::key& k, const spaces::record& v){
+        dbg_print("%s [ctx:%lld, name:'%s', id:%lld, val:'%s']",prefix,(nst::lld)k.get_context(),k.get_name().to_string().c_str(),(nst::lld)v.get_identity(),v.get_value().to_string().c_str());
+    }
+
 	extern std::atomic<long> db_session_count;
     typedef std::map<key,record> _MMap;
 
@@ -23,8 +28,8 @@ namespace spaces{
         typedef spaces::dbms::_Set _Set;
         spaces::dbms::ptr d;
         std::string name;
-        bool is_reader;
-        db_session(const std::string& name, bool is_reader = false) : is_reader(is_reader){
+        //bool is_reader;
+        db_session(const std::string& name, bool is_reader = false) {
             this->name = name;
 			++db_session_count;
             this->create(name);
@@ -40,11 +45,17 @@ namespace spaces{
         bool is_transacted() const{
             return d->is_transacted();
         }
-        void create(const std::string& name){
-            if(is_reader){
+        void create(const std::string& name, bool reader = true){
+            if(reader){
                 d = spaces::create_reader(name);
+                if(!d->reader()){
+                    err_print("retrieved dbms in invalid mode");
+                }
             }else{
                 d = spaces::get_writer(name);
+                if(d->reader()){
+                    err_print("retrieved dbms in invalid mode");
+                }
             }
         }
 
@@ -57,19 +68,17 @@ namespace spaces{
         void check(){
             d->check_resources();
         }
-        void set_mode(bool reader){
-            if(is_reader != reader){
-                auto s = d; /// keep pointer away from cleanup thread
-				if (d != nullptr && d->is_transacted()) {
-					d->begin();
-					d->rollback();
-				}
-                d = nullptr;
-                is_reader = reader;
-                create(this->name);
+
+        void begin(bool reader) {
+            if(d!=nullptr){
+                if(!reader && d->reader()){
+                    d->rollback();
+                    create(this->name,reader);
+                }
+            }else{
+                create(this->name,reader);
             }
-        }
-        void begin() {
+
             d->begin();
         }
         void commit() {
@@ -79,11 +88,12 @@ namespace spaces{
             d->rollback();
         }
         const bool reader() const {
-            return is_reader;
+            return d->reader();
         }
 
 
     };
+    extern nst::lld iterator_count;
     /**
      * iterator for space container
      * @tparam _Set the set type which will supply elements to iterate
@@ -94,8 +104,8 @@ namespace spaces{
         key lower;
 
         nst::i64 position;
-        spaces_iterator(): position(0){}
-        ~spaces_iterator(){}
+        spaces_iterator(): position(0){++iterator_count;}
+        ~spaces_iterator(){--iterator_count;}
         void set_upper(_Set& s,const  key& upper){
             this->e = s.lower_bound(upper);
             this->upper = upper;
@@ -196,8 +206,6 @@ namespace spaces{
     static const spaces::record& get_data(const spaces::db_session::_Set::iterator& i){
         return i.data();
     }
-
-
     static const spaces::key& get_key(const spaces::db_session::_Set::iterator& i){
         return i.key();
     }
@@ -267,30 +275,23 @@ namespace spaces{
         void set_max_memory_mb(const ui8& mm){
             session.set_max_memory_mb(mm);
         }
-        /**
-         * set the new transaction mode for session
-         * does not affect other storages
-         * @param readr
-         */
-        void set_mode(bool readr){
-            session.set_mode(readr);
-        }
+
         /**
          * start a transaction in writing mode
          */
         void begin_writer(){
-            this->set_mode(false);
-            this->begin();
+
+            this->begin(false);
         }
         void begin_reader(){
-            this->set_mode(true);
-            this->begin();
+
+            this->begin(true);
         }
         void check(){
             session.check();
         }
-        void begin() {
-            session.begin();
+        void begin(bool reader) {
+            session.begin(reader);
         }
         void commit() {
             session.commit();
@@ -365,7 +366,7 @@ namespace spaces{
          * @param k the key
          * @param v value with data
          */
-        void insert_or_replace(spaces::key& k, spaces::record& v) {
+        void insert_or_replace(const spaces::key& k, spaces::record& v) {
             const ui4 MAX_BUCKET = 100;
             if(v.size() >  MAX_BUCKET){
                 v.set_flag(spaces::record::FLAG_LARGE);
@@ -391,7 +392,9 @@ namespace spaces{
                 value.clear();
 
             }
+
             session.get_set()[k] = v;
+
         }
         void insert_or_replace(space& p) {
             insert_or_replace(p.first,p.second);
@@ -417,10 +420,12 @@ namespace spaces{
         bool link(spaces::record& local, const _OtherSessionType* other){
             if(other->second.get_identity()) {
                 local.set_identity(other->second.get_identity()); // a link has no identity of its own ???
+
                 // here we will differentiate between native and external spaces
                 // external spaces are not always remote
                 auto os = other->get_session();
                 if(this->get_name()!= os->get_name()){
+
                     local.set_value(os->get_name());
                     local.set_flag(spaces::record::FLAG_ROUTE);
                 }
@@ -477,7 +482,9 @@ namespace spaces{
          * @param override force an id into second even if one is found this will orphan the children
          *
          */
-        void resolve_id(spaces::key& first, spaces::record& second, bool override = false) {
+        void resolve_id(const spaces::key& first, spaces::record& second, bool override = false) {
+
+
             if (override || second.get_identity() == 0) {
                 auto& s = session.get_set();
                 auto i = s.find(first);
@@ -485,14 +492,17 @@ namespace spaces{
                     second = this->map_data(get_data(i)); /// update to the latest version
                 }
                 if (override || second.get_identity() == 0) {
+
                     auto nid = session.gen_id();
                     if(override && second.get_identity() != 0){
                         dbg_print("storage [%s] space [%s] overriding id: %lld -> %lld",this->get_name().c_str(),first.get_name().to_string().c_str(),(nst::lld)second.get_identity(),(nst::lld)nid);
                     }
                     second.set_identity(nid); /// were gonna be a parent now so we will need an actual identity
                     insert_or_replace(first,second);
+
                 }
             }
+
             dbg_print("storage [%s] space [%s] resolved id: %lld",this->get_name().c_str(),first.get_name().to_string().c_str(),(nst::lld)second.get_identity());
         }
 
@@ -645,7 +655,8 @@ namespace spaces{
                 ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
                 auto f = keys.find(pt);
                 if(f!=keys.end()){
-                    if(f->second->second.is_flag(spaces::record::FLAG_NEVER_SET)){
+                    spaces::record data = f->second->second;
+                    if(data.is_flag(spaces::record::FLAG_NEVER_SET)){
                         err_print("invalid object or memory corruption detected");
                         return nullptr;
                     }
@@ -661,7 +672,6 @@ namespace spaces{
         }
         void close_space(_TState *L, ptrdiff_t pt) {
             dbg_print("Closing spaces key... ");
-            auto state = get_state(L);
             //auto& keys = state->keys;
             auto f = keys.find(pt);
             if (f!=keys.end()) {

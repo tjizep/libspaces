@@ -76,7 +76,7 @@ if #data == 0 or #data < u then
 
 	local t = os.clock()
 	local td = os.clock()
-	print("start st write",t)
+	print("start random write",t)
 	local ustart = 0
 
 	for i = 1,u do
@@ -113,7 +113,7 @@ values = generateValues()
 tdata = generate(math.min(u,MAX_GEN))
 session:read()
 for rr = 1,2 do
-	print("start st read")
+	print("start st read test")
 	local cnt = 0
 	t = os.clock()
 	td = t
@@ -126,6 +126,7 @@ for rr = 1,2 do
 			local tv = values[(cnt % MAX_VAL)+1]
 			if  dv ~= tv then
 				mt = mt + 1
+				error("key not found")
 			else
 
 				lt = lt +1

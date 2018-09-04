@@ -2,6 +2,7 @@ local exdir = '../src/examples/search/'
 package.path = package.path .. ";"..exdir.."?.lua"
 
 local spaces = require('spaces')
+spaces.storage('sw')
 local levenshtein = require('levenshtein')
 local SmallWorld = require('smallworld')
 
@@ -12,8 +13,9 @@ local gdn = "../../glove/glove.6B.50d.txt"
 local cnt = 1
 
 -----------------------------------------------------------------------------------------------
--- splits lines tokenized by sep into 1d vectors
+-- splits glove lines tokenized by sep into 50d vectors
 -----------------------------------------------------------------------------------------------
+spaces.setMaxMb(1000)
 function split(inputstr, sep)
     if sep == nil then
         sep = "%s"
@@ -25,7 +27,7 @@ function split(inputstr, sep)
     end
     return t
 end
-
+local swl = nil
 if s.leventy == nil then
     s.leventy = {} -- container for the levenshtein small world index
     local sl = s.leventy
@@ -34,20 +36,41 @@ if s.leventy == nil then
     -- use larger values with bigger datasets or where the dimensionality or entropy of
     -- the values measured is high like thought vectors, documents, dna samples etc
     -----------------------------------------------------------------------------------------------
-    local swl = SmallWorld(sl,7,5,levenshtein)
+    swl = SmallWorld(sl,5,3,levenshtein)
 
 
     for line in io.lines(gdn) do
         local parts = split(line, " ")
         local word = parts[1]
-        print(word)
+        --print(cnt..".",word)
         swl:add(word)
 
         cnt = cnt + 1
-        if cnt % 10000 == 0 then
+        if cnt > 160000 then
+            break
+        end
+
+        if cnt % 100 == 0 then
             print("lines",cnt)
         end
 
     end
 
+else
+    swl = SmallWorld(sl,7,5,levenshtein)
+end
+
+local searches = {"year","japan","made", "coast"}
+for i,query in ipairs(searches) do
+    print("search",query)
+    local result = swl:search(query)
+    local r = 0
+    for k,v in pairs(result) do
+        r = r + 1
+        print(r,k,v.value)
+        if r > 4 then
+            break
+        end
+
+    end
 end
