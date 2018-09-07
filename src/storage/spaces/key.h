@@ -509,6 +509,7 @@ namespace spaces {
 				}
 				reader = name.read(buffer, reader);
 			}
+			dbg("read key");
 			return reader;
 		}
 		nst::u32 stored() const {
@@ -521,6 +522,7 @@ namespace spaces {
 			
 		}
 		nst::buffer_type::iterator store(nst::buffer_type::iterator& w) const {
+			dbg("storing key");
 			nst::buffer_type::iterator writer = w;
 			if (use_encoding) {
 				writer = nst::leb128::write_unsigned(writer, this->context);
@@ -540,6 +542,9 @@ namespace spaces {
 		}
 		size_t hash() const {
 			return context*31 + name.hash();
+		}
+		void dbg(const char * prefix) const {
+			dbg_print("%s [ctx:%lld, name:'%s']",prefix,(nst::lld)get_context(),get_name().to_string().c_str());
 		}
 		
 	};
@@ -611,6 +616,7 @@ namespace spaces {
 
 		/// persistence functions
 		nst::buffer_type::const_iterator read(const nst::buffer_type& buffer, typename nst::buffer_type::const_iterator& r) {
+
 			nst::buffer_type::const_iterator reader = r;
 
 			if (reader != buffer.end()) {
@@ -626,6 +632,7 @@ namespace spaces {
 
 				reader = value.read(buffer, reader);
 			}
+			dbg("read record");
 			return reader;
 		}
 		nst::u32 stored() const {
@@ -638,7 +645,7 @@ namespace spaces {
 
 		}
 		nst::buffer_type::iterator store(nst::buffer_type::iterator& w) const {
-
+			dbg("storing record");
 			nst::buffer_type::iterator writer = w;
 			if (use_encoding) {
 				writer = nst::leb128::write_unsigned(writer, this->flags);
@@ -654,7 +661,11 @@ namespace spaces {
 				ptrdiff_t stred = stored();
 				err_print("wrote wrong byte count");
 			}
+
 			return writer;
+		}
+		void dbg(const char * prefix) const {
+			dbg_print("%s [id:%lld, val:'%s']",prefix,(nst::lld)get_identity(),get_value().to_string().c_str());
 		}
 
 	};

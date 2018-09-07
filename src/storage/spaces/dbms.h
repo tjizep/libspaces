@@ -201,7 +201,8 @@ namespace spaces{
 						spaces::dbms::ptr dbms = a->second;
 						//dbms->check_set_resources();
 					}
-					std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << std::endl;
+					dbg_print("released %.4g MB",(alloc_before - alloc_after)/(1024.0f*1024.0f));
+					//std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << std::endl;
 
 				}
 

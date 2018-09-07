@@ -247,11 +247,6 @@ namespace spaces{
 		}
 		void check_cc(){
 			nst::i64 added = iterators_created*4;
-			if(this->get_set().get_cc().failed(added)){
-				nst::lld fc = this->get_set().get_cc().failed_count(added);
-				err_print("surface reference count mismatch %lld on %s",fc,this->get_name().c_str());
-				this->get_set().get_cc().reset();
-			}
 		}
 		lua_iterator*  get_iterator(int at = 1) {
 			lua_iterator * i = err_checkudata<lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);

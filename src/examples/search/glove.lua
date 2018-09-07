@@ -3,6 +3,7 @@ package.path = package.path .. ";"..exdir.."?.lua"
 
 local spaces = require('spaces')
 spaces.storage('sw')
+--spaces.debug()
 local levenshtein = require('levenshtein')
 local SmallWorld = require('smallworld')
 
@@ -15,7 +16,7 @@ local cnt = 1
 -----------------------------------------------------------------------------------------------
 -- splits glove lines tokenized by sep into 50d vectors
 -----------------------------------------------------------------------------------------------
-spaces.setMaxMb(1000)
+spaces.setMaxMb(2000)
 function split(inputstr, sep)
     if sep == nil then
         sep = "%s"

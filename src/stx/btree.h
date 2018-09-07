@@ -345,9 +345,9 @@ namespace stx
     enum states_
     {
         initial = 1,
-        created,
         unloaded,
         loaded,
+        created,
         changed
     };
     typedef short states;
@@ -660,6 +660,7 @@ namespace stx
 
             /// load the persist proxy and set its state to changed
             void change_before() {
+                dbg_print("changing %lld",(nst::lld)this->w);
                 load();
                 switch ((*this).get_state()) {
                     case created:
@@ -746,7 +747,7 @@ namespace stx
 
                 }
                 if(is_loaded()){
-                    err_print("page still loaded");
+                    dbg_print("page still loaded");
                 }
             }
 
@@ -757,7 +758,7 @@ namespace stx
                     unload_only();
                 }
                 if(is_loaded()){
-                    err_print("page still loaded");
+                    //err_print("page still loaded");
                 }
             }
 
@@ -2279,9 +2280,12 @@ namespace stx
         /// called when a page is changed
 
         void change(const typename interior_node::shared_ptr& n, stream_address w) {
+            dbg_print("changing interior node %lld [%lld]",(nst::lld)w,(nst::lld)n->get_occupants());
             n->set_address(w);
-            if(!modified.count(w))
+            if(!modified.count(w)){
                 modified[w] = n;
+            }
+
         }
 
         /// same for surface nodes
@@ -2290,10 +2294,13 @@ namespace stx
             if (w == last_surface.get_where()) {
                 stats.last_surface_size = last_surface->get_occupants();
             }
-
+            dbg_print("changing surface node %lld [%lld]",(nst::lld)w,(nst::lld)n->get_occupants());
             n->set_address_change(w);
-            if(!modified.count(w))
+            if(!modified.count(w)){
+
                 modified[w] = n;
+            }
+
         }
 
         /// change an abstract node
@@ -2321,7 +2328,7 @@ namespace stx
                 err_print("trying to save resource to read only transaction");
                 throw bad_transaction();
             }
-            if (n->is_modified()) {
+            //if (n->is_modified()) {
                 //printf("[B-TREE SAVE] i-node  %lld  ->  %s ver. %lld\n", (long long)w, get_storage()->get_name().c_str(), (long long)get_storage()->get_version());
                 using namespace stx::storage;
                 buffer_type &buffer = get_storage()->allocate(w, stx::storage::create);
@@ -2339,7 +2346,7 @@ namespace stx
                 get_storage()->complete();
                 stats.changes++;
 
-            }
+            //}
 
         }
 
@@ -2367,7 +2374,7 @@ namespace stx
                 throw bad_transaction();
 
             }
-            if (n->is_modified()) {
+            //if (n->is_modified()) {
                 //printf("[B-TREE SAVE] s-node %lld  ->  %s ver. %lld\n", (long long)w, get_storage()->get_name().c_str(), (long long)get_storage()->get_version());
                 using namespace stx::storage;
 
@@ -2379,12 +2386,12 @@ namespace stx
                 buffer_type full;
                 n->save(key_interpolator(), *get_storage(), create_buffer);
                 compress_lz4_fast(full, create_buffer);
-                n->s = loaded;
+                n->s = loaded; /// no state change message on purpose
                 buffer_type &allocated = get_storage()->allocate(w, stx::storage::create);
                 allocated.swap(full);
                 get_storage()->complete();
                 stats.changes++;
-            }
+            //}
 
         }
 
@@ -4067,54 +4074,6 @@ namespace stx
         };
 
     public:
-        class count_checker{
-        private:
-        public:
-            nst::i64 initial_references;
-            nst::i64 initial_surfaces;
-            const btree* set;
-
-            count_checker(){
-
-                reset(nullptr);
-
-            }
-            count_checker(const btree* set){
-
-                reset(set);
-
-            }
-            void reset(){
-                this->reset(this->set);
-            }
-            void reset(const btree* set){
-                if(set) {
-                    this->set = set;
-                    this->initial_references = set->count_surface_uses() ;
-                    this->initial_surfaces = set->surfaces_loaded.size();
-                }else{
-                    this->set = nullptr;
-                    this->initial_references = 0;
-                    this->initial_surfaces = 0;
-                }
-            }
-            ~count_checker(){
-            }
-            nst::i64 failed_count(nst::i64 added) const {
-                nst::i64 current_surfaces = set->surfaces_loaded.size();
-                nst::i64 delta_surfaces = current_surfaces-this->initial_surfaces;
-                nst::i64 calculated_delta_references = ((delta_surfaces) *3) + ((delta_surfaces)*2) + added;
-                nst::i64 actual_delta_references = this->get_current_total_refs() - initial_references;
-                return actual_delta_references - calculated_delta_references ;
-            }
-            bool failed(nst::i64 added) const {
-                return failed_count(added) > 0;
-            }
-
-            nst::i64 get_current_total_refs() const {
-                return this->set->count_surface_uses();
-            }
-        };
         // *** Small Statistics Structure
 
         /** A small struct containing basic statistics about the B+ tree. It can be
@@ -4162,16 +4121,21 @@ namespace stx
 
             /// Zero initialized
             inline tree_stats()
-                    : tree_size(0)
-                    , leaves(0)
-                    , interiornodes(0)
-                    , use(0)
-                    , surface_use(0)
-                    , interior_use(0)
-                    , max_use(0)
-                    , iterators_away(0)
-                    , changes(0)
-                    , last_surface_size(0)
+            :   tree_size(0)
+            ,   leaves(0)
+            ,   interiornodes(0)
+            ,   use(0)
+            ,   surface_use(0)
+            ,   interior_use(0)
+            ,   max_use(0)
+            ,   iterators_away(0ll)
+            ,   changes(0)
+            ,   last_surface_size(0ll)
+            ,   start_root(0ll)
+            ,   start_tree_size(0ll)
+            ,   start_head(0ll)
+            ,   start_last(0ll)
+            ,   start_last_surface_size(0ll)
 
             {
             }
@@ -4232,11 +4196,8 @@ namespace stx
         /// storage
         storage_type *storage;
 
-        count_checker cc;
-
         void initialize_contexts() {
 
-            cc.reset(this);
             root.set_context(this);
             headsurface.set_context(this);
             last_surface.set_context(this);
@@ -4354,12 +4315,7 @@ namespace stx
             std::swap(key_less, from.key_less);
             std::swap(allocator, from.allocator);
         }
-        count_checker& get_cc() {
-            return cc;
-        }
-        const count_checker& get_cc() const{
-            return cc;
-        }
+
     public:
         // *** Key and Value Comparison Function Objects
 
@@ -6819,11 +6775,11 @@ namespace stx
     /// right so that both nodes are equally filled. The parent node is updated
     /// if possible.
     static void shift_right_surface
-            (typename surface_node::ptr left
-                    , typename surface_node::ptr right
-                    , typename interior_node::ptr parent
-                    , unsigned int parentslot
-            )
+    (   typename surface_node::ptr left
+    ,   typename surface_node::ptr right
+    ,   typename interior_node::ptr parent
+    ,   unsigned int parentslot
+    )
     {
         BTREE_ASSERT(left->issurfacenode() && right->issurfacenode());
         BTREE_ASSERT(parent->level == 1);

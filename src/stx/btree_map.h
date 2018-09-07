@@ -680,12 +680,7 @@ public:
 	void restore_iterator(iterator& out, const typename iterator::initializer_pair& init){
 		out.from_initializer(tree, init);
 	}
-    const typename btree_impl::count_checker& get_cc() const{
-        return tree.get_cc();
-    }
-    typename btree_impl::count_checker& get_cc() {
-        return tree.get_cc();
-    }
+
 };
 
 } // namespace stx
