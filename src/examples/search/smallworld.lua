@@ -144,25 +144,17 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         globalUnordered[entry.name] = candidate
 
         visitedUnordered[entry.name] = candidate
-        spaces.debug()
         candidates[distance] = candidate --- the random starting point
-        spaces.quiet()
         viewed[distance] = candidate
         while not candidates():empty() do
             local c = candidates()
             local current = c:firstValue()
             --- find the k lower bound of the current ordered viewed set
             lowerBound = kDistance(viewed, worldSize);
-            spaces.debug()
-            if current.distance > lowerBound then
-                print("exit condition")
-            end
             candidates[c:firstKey()] = nil
             if current.distance > lowerBound then
-                spaces.quiet()
                 break
             end
-            spaces.quiet()
             --- remember which have been visited for this instance of the k search
             visitedUnordered[current.name] = current
             --- look at the friends of the current candidate
