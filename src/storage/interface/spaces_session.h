@@ -386,13 +386,14 @@ namespace spaces{
                     data_key.set_context(v.get_identity());
                     left -= todo;
                     ++index;
+                    dbg_space("inserting data",data_key,data);
                     session.get_set()[data_key] = data;
                 }
 
                 value.clear();
 
             }
-
+            dbg_space("inserting",k,v);
             session.get_set()[k] = v;
 
         }

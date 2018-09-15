@@ -75,12 +75,7 @@ namespace spaces{
 				resource_x.lock();
 				stored::abstracted_tx_begin(is_reader, false, storage, set);
                 if(!storage.get_boot_value(id,ID_ADDRESS)){
-                	if(get_name() != "gloves"){
-						id = 50000;
-                	}else{
-						id = 1;
-                	}
-
+                	id = 1;
                 }
 				start_id = id;
 			}

@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------------------------
--- a persisted metricized small world index in lua and spaces
+-- a persisted metricized navigable small world index in lua and spaces
 -- lua/spaces/persisted version by Christiaan Pretorius chrisep2@gmail.com
 -- based on java code by Alexander Ponomarenko aponom84@gmail.com
 -- NB: requires caller/user to seed lua internal pseudo random generator for sufficient randomness
@@ -24,11 +24,12 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     --- closure variables initialization
     ---
     ------------------------------------------------------------------------------------------------
+
     local ival =1
     local seed = 0
     --groot.temp = {}
-    local temp = spaces.open("temp"..os.clock())
-    print("opening")
+    local tname = "_["..os.clock().."]_"
+    local temp = spaces.open(tname)
     local ts = temp:open()
     local function metricSeed()
         -- function used for emulating a priority queue - because spaces are unique ordered sets
@@ -65,10 +66,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- initialize temporary global view sets
     local function GlobalUnorderedViewSet()
         if ts.globalUnordered == nil then
-            --print("create globalUnordered")
             ts.globalUnordered = {}
-
-
         end
 
         return {} --instance(ts.globalUnordered)
@@ -77,7 +75,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- ordered global view set
     local function GlobalViewed()
         if not ts.globalViewed then
-            --print("create globalViewed")
             ts.globalViewed = {}
         end
 
@@ -88,7 +85,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- create ordered temporary canditates
     local function Candidates()
         if not ts.candidates then
-            --print("create candidates")
             ts.candidates = {}
         end
 
@@ -100,7 +96,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     local function Viewed()
 
         if not ts.viewed then
-            --print("create viewed")
             ts.viewed = {}
         end
         return instance(ts.viewed)
@@ -110,7 +105,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- create temporary viewed set
     local function VisitedUnordered()
         if not ts.visitedUnordered then
-            --print("create visitedUnordered")
             ts.visitedUnordered = {}
         end
 
@@ -148,27 +142,34 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         local distance = metric(query,entry.value)
         local candidate = { name=entry.name, value=entry.value, friends=entry.friends,distance=distance }
         globalUnordered[entry.name] = candidate
+
         visitedUnordered[entry.name] = candidate
+        spaces.debug()
         candidates[distance] = candidate --- the random starting point
+        spaces.quiet()
         viewed[distance] = candidate
         while not candidates():empty() do
-            local current = candidates():firstValue()
-            candidates[candidates():firstKey()] = nil
-
+            local c = candidates()
+            local current = c:firstValue()
             --- find the k lower bound of the current ordered viewed set
             lowerBound = kDistance(viewed, worldSize);
-
+            spaces.debug()
             if current.distance > lowerBound then
+                print("exit condition")
+            end
+            candidates[c:firstKey()] = nil
+            if current.distance > lowerBound then
+                spaces.quiet()
                 break
             end
-
+            spaces.quiet()
             --- remember which have been visited for this instance of the k search
             visitedUnordered[current.name] = current
             --- look at the friends of the current candidate
             --- attempt to find a closer friend of friends
 
 
-            for dist,node in pairs(current.friends) do
+            for _,node in pairs(current.friends) do
 
                 --- do not visit the node again
                 if globalUnordered[node.name] == nil then

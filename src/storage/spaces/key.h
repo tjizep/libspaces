@@ -48,7 +48,12 @@ namespace spaces {
 			return (tracked_buffer&)sequence;
 		}
 		void resize(ui4 l, const char * data) {
-			if (l >= sizeof(sequence)) {
+			if(is_long()){
+				tracked_buffer &s = str();
+				s.resize(l);
+				memcpy(&s[0], data, l);
+				return;
+			}else if (l >= sizeof(sequence)) {
 				tracked_buffer &s = make_long();
 				s.resize(l);
 				memcpy(&s[0], data, l);
@@ -96,7 +101,7 @@ namespace spaces {
 		}
 		void resize(ui4 l) {
 			if (l >= sizeof(sequence)) {
-				make_long().resize(l);
+				is_long() ? str().resize(l) : make_long().resize(l);
 				return;
 			}
 			this->l = l;
@@ -108,8 +113,8 @@ namespace spaces {
         void set_data(const std::vector<_tT>& data) {
             resize(data.size(),(const char*)data.data());
         }
-		ui4 size() const {
-			return l == SS ? (ui4)(str().size()) :
+		size_t size() const {
+			return l == SS ? str().size() :
 				l;
 		}
 		const char *data() const {
@@ -192,13 +197,11 @@ namespace spaces {
 		~data(){}
 
 		void clear() {
-			type = data_type::numeric;
+			type = data_type::none;
 			sequence.clear();
 		}
 		data() {
-			type = data_type::numeric;
-
-			
+			type = data_type::none;
 		}
 		template<typename T>
 		T& cast_sequence(){
@@ -296,7 +299,7 @@ namespace spaces {
 			return compare(r) != 0;
 		}
         bool operator == (const data&r) const {
-            return compare(r) != 0;
+            return compare(r) == 0;
         }
 		bool operator < (const data& r) const {
 			return compare(r) < 0;
@@ -313,6 +316,20 @@ namespace spaces {
 		}
 		bool is_text() const {
 			return type == data_type::text;
+		}
+		bool is_none() const {
+			return type == data_type::none;
+		}
+		bool is_numeric() const {
+			switch (type) {
+				case data_type::numeric:
+
+				case data_type::boolean:
+					return true;
+				default:
+					break;
+			}
+			return false;
 		}
 		std::string to_string() const {
 			switch (type) {

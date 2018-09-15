@@ -1440,11 +1440,6 @@ namespace stx
             void change(){
                 ++this->changes;
             }
-            bool is_modified() const {
-                check_node();
-                return s != loaded;
-            }
-
             /// True if this is a surface node
 
             inline bool issurfacenode() const
@@ -1477,9 +1472,9 @@ namespace stx
                 if (o == 0)
                     return o;
                 /// optimization specifically for 'spaces' because of hierarchical ordering
-                if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
-                    return last_found;
-                }
+               // if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
+                //    return last_found;
+                //}
 
                 int l = 0, h = o;
 
@@ -1493,6 +1488,7 @@ namespace stx
                         l = m + 1;
                     }
                 }
+                dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),l,(int)this->get_occupants());
                 //this->last_found = (storage::u16)l;
                 return l;
             }
@@ -1569,11 +1565,6 @@ namespace stx
         public:
             virtual ~interior_node(){
                 this->context->stats.interiornodes--;
-                //if(is_modified())
-                //    this->context->save(this, this->address);
-                //stats.leaves = surfaces_loaded.size();
-                //save(n, w);
-
             }
             const
             key_type        &get_key(int at) const {
@@ -1965,14 +1956,22 @@ namespace stx
                 if(this->context!=nullptr && hashed > 0){
                     this->context->erase_hash(get_key(slot));
                 }
+                if(this->get_occupants() > 0){
+                    dbg_print("erase %d of %d on page %lld",slot,(int)this->get_occupants(),(nst::lld)this->get_address());
+                    int e = this->get_occupants() - 1;
+                    int saved = permutations[slot];
+                    for (int i = slot; i < e; i++)
+                    {
+                        permutations[i] = permutations[i + 1];
 
-                for (int i = slot; i < this->get_occupants() - 1; i++)
-                {
-                    get_key(i) = get_key(i + 1);
-                    get_value(i) = get_value(i + 1);
+                    }
+
+                    permutations[e] = saved;
+
+                    this->change();
+                    this->dec_occupants();
                 }
-                this->change();
-                this->dec_occupants();
+
             }
 
             /// default constructor anyone
@@ -2328,25 +2327,23 @@ namespace stx
                 err_print("trying to save resource to read only transaction");
                 throw bad_transaction();
             }
-            //if (n->is_modified()) {
-                //printf("[B-TREE SAVE] i-node  %lld  ->  %s ver. %lld\n", (long long)w, get_storage()->get_name().c_str(), (long long)get_storage()->get_version());
-                using namespace stx::storage;
-                buffer_type &buffer = get_storage()->allocate(w, stx::storage::create);
+            dbg_print("[B-TREE SAVE] i-node  %lld  ->  %s ver. %s", (long long)w, get_storage()->get_name().c_str(), nst::tostring(get_storage()->get_version()));
+            using namespace stx::storage;
+            buffer_type &buffer = get_storage()->allocate(w, stx::storage::create);
 
-                n->save(*get_storage(), buffer);
+            n->save(*get_storage(), buffer);
 
-                if (lz4) {
-                    inplace_compress_lz4(buffer, temp_compress);
-                }
-                else {
-                    //inplace_compress_zlib(buffer);
-                }
-                n->s = loaded;
-                //n->set_modified(false);
-                get_storage()->complete();
-                stats.changes++;
+            if (lz4) {
+                inplace_compress_lz4(buffer, temp_compress);
+            }
+            else {
+                //inplace_compress_zlib(buffer);
+            }
+            //n->s = loaded;
+            get_storage()->complete();
+            stats.changes++;
 
-            //}
+
 
         }
 
@@ -2374,24 +2371,24 @@ namespace stx
                 throw bad_transaction();
 
             }
-            //if (n->is_modified()) {
-                //printf("[B-TREE SAVE] s-node %lld  ->  %s ver. %lld\n", (long long)w, get_storage()->get_name().c_str(), (long long)get_storage()->get_version());
-                using namespace stx::storage;
+
+            dbg_print("[B-TREE SAVE] s-node %lld  ->  %s ver. %s\n", (long long)w, get_storage()->get_name().c_str(), nst::tostring(get_storage()->get_version()));
+            using namespace stx::storage;
 
 
-                if (n->get_address() > 0 && n->get_address() == n->get_next().get_where()) {
-                    err_print("saving node with recursive address");
-                    throw bad_access();
-                }
-                buffer_type full;
-                n->save(key_interpolator(), *get_storage(), create_buffer);
-                compress_lz4_fast(full, create_buffer);
-                n->s = loaded; /// no state change message on purpose
-                buffer_type &allocated = get_storage()->allocate(w, stx::storage::create);
-                allocated.swap(full);
-                get_storage()->complete();
-                stats.changes++;
-            //}
+            if (n->get_address() > 0 && n->get_address() == n->get_next().get_where()) {
+                err_print("saving node with recursive address");
+                throw bad_access();
+            }
+            buffer_type full;
+            n->save(key_interpolator(), *get_storage(), create_buffer);
+            compress_lz4_fast(full, create_buffer);
+            n->s = loaded; /// no state change message on purpose
+            buffer_type &allocated = get_storage()->allocate(w, stx::storage::create);
+            allocated.swap(full);
+            get_storage()->complete();
+            stats.changes++;
+
 
         }
 
@@ -2500,12 +2497,6 @@ namespace stx
         typename node::ptr refresh(stream_address w, const typename node::shared_ptr& preallocated) {
 
             return load(w, preallocated);
-        }
-        /// remove an address from caches
-        void erase_address(stream_address w) {
-            //nodes_loaded.erase(w);
-            //surfaces_loaded.erase(w);
-            //interiors_loaded.erase(w);
         }
 
         /// check a bunch of preconditions on a surface node
@@ -4584,14 +4575,14 @@ namespace stx
         }
 
         void flush_buffers(bool reduce) {
-
+            if(reduce && stats.iterators_away > 0){
+                return;
+            }
             /// size_t nodes_before = nodes_loaded.size();
             ptrdiff_t save_tot = btree_totl_used;
             flush();
             if (reduce) {
-                if(stats.iterators_away > 0){
-                    return;
-                }
+
                 this->key_lookup.clear();
                 size_t nodes_before = nodes_loaded.size();
                 size_t surfaces_before = surfaces_loaded.size();
@@ -5158,10 +5149,7 @@ namespace stx
         typename node::ptr n = root;
         if (n == NULL_REF) return end();
         int slot = 0;
-        _HashKey kl = lookup(key);
-        if(kl.first!=nullptr){
-            return  const_iterator(kl.first,kl.second);
-        }
+
         while (!n->issurfacenode())
         {
             typename interior_node::ptr interior = n;
@@ -5505,7 +5493,6 @@ namespace stx
             newroot->set_occupants(1);
             newroot.change();
             root.change();
-            //newroot->set_modified();
             root = newroot;
 
         }
@@ -5861,15 +5848,16 @@ namespace stx
     {
         BTREE_PRINT("btree::erase_one(" << key << ") on btree size " << size() << std::endl);
 
-
         if (selfverify) verify();
 
         if (root == NULL_REF) return false;
 
         result_t result = erase_one_descend(key, root, NULL, NULL, NULL, NULL, NULL, 0);
 
-        if (!result.has(btree_not_found))
+        if (!result.has(btree_not_found)) {
             --stats.tree_size;
+            dbg_print("size after erase %lld",(nst::lld)stats.tree_size);
+        }
 
 #ifdef BTREE_DEBUG
         if (debug) print(std::cout);
@@ -5962,7 +5950,7 @@ namespace stx
 
                 return btree_not_found;
             }
-
+            dbg_print("found key to erase at %d on page %lld",slot,(nst::lld)surface.get_where());
             BTREE_PRINT("Found key in surface " << curr << " at slot " << slot << std::endl);
 
             surface->erase_d(slot);
@@ -6820,7 +6808,7 @@ namespace stx
         for (int i = right->get_occupants() - 1; i >= 0; i--)
         {
             right->get_key(i + shiftnum) = right->get_key(i);
-            right->get_key(i + shiftnum) = right->get_key(i);
+            right->get_value(i + shiftnum) = right->get_value(i);
         }
         right->set_occupants(right->get_occupants() + shiftnum);
 

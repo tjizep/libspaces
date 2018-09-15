@@ -458,8 +458,6 @@ namespace spaces{
 					r = is_space(keys,-1);
 					if(r != nullptr){
 						dbg_space("open space: using cached:",r->first,r->second);
-
-
 						if(r->get_session()->get_name() != session->get_name()){
 							luaL_error(L,"open space: invalid storage");
 						}
@@ -472,9 +470,9 @@ namespace spaces{
 
 				lua_newtable(L);
 
-				//lua_pushnumber(L,id);
-				//lua_pushvalue(L,-2);
-				//lua_settable(L,tg);
+				lua_pushnumber(L,id);
+				lua_pushvalue(L,-2);
+				lua_settable(L,tg);
 
 				r = new space(); // spaces::create_key_from_nothing(L);
 				// set its metatable

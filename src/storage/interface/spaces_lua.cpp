@@ -206,7 +206,6 @@ static int l_session_commit(lua_State *L) {
 static int l_session_rollback(lua_State *L) {
 	debug_break();
 	session_t::ptr s = spaces::get_session<session_t>(L);
-	s->check_cc();
 	s->rollback();
 	return 0;
 }
@@ -215,11 +214,12 @@ static int l_space_debug(lua_State* L) {
 	debug_break();
 	nst::storage_debugging = true;
 	nst::storage_info = true;
-
+	dbg_print("--------------------------------------SPACES DEBUG START------------------------------------------");
 	return 0;
 }
 static int l_space_quiet(lua_State* L) {
 	debug_break();
+	dbg_print("--------------------------------------SPACES DEBUG END--------------------------------------------");
 	nst::storage_debugging = false;
 	nst::storage_info = false;
 	return 0;
@@ -312,13 +312,14 @@ static int spaces_newindex(lua_State *L) {
 	s->to_space_data( k.first.get_name(), 2);
 
 	if(lua_isnil(L,3)){
+		spaces::dbg_space("erasing",k.first,k.second);
 		s->erase(k.first);
 	}else{
 		s->to_space(spaces::get_keys(L),k, 3);
 		s->insert_or_replace(k);
 
 	}
-	s->check_cc();
+
 	return 0;
 }
 /**
@@ -403,15 +404,14 @@ static int spaces_index(lua_State *L) {
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
 
-		//session_t::_Set::iterator i = s->get_set().find(k.first); /// a non hash optimized lookup
-		auto value = s->get_set().direct(k.first);/// a hash optimized lookup
+		session_t::_Set::iterator i = s->get_set().find(k.first); /// a non hash optimized lookup
+		//auto value = s->get_set().direct(k.first);/// a hash optimized lookup
 
-		if (value != nullptr) { //
-
-			//spaces::dbg_space("found space:",k.first,*value);
+		if(i != s->get_set().end()){//if (value != nullptr) { //
+			//spaces::dbg_space("found space:",k.first,i.value());
 			//return push_space(L,s,k.first,*value);
-            spaces::dbg_space("found space:",k.first,*value);
-            int r =  push_space(L,s,k.first,*value);
+            spaces::dbg_space("found space:",k.first,i.value());
+            int r =  push_space(L,s,k.first,i.value());
 			//s->get_set().check_surface_uses("spaces_index b");
 			return r;
 
