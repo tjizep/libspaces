@@ -183,27 +183,33 @@ namespace spaces{
         void manage_memory(){
 			//::stx::memory_low_state = true;
             if(buffer_allocation_pool.is_near_depleted()){
-				//stored::reduce_all();
+				stored::reduce_all();
 			}
-			/// allocation_pool.is_near_factor(0.75)
+            nst::f64 mps = allocation_pool.get_max_pool_size()/(1024.0f*1024.0f);
+            nst::f64 bmps = buffer_allocation_pool.get_max_pool_size()/(1024.0f*1024.0f);
+            /// allocation_pool.is_near_factor(0.75)
             if(allocation_pool.is_near_depleted()) {
 				::stx::memory_low_state = true;
 				nst::f64 alloc_before = allocation_pool.get_total_allocated();
 				while(allocation_pool.is_near_factor(0.65)){
 					std::this_thread::sleep_for (std::chrono::milliseconds(100));
-					nst::f64 alloc_after = allocation_pool.get_total_allocated();
+
 					for (auto a = active.begin(); a != active.end(); ++a) {
 						spaces::dbms::ptr dbms = a->second;
-						//dbms->check_set_resources();
+						dbms->check_set_resources();
 					}
-					dbg_print("released %.4g MB",(alloc_before - alloc_after)/(1024.0f*1024.0f));
-					//std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << std::endl;
+
 
 				}
+				nst::f64 alloc_after = allocation_pool.get_total_allocated();
 
+				std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << "max pool size "  << mps << " MB" << std::endl;
+				dbg_print("released %.4g MB",(alloc_before - alloc_after)/(1024.0f*1024.0f));
+
+				::stx::memory_low_state = false;
 
             }
-			::stx::memory_low_state = false;
+
 
         }
 	public:

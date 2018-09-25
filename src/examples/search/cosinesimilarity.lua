@@ -4,17 +4,18 @@
 local function cosim(a,b)
 
     local top = 0.0
-    local bA = 0.0
-    local bB = 0.0
+    local A = 0.0
+    local B = 0.0
+    local bi
     for i,ai in ipairs(a) do
-        local bi = b[i] or 0
+        bi = b[i]
         top = top + ai*bi
-        bA = bA + ai*ai
-        bB = bB + bi*bi
+        A = A + ai*ai
+        B = B + bi*bi
     end
-    bA = math.sqrt(bA)
-    bB = math.sqrt(bB)
-    return top/(bA*bB)
+    A = math.sqrt(A)
+    B = math.sqrt(B)
+    return top/(A*B)
 end
 
 return cosim

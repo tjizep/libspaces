@@ -1152,7 +1152,7 @@ namespace stx
             {
 
                 loaded_ptr r = static_cast<loaded_ptr>(this->ptr);
-                r->check_deleted();
+                //r->check_deleted();
                 return r;
             }
 
@@ -1161,7 +1161,7 @@ namespace stx
             inline const loaded_ptr rget() const
             {
                 const loaded_ptr r = static_cast<const loaded_ptr>(this->ptr);
-                r->check_deleted();
+                //r->check_deleted();
                 return r;
             }
             /// cast to its current type shared form
@@ -1193,7 +1193,7 @@ namespace stx
                     load();
                 }
                 next_check();
-                rget()->check_deleted();
+                //rget()->check_deleted();
 
                 return static_cast<loaded_ptr>(this->ptr);
             }
@@ -1345,10 +1345,10 @@ namespace stx
             }
 
             void check_deleted()const {
-                if (is_deleted != 0) {
-                    err_print("node is deleted");
-                    throw bad_access();
-                }
+               // if (is_deleted != 0) {
+               //     err_print("node is deleted");
+               //     throw bad_access();
+               //}
             }
 
             void inc_occupants() {
@@ -1472,9 +1472,9 @@ namespace stx
                 if (o == 0)
                     return o;
                 /// optimization specifically for 'spaces' because of hierarchical ordering
-               // if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
-                //    return last_found;
-                //}
+               //if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
+               //    return last_found;
+               //}
 
                 int l = 0, h = o;
 
@@ -1489,7 +1489,7 @@ namespace stx
                     }
                 }
                 dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),l,(int)this->get_occupants());
-                //this->last_found = (storage::u16)l;
+               // this->last_found = (storage::u16)l;
                 return l;
             }
 
@@ -1623,7 +1623,7 @@ namespace stx
             {
                 using namespace stx::storage;
                 buffer_type::const_iterator reader = buffer.begin();
-                node::check_deleted();
+                //node::check_deleted();
                 (*this).address = address;
                 nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
                 if( occupants <= 0 || occupants  > interiorslotmax){
@@ -1640,7 +1640,7 @@ namespace stx
                 for (u16 k = 0; k <= interiorslotmax; ++k) {
                     childid[k] = NULL_REF;
                 }
-                node::check_deleted();
+                //node::check_deleted();
                 for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                     storage.retrieve(buffer, reader, _keys[k]);
                 }
@@ -1915,6 +1915,7 @@ namespace stx
             inline data_type &get_value(int at) {
                 init_key_allocation(at);
                 this->change();
+
                 return  _values[permutations[at]]  ;
             }
 
@@ -1937,6 +1938,8 @@ namespace stx
                 permutations[at] = t;
                 get_key(at) = key;
                 get_value(at) = value;
+                //this->context->add_hash(this,at);
+                ++hashed;
                 (*this).inc_occupants();
             }
 
@@ -2106,8 +2109,8 @@ namespace stx
                 for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                     storage.retrieve(buffer, reader, get_value(k));
                     //if(add_hash){
-                    //    ++((*this).hashed);/// only add hash cache when readonly
-                    //    loading_context->add_hash(self, k);
+                    //++((*this).hashed);/// only add hash cache when readonly
+                    //loading_context->add_hash(self, k);
                     //}
                 }
 
@@ -3217,7 +3220,7 @@ namespace stx
 
                 total += to.current_slot;
                 total -=  this->current_slot;
-
+                dbg_print("total returned %lld (2cs %lld this cs %lld",(nst::lld)total,(nst::lld)to.current_slot,(nst::lld)this->current_slot);
                 return total;
             }
 
@@ -4900,13 +4903,13 @@ namespace stx
             /// places in surface_node and interior_node.
             template <typename node_type>
             inline int find_lower(const node_type* n, const key_type& key) const
-            {
+            {   dbg_print("find lower tree size: %lld, storage name: %s",(nst::lld)stats.tree_size,get_storage()->get_name().c_str());
                 return n->find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
             }
 
             template <typename node_ptr_type>
             inline int find_lower(const node_ptr_type& n, const key_type& key) const
-            {
+            {   dbg_print("find lower tree size: %lld, storage name: %s",(nst::lld)stats.tree_size,get_storage()->get_name().c_str());
                 return n->find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
 
 #ifdef _BT_CHECK

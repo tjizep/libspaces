@@ -15,6 +15,7 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 #define SPACES_ITERATOR_NAME "_spaces_iterators"
 #define SPACES_SESSION_LUA_TYPE_NAME "spacesS" //the spaces session 
 #define SPACES_SESSION_NAME "_spaces_sessions"
+#define SPACES_TABLE "__spas"
 #define SPACES_WEAK_NAME "__spaces_weak__"
 #define SPACES_WRAP_KEY "__$"
 
@@ -37,8 +38,9 @@ namespace spaces{
 #else
         luaL_register (L, NULL, m);
 		luaL_register(L, library_name, f);
+		lua_pop(L,1l); /// remove remnant
 #endif
-		return 1; ///returns the library
+		return 0; ///returns the library
 	}
 
 	class top_check{
@@ -56,7 +58,71 @@ namespace spaces{
             }
         }
 	};
-	
+	/**
+	 * create or retrieve the weak globals table for the _storage and return the top
+	 * of the stack for the caller
+	 * @post: lua stack is one larger than it was before
+	 * @param _storage
+	 * @return the top is returned
+	 */
+	static int create_weak_globals_(lua_State *L,const char* name){
+		top_check tc(L,1);
+		lua_getglobal(L,name);
+		if(lua_isnil(L,-1)){
+			int ts = lua_gettop(L);
+			lua_pop(L,1);
+			lua_newtable(L); // new_table={}
+			lua_newtable(L); // metatable={}
+			lua_pushliteral(L, "__mode");
+			lua_pushliteral(L, "k");
+			lua_rawset(L, -3); // metatable.__mode='kv'
+			lua_setmetatable(L, -2); // setmetatable(new_table,metatable)
+			lua_setglobal(L,name);
+			lua_getglobal(L,name);
+
+		}
+		return lua_gettop(L);
+	}
+	template<typename _Space>
+	static int register_space_(lua_State *L,_Space* s,int _at = 1){
+		top_check tc(L,0);
+		int at = _at;
+		if(_at < 0){
+			at = lua_gettop(L) + (1 + at);//translate to absolute position
+		}
+		i4 tg = create_weak_globals_(L,SPACES_TABLE);
+		nst::lld pt = reinterpret_cast<nst::lld>(s);
+		lua_pushvalue(L, at);
+		lua_pushinteger(L, pt);
+		lua_settable(L, -3);
+		lua_pop(L,1);
+		return 0;
+
+	}
+	template<typename _Space>
+	_Space * is_space_(lua_State *L,int _at = 1) {
+		top_check tc(L,0);
+		int at = _at;
+		if(_at < 0){
+			at = lua_gettop(L) + (1 + at);//translate to absolute position
+		}
+		if (lua_istable(L, at)) {
+
+			i4 tg = create_weak_globals_(L,SPACES_TABLE);
+			lua_pushvalue(L, at); // the table at at is the key
+			lua_gettable(L, -2);
+			if(lua_isnil(L,-1)){
+				lua_pop(L,2);
+				return nullptr;
+			}
+			_Space * s = reinterpret_cast<_Space*>(lua_tointeger(L,-1));
+
+			lua_pop(L,2);
+			return s;
+		}
+
+		return nullptr;
+	}
 	static size_t lua_tostdstring(lua_State *L,std::string& ss, int at){
 		size_t l = 0;
 		const char * s  = lua_tolstring(L,at,&l);	
@@ -164,7 +230,6 @@ namespace spaces{
 
 		typedef typename session_type::space space;
 		typedef std::vector<i1> _DumpVector;
-		typedef rabbit::unordered_map<ptrdiff_t, space*> _LuaKeyMap;
 		typedef std::shared_ptr<lua_session> ptr;
 
 	private:
@@ -219,11 +284,16 @@ namespace spaces{
 			ptr session;
 
 		};
-		lua_session(const std::string& name, bool reader) : L(nullptr),spaces_session<_SessionType>(name,reader),iterators_created(0) {
+		lua_session(const std::string& name, bool reader)
+		: 	L(nullptr)
+		,	spaces_session<_SessionType>(name,reader)
+		,	iterators_created(0)
+
+		{
 			dbg_print("create session:%s",name.c_str());
 		}
 		~lua_session() {
-			dbg_print("closing session '%s'",get_name().c_str());
+			dbg_print("closing session '%s'",this->get_name().c_str());
 
 		}
 
@@ -310,34 +380,28 @@ namespace spaces{
 			return rv;
 		}
 
-		space * is_space(_LuaKeyMap& keys, int at = 1) const {
-			if (lua_istable(L, at)) {
-				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
-				auto f = keys.find(pt);
-				if(f!=keys.end()){
-					if(f->second->second.is_flag(spaces::record::FLAG_NEVER_SET)){
-						err_print("invalid object or memory corruption detected");
-						luaL_error(L,"not a valid space (invalid flag)");
-					}
-					return f->second;
-				}
-			}
-
-			return nullptr;
+		int register_space(space* s,int _at = 1){
+			return register_space_<space>(L,s,_at);
 		}
-		space * get_space(_LuaKeyMap& keys, int at = 1) {
-			space * space = is_space(keys,at);
+
+		int create_weak_globals(const std::string& _name) const{
+			return create_weak_globals_(L,_name.c_str());
+		}
+		space * is_space(int _at = 1) const {
+			return is_space_<space>(L,_at);
+		}
+		space * get_space(int at = 1) {
+			space * space = is_space(at);
 			if(space==nullptr){
 				luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
 			}
 			return space;
 		}
 		void to_space
-				(	_LuaKeyMap& keys
-					,	spaces::key& d
-					,   spaces::record& r
-					, 	int _at = 2
-				) {
+		(	spaces::key& d
+		,   spaces::record& r
+		, 	int _at = 2
+		) {
 			int at = _at;
 			if (at < 0)
 				at = lua_gettop(L) + (1 + at);//translate to absolute position
@@ -345,7 +409,7 @@ namespace spaces{
 			switch (lt) {
 				case LUA_TTABLE: {
 
-					auto space = is_space(keys,at);
+					auto space = is_space(at);
 					if(space!=nullptr){
 						check_cc();
 						if (this->link(r,space)){
@@ -365,7 +429,7 @@ namespace spaces{
 						typename _Self::space s;
 						s.first.set_context(r.get_identity()); //
 						to_space_data(s.first.get_name(), -2);	// just set the key part
-						to_space(keys,s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
+						to_space(s.first, s.second, -1); // d becomes a parent and will receive an id if -1 is another table
 						/// add new key to table
 						check_cc();
 						this->insert_or_replace(s);
@@ -408,32 +472,7 @@ namespace spaces{
 					break;
 			};
 		}
-		/**
-		 * create or retrieve the weak globals table for the _storage and return the top
-		 * of the stack for the caller
-		 * @post: lua stack is one larger than it was before
-		 * @param _storage
-		 * @return the top is returned
-		 */
-		int create_weak_globals(const std::string& _storage){
-			top_check tc(L,1);
-			const char * storage = _storage.c_str();
-			lua_getglobal(L,storage);
-			if(lua_isnil(L,-1)){
-				int ts = lua_gettop(L);
-				lua_pop(L,1);
-				lua_newtable(L); // new_table={}
-				lua_newtable(L); // metatable={}
-				lua_pushliteral(L, "__mode");
-				lua_pushliteral(L, "kv");
-				lua_rawset(L, -3); // metatable.__mode='kv'
-				lua_setmetatable(L, -2); // setmetatable(new_table,metatable)
-				lua_setglobal(L,storage);
-				lua_getglobal(L,storage);
 
-			}
-			return lua_gettop(L);
-		}
 		/**
 		 * @post lua stack increased by one
 		 * @param keys the current keys table for the lua state
@@ -442,20 +481,20 @@ namespace spaces{
 		 * @return a valid space pointer added to global weak table for current session storage
 		 * the return value will contain the session passed
 		 */
-		space* open_space(_LuaKeyMap& keys,ptr session, ui8 id) {
+		space* open_space(ptr session, ui8 id) {
 			top_check tc(L,1);
-			if (!is_space(keys, -1)) {
+			space* r = this->is_space(-1);
+			if (r==nullptr) {
 				dbg_print("open space: %lld on storage %s",(nst::lld)id,session->get_name().c_str());
 
-				i4 tg = create_weak_globals(session->get_name());
 
-				lua_pushnumber(L,id);
-				lua_gettable(L,tg);
 
-				space* r = nullptr;
-				if(!lua_isnil(L,-1)){
-					lua_remove(L,tg);
-					r = is_space(keys,-1);
+				//lua_pushnumber(L,id);
+				//lua_gettable(L,tg);
+
+				if(false){
+					//lua_remove(L,tg);
+					r = is_space(-1);
 					if(r != nullptr){
 						dbg_space("open space: using cached:",r->first,r->second);
 						if(r->get_session()->get_name() != session->get_name()){
@@ -466,13 +505,13 @@ namespace spaces{
 						luaL_error(L,"not a space");
 					}
 				}
-				lua_pop(L,1);
+				//lua_pop(L,1);
 
 				lua_newtable(L);
 
-				lua_pushnumber(L,id);
-				lua_pushvalue(L,-2);
-				lua_settable(L,tg);
+				//lua_pushnumber(L,id);
+				//lua_pushvalue(L,-2);
+				//lua_settable(L,tg);
 
 				r = new space(); // spaces::create_key_from_nothing(L);
 				// set its metatable
@@ -481,11 +520,12 @@ namespace spaces{
 					luaL_error(L, "no meta table of type %s", SPACES_LUA_TYPE_NAME);
 				}
 				lua_setmetatable(L, -2);
-				ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
-				keys[pt] = r;
+				nst::lld pt = reinterpret_cast<nst::lld>(lua_topointer(L, -1));
+				dbg_print("register space as %lld",pt);
 				r->set_session(session);
-				lua_remove(L,tg);
-				if(is_space(keys,-1)==nullptr){
+				register_space(r,-1);
+				//lua_remove(L,tg);
+				if(is_space(-1)==nullptr){
 					luaL_error(L,"not a space");
 				}
 				dbg_space("open space: new:",r->first,r->second);
@@ -493,7 +533,6 @@ namespace spaces{
 				return r;
 			}
 			else {
-				space* r = this->get_space(keys,-1);
 				r->set_session(session);
 				return r;
 			}
@@ -607,16 +646,15 @@ namespace spaces{
 
 
 		void to_space
-		(	_LuaKeyMap& keys
-		,	space& d
+		(	space& d
 		, 	int _at = 2
 		) {
-			to_space(keys, d.first,d.second,_at);
+			to_space(d.first,d.second,_at);
 		}
-		int push_pair(_LuaKeyMap& keys,ptr session, const spaces::key& k,const spaces::record& v) {
+		int push_pair(ptr session, const spaces::key& k,const spaces::record& v) {
 			int r = push_data(k.get_name());
 			if (v.get_identity() != 0) {
-				space * s = this->open_space(keys,session,v.get_identity());
+				space * s = this->open_space(session,v.get_identity());
 				s->first = k;
 				s->second = v;
 				dbg_space("push_pair:",s->first,s->second);

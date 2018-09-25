@@ -5,8 +5,13 @@
 -- NB: requires caller/user to seed lua internal pseudo random generator for sufficient randomness
 ----------------------------------------------------------------------------------------------------
 --local inspect = require "inspect_meta"
-
-local spaces = require "spaces"
+__inst_seed = 0
+local function get_seed()
+    __inst_seed = __inst_seed + 1
+    return __inst_seed
+end
+--local spaces =
+--require "spaces"
 ----------------------------------------------------------------------------------------------------
 -- creates a new sw object for use
 -- worldSize is the maximum friends a that will be added to each node at a time
@@ -28,13 +33,13 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     local ival =1
     local seed = 0
     --groot.temp = {}
-    local tname = "_["..os.clock().."]_"
+    local tname = "_["..os.clock()..get_seed().."]_"
     local temp = spaces.open(tname)
     local ts = temp:open()
     local function metricSeed()
         -- function used for emulating a priority queue - because spaces are unique ordered sets
         seed = seed + 1
-        return seed /1e8
+        return seed /1e12
     end
     local function metric(a,b)
         return metricFunction(a,b) + metricSeed()
@@ -84,11 +89,13 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
     -- create ordered temporary canditates
     local function Candidates()
+
         if not ts.candidates then
             ts.candidates = {}
         end
+        local r = ts.candidates
 
-        return instance(ts.candidates)
+        return r
     end
 
     ------------------------------------------------------------------------------------------------
@@ -125,8 +132,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         if set == nil then
             return 0
         end
-
-        return set():key(math.min(k,#set))
+        return set():key(math.min(k,set():count()))
     end
 
     ------------------------------------------------------------------------------------------------
@@ -136,7 +142,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- the similarity with dijkstras algorithm is neither coincidental nor accidental
     local function searchNodes(query, entry, globalUnordered)
 
-        local doDebug = false
         local lowerBound = 0
         local candidates,viewed, visitedUnordered = Candidates(),Viewed(),VisitedUnordered()
         local distance = metric(query,entry.value)
@@ -146,79 +151,126 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         visitedUnordered[entry.name] = candidate
         candidates[distance] = candidate --- the random starting point
         viewed[distance] = candidate
+        local v = viewed()
+        local dt = os.clock()
+        local dtt = 0
+        local ft = 0
+        local ftt = 0
+        local tf = 0
+        local lq = #query
+        local iters = 0
+
         while not candidates():empty() do
-            local c = candidates()
-            local current = c:firstValue()
+            local current = candidates():firstValue()
             --- find the k lower bound of the current ordered viewed set
             lowerBound = kDistance(viewed, worldSize);
-            candidates[c:firstKey()] = nil
+
+            candidates[candidates():firstKey()] = nil
+
             if current.distance > lowerBound then
                 break
             end
+
+
             --- remember which have been visited for this instance of the k search
             visitedUnordered[current.name] = current
             --- look at the friends of the current candidate
             --- attempt to find a closer friend of friends
 
-
-            for _,node in pairs(current.friends) do
-
+            ft = os.clock()
+            local fx = 1
+            local tf = worldSize*1.5
+            local skips = 0
+            local tfdist,tdist = 0,0
+            for fdist,node in pairs(current.friends) do
+                local name = node.name
                 --- do not visit the node again
-                if globalUnordered[node.name] == nil then
-                    local dist = metric(query,node.value)
-                    local candidate = { name=node.name, value=node.value, friends=node.friends,distance = dist }
+                if globalUnordered[name] == nil then
+
+                    local value = node.value
+                    dt = os.clock()
+                    local dist = metric(query,value)
+                    tfdist = tfdist + fdist
+                    tdist = tdist + dist
+                    --print(fx, dist-fdist)
+                    dtt = dtt + (os.clock()-dt)
+                    local candidate = { name=name, value=value, friends=node.friends,distance = dist }
                     --- remember the closest nodes for all k instances of k search
-                    globalUnordered[node.name] = dist
+                    globalUnordered[name] = dist
                     --- add candidates in order of closeness
                     candidates[dist] = candidate
                     --- add viewed set in order of closeness
                     viewed[dist] = candidate
-                    if doDebug then
-                        local tn = viewed[dist].name
-                        local tv = viewed[dist].value
-                        print(query,"->viewed (n="..#viewed..")",type(tn),tn,tv)
-                    end
+                    fx = fx + 1
+                    iters = iters + 1
+                else
+                    skips = skips + 1
+                end
+                if fx > tf then
+                   -- if math.abs(tfdist-tdist) > tdist*0.2 then
+                    --else
+                        break
+                   -- end
                 end
             end
+            ftt = ftt + (os.clock()-ft)
+
 
         end
-        if doDebug then
-            print("viewed count "..#viewed)
-            for k,v in pairs(viewed) do
-                print(k,type(v.name))
-            end
+        if tf > 0 then
+            --print("dist calcs/ps",tf,1/dtt,1/(ftt-dtt))
         end
+
         for k,v in pairs(visitedUnordered) do
             globalUnordered[k] = v
         end
 
-        return viewed -- visitedUnordered
+        return viewed
     end
 
     ------------------------------------------------------------------------------------------------
     -- finds nodes closest to query parameter according to distance function
-    local function search (self, query)
+    local function search (query)
+        local gcs = os.clock()
         collectgarbage("collect") -- or we will get an invalid reference count error
         temp:rollback()
         temp:write()
+        --print("rb+gc",os.clock()-gcs)
         local nodes = Nodes()
+        local stats = Stats()
+        --print("total nodes",#nodes)
         local globalUnordered,global = GlobalUnorderedViewSet(),GlobalViewed()
-        local added = {}
+        local gs = 0
+        local totalViewed = 0
+        local ts = os.clock()
         for i=1,sampleSize do
 
-            local viewed = searchNodes(query,getRandomNode(nodes),globalUnordered)
+            local rn = getRandomNode(nodes)
+            ts = os.clock()
+            local viewed = searchNodes(query,rn,globalUnordered)
+            gs = gs + (os.clock()-ts)
+            --print("result ",i,"size",#viewed,os.clock()-ts)
+
             for k,v in pairs(viewed) do
                 global[k] = v
-                added[v.name] = 1
+                totalViewed = totalViewed + 1
             end
+            --print("searching K",i,"copied",viewed():count())
+
         end
+
+        if stats.count % 300 == 0 then
+            --
+        end --
+        --print(totalViewed,"result ratio",(totalViewed/sampleSize)/stats.count,1/gs,"qps")
+        --print("total",os.clock()-gcs)
         return global
     end
 
     ------------------------------------------------------------------------------------------------
     -- add a node
     -- name should be unique
-    local function add(self, value)
+    local function add(value)
 
         local nodes = Nodes()
         local stats = Stats()
@@ -235,20 +287,20 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         end
         --print("adding",value,"as","#"..name)
 
-        local viewed = search(self,value)
+        local viewed = search(value)
         nodes[name] = query
         stats.count = stats.count + 1
         local toadd = nodes[name] -- use the persisted version
         local i = 0
-        for _,value in pairs(viewed) do
+        for dist,value in pairs(viewed) do
             if i >= worldSize then
                 break
             end
             i = i + 1
             -- two way friends
             local pvalue = nodes[value.name] -- reaquire from storage
-            toadd.friends[pvalue.name] = pvalue
-            pvalue.friends[name] = toadd
+            toadd.friends[dist] = pvalue
+            pvalue.friends[dist] = toadd
         end
     end
 
@@ -264,6 +316,96 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
 
     return smallWorld
 end
+local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
+    if groot.worlds == nil then
+        groot.worlds = {}
+        groot.stats = {size=0,count=0}
+    end
+    local tname = "_[]["..os.clock()..get_seed().."]_"
+    local temp = spaces.open(tname)
+    local ts = temp:open()
 
+    local stats = groot.stats
+    local worlds = groot.worlds
+    local instances = {}
+    local seed = 0
+    ------------------------------------------------------------------------------------------------
+    -- returns a persisted world based on the item
+    ------------------------------------------------------------------------------------------------
+    local function metricSeed()
+        -- function used for emulating a priority queue - because spaces are unique ordered sets
+        seed = seed + 1
+        return seed /1e8
+    end
+    ------------------------------------------------------------------------------------------------
+    -- instantiates results for new search
+    ------------------------------------------------------------------------------------------------
+    local function Results()
+        ts.results = {}
+        return ts.results
+    end
+    ------------------------------------------------------------------------------------------------
+    -- returns a persisted world based on the item
+    ------------------------------------------------------------------------------------------------
+    local function World(which)
 
-return Create
+        if worlds[which] == nil then
+            worlds[which] = {}
+        end
+        return worlds[which]
+    end
+    ------------------------------------------------------------------------------------------------
+    -- returns a world index (referred to as which) based on x
+    ------------------------------------------------------------------------------------------------
+    local function Select(x)
+        return math.floor(x / 1000) + 1
+    end
+    ------------------------------------------------------------------------------------------------
+    -- returns a world instance based on which256 --
+    ------------------------------------------------------------------------------------------------
+
+    local function Instance(which)
+        if instances[which] == nil then
+            instances[which] = Create(World(which),worldSize,sampleSize,metricFunction)
+        end
+        return instances[which]
+
+    end
+    ------------------------------------------------------------------------------------------------
+    -- find values based on suplied metric
+    ------------------------------------------------------------------------------------------------
+    local function search(self,query)
+        collectgarbage("collect") -- or we will get an invalid reference count error
+        temp:rollback()
+        temp:write()
+        local results = Results()
+        for which,world in pairs(worlds) do
+
+            local found = Instance(which).search(query)
+            for k,v in pairs(found) do
+                results[k+metricSeed()] = v
+            end
+
+        end
+        return results
+
+    end
+    ------------------------------------------------------------------------------------------------
+    -- add a value using supplied metric
+    ------------------------------------------------------------------------------------------------
+    local function add(self,value)
+        Instance(Select(stats.count)).add(value)
+        stats.count = stats.count + 1
+
+    end
+    ------------------------------------------------------------------------------------------------
+    -- the exposed library object
+    ------------------------------------------------------------------------------------------------
+    local snsw = {
+        search = search,
+        add = add
+    }
+    return snsw
+end
+
+return CreateSegmented

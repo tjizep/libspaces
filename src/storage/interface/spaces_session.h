@@ -607,7 +607,6 @@ namespace spaces{
         typedef rabbit::unordered_map<ptrdiff_t, typename variables_type::ptr> _StateCache;
     private:
         _StateCache states;
-        typename _SessionT::_LuaKeyMap keys;
 
     public:
         // disable any copying
@@ -621,7 +620,7 @@ namespace spaces{
                 states.erase((ptrdiff_t)L);
 
             }
-            if(states.empty() && keys.empty()){
+            if(states.empty() ){
                 stored::stop();
             }
         }
@@ -641,60 +640,21 @@ namespace spaces{
             auto state = get_state(L);
             auto& s = state->sessions;
             s.remove(storage);
-            remove_state(L);
+            //remove_state(L);
 
         }
         typename variables_type::sessions_type& get_sessions(_TState *L){
             return get_state(L)->sessions;
         }
-        typename _SessionT::_LuaKeyMap& get_keys(_TState *L){
-            //auto& keys = get_state(L)->keys;
-            return keys;
-        }
-        _TSpace * is_space(_TState *L, int at = 1) {
-            if (lua_istable(L, at)) {
-                ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, at));
-                auto f = keys.find(pt);
-                if(f!=keys.end()){
-                    spaces::record data = f->second->second;
-                    if(data.is_flag(spaces::record::FLAG_NEVER_SET)){
-                        err_print("invalid object or memory corruption detected");
-                        return nullptr;
-                    }
-                    return f->second;
-                }
-            }
-            return nullptr;
-        }
-        _TSpace * get_space(_TState *L, int at = 1) {
-            _TSpace * space = is_space(L,at);
 
-            return space;
-        }
-        void close_space(_TState *L, ptrdiff_t pt) {
+
+        void close_space(_TState *L) {
             dbg_print("Closing spaces key... ");
             //auto& keys = state->keys;
-            auto f = keys.find(pt);
-            if (f!=keys.end()) {
-                _TSpace* space = f->second;
-                keys.erase(f);
-                if(space->second.is_flag(spaces::record::FLAG_NEVER_SET)){
-                    err_print("invalid object or memory corruption detected");
-                }else {
-                    delete space;
-                    dbg_print("ok ");
-                }
-            }else{
-                dbg_print("closing space not found");
-            }
 
             remove_state(L);
         }
-        void add_space(_TState *L, ptrdiff_t pt, _TSpace* r){
-            //auto& keys = get_state(L)->keys;
 
-            keys[pt] = r; //get_state(L)->
-        }
     };
 };
 

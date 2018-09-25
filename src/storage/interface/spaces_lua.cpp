@@ -3,9 +3,12 @@
 #ifdef __cplusplus
 extern "C" {
 #include <lua.h>
+
 }
 #endif
-
+#if LUA_VERSION_NUM == 501
+#include "lua_xt.h"
+#endif
 #include <storage/spaces/data_type.h>
 
 #include <storage/interface/space_lua.h>
@@ -19,7 +22,7 @@ extern void stop_storage();
 DEFINE_SESSION_KEY(SPACES_SESSION_KEY);
 typedef spaces::session_t session_t;
 typedef spaces::spaces_iterator<session_t::_Set> lua_iterator_t;
-typedef rabbit::unordered_map<spaces::key, spaces::record> _KeyCache;
+
 
 static size_t breaks = 0;
 static void debug_break(){
@@ -48,7 +51,7 @@ namespace spaces{
 	static state_cache_type states;
 
 	space * get_space(lua_State *L, int at = 1) {
-		space* r =  states.get_space(L,at);
+		space* r =  is_space_<space>(L,at);
 		if(r==nullptr){
 			luaL_error(L, "no key associated with table of type %s", SPACES_LUA_TYPE_NAME);
 		}
@@ -57,18 +60,19 @@ namespace spaces{
 	state_cache_type::variables_type::sessions_type& get_sessions(lua_State *L){
 		return states.get_sessions(L);
 	}
-	typename session_t::_LuaKeyMap& get_keys(lua_State *L){
-		return states.get_keys(L);
-	}
-	void add_space(lua_State *L, ptrdiff_t pt, spaces::space* r){
-		states.add_space(L,pt,r);
+	void add_space(lua_State *L, nst::lld pt, spaces::space* r){
+		lua_Debug ar;
+		lua_getstack(L, 1, &ar);
+		lua_getinfo(L, "lS", &ar);
+		std::cout << "add space line:" << ar.currentline << " : " << ar.source << std::endl;
+
 	}
 	void remove_session(lua_State *L,const std::string& storage){
 		states.remove_session(L,storage);
 
 	}
 	void close_space(lua_State *L, ptrdiff_t pt) {
-		states.close_space(L,pt);
+		//states.close_space(L,pt);
 	}
 	session_t::lua_iterator*  get_iterator(lua_State *L, int at = 1) {
 		auto * i = err_checkudata<session_t::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
@@ -155,12 +159,10 @@ static int l_open_session(lua_State *L) {
 	return 1;
 }
 static int l_session_open_space(lua_State *L) {
-    if(nst::storage_debugging){
-        dbg_print("debug");
-    }
+	debug_break();
 	auto s = spaces::get_session<spaces::session_t>(L);
     s->begin(true); /// will start transaction
-	session_t::space*  r = s->open_space(spaces::get_keys(L),s,0);
+	session_t::space*  r = s->open_space(s,0);
 
 	if (s->get_set().size() != 0) {
 		s->resolve_id(r);
@@ -214,12 +216,22 @@ static int l_space_debug(lua_State* L) {
 	debug_break();
 	nst::storage_debugging = true;
 	nst::storage_info = true;
-	dbg_print("--------------------------------------SPACES DEBUG START------------------------------------------");
+	if(lua_type(L, 1) == LUA_TSTRING){
+		dbg_print("---------------SPACES DEBUG START [%s]------------------------------------------",lua_tostring(L,1));
+	}else{
+		dbg_print("---------------------------- SPACES DEBUG START ------------------------------------------");
+	}
+
 	return 0;
 }
 static int l_space_quiet(lua_State* L) {
 	debug_break();
-	dbg_print("--------------------------------------SPACES DEBUG END--------------------------------------------");
+	if(lua_type(L, 1) == LUA_TSTRING){
+		dbg_print("---------------SPACES DEBUG END [%s]--------------------------------------------",lua_tostring(L,1));
+	}else{
+		dbg_print("---------------------------- SPACES DEBUG START ------------------------------------------");
+	}
+
 	nst::storage_debugging = false;
 	nst::storage_info = false;
 	return 0;
@@ -236,8 +248,8 @@ static int l_setmaxmb_space(lua_State *L) {
 	debug_break();
 	nst::u64 mmb = (nst::u64)lua_tonumber(L,1);
 	dbg_print("set max mem to %lld",(nst::lld)mmb);
-	allocation_pool.set_max_pool_size((1024UL*1024UL*mmb)/2UL);
-	//buffer_allocation_pool.set_max_pool_size((1024UL*1024UL*mmb*1UL)/4UL);
+	allocation_pool.set_max_pool_size((1024ULL*1024ULL*mmb)*0.7f);
+	buffer_allocation_pool.set_max_pool_size((1024ULL*1024ULL*mmb)*0.3f);
     return 0;
 }
 
@@ -261,7 +273,8 @@ static const struct luaL_Reg spaces_f[] = {
 static int spaces_close(lua_State *L) {
 	debug_break();
 	spaces::space * p = spaces::get_space(L);
-	ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, 1));
+	nst::lld pt = reinterpret_cast<nst::lld>(lua_topointer(L, 1));
+	dbg_print("closing space as %lld",pt);
 	spaces::close_space(L,pt);
 	return 0;
 }
@@ -298,7 +311,7 @@ static int spaces_equal(lua_State *L) {
 }
 
 static int spaces_newindex(lua_State *L) {
-	// will be t,k,v <-> 1,2,3
+	// t[k] = v will be t,k,v <-> 1,2,3
 	debug_break();
 	spaces::top_check tc(L,0);
 	int t = lua_gettop(L);
@@ -315,7 +328,7 @@ static int spaces_newindex(lua_State *L) {
 		spaces::dbg_space("erasing",k.first,k.second);
 		s->erase(k.first);
 	}else{
-		s->to_space(spaces::get_keys(L),k, 3);
+		s->to_space(k, 3);
 		s->insert_or_replace(k);
 
 	}
@@ -364,9 +377,7 @@ static int push_space(lua_State*L, const session_t::ptr &ps,const spaces::key& k
 
 		auto s = resolve_route(L,ps,value);
 
-		spaces::space *r = s.first->open_space(spaces::get_keys(L),s.first,value.get_identity());
-		ptrdiff_t pt = reinterpret_cast<ptrdiff_t>(lua_topointer(L, -1));
-		spaces::add_space(L,pt,r);
+		spaces::space *r = s.first->open_space(s.first,value.get_identity());
 
 		r->first = key;
 		r->second = value;
@@ -404,16 +415,16 @@ static int spaces_index(lua_State *L) {
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
 
-		session_t::_Set::iterator i = s->get_set().find(k.first); /// a non hash optimized lookup
-		//auto value = s->get_set().direct(k.first);/// a hash optimized lookup
+		//session_t::_Set::iterator i = s->get_set().find(k.first); /// a non hash optimized lookup
+		const auto value = s->get_set().direct(k.first);/// a hash optimized lookup
 
-		if(i != s->get_set().end()){//if (value != nullptr) { //
+		if (value != nullptr) { //if(i != s->get_set().end()){//
 			//spaces::dbg_space("found space:",k.first,i.value());
-			//return push_space(L,s,k.first,*value);
-            spaces::dbg_space("found space:",k.first,i.value());
-            int r =  push_space(L,s,k.first,i.value());
+			return push_space(L,s,k.first,*value);
+            //spaces::dbg_space("found space:",k.first,i.value());
+            //int r =  push_space(L,s,k.first,i.value());
 			//s->get_set().check_surface_uses("spaces_index b");
-			return r;
+			//return r;
 
         } else {
 			lua_pushnil(L);
@@ -515,7 +526,7 @@ static int l_pairs_iter(lua_State* L) { //i,k,v
 		const spaces::key &k = spaces::get_key(i->get_i());
 		const spaces::record& v = spaces::get_data(i->get_i());
 		spaces::dbg_space("advancing iterator:",k,v);
-		int r = s->push_pair(spaces::get_keys(L),s,k,v);
+		int r = s->push_pair(s,k,v);
 		i->next();
 		dbg_print("advanced iterator");
 		return r;
@@ -728,7 +739,7 @@ static int l_pairs_iter_pair(lua_State* L){
 	debug_break();
     auto *i = spaces::get_iterator(L,1);
     if (!i->end()) {
-        return i->get_session()->push_pair(spaces::get_keys(L), i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
+        return i->get_session()->push_pair(i->get_session(), spaces::get_key(i->get_i()), spaces::get_data(i->get_i()));
     }else{
         lua_pushnil(L);
         lua_pushnil(L);
@@ -872,6 +883,10 @@ __declspec(dllexport)
 luaopen_spaces(lua_State * L) {
 	dbg_print("open lua spaces");
 	start_storage();
+#if LUA_VERSION_NUM == 501
+	/// lua_xt is required for 5.1 pairs iterator compatibility
+	lua_XT::luaopen_xt(L);
+#endif
 	spaces::luaopen_plib_any(L, spaces_m, SPACES_LUA_TYPE_NAME, spaces_f, SPACES_NAME);
 	spaces::luaopen_plib_any(L, spaces_iter_m, SPACES_ITERATOR_LUA_TYPE_NAME, spaces_iter_f, SPACES_ITERATOR_NAME);
 	lua_pop(L,1);

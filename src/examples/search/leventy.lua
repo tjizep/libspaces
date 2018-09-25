@@ -3,7 +3,7 @@ package.path = package.path .. ";"..exdir.."?.lua"
 
 local spaces = require('spaces')
 local levenshtein = require('levenshtein')
-local SmallWorld = require('smallworld')
+local SmallWorld = require('hsmallworld')
 
 spaces.storage("data")
 -----------------------------------------------------------------------------------------------
@@ -15,7 +15,7 @@ local storage = spaces.open("leventy")
 
 local s = storage:open()
 
-local sw = SmallWorld(s,2,3,levenshtein)
+local sw = SmallWorld(s,1,200,levenshtein)
 local words = {"mouse","able","baker","charlie","the","fire","truck","could","not" }
 for w,word in ipairs(words) do
     sw:add(word)
