@@ -42,7 +42,21 @@ namespace spaces{
 #endif
 		return 0; ///returns the library
 	}
-
+	static void *luaL_testudata (lua_State *L, int i, const char *tname) {
+		void *p = lua_touserdata(L, i);
+		luaL_checkstack(L, 2, "not enough stack slots");
+		if (p == NULL || !lua_getmetatable(L, i))
+			return NULL;
+		else {
+			int res = 0;
+			luaL_getmetatable(L, tname);
+			res = lua_rawequal(L, -1, -2);
+			lua_pop(L, 2);
+			if (!res)
+				p = NULL;
+		}
+		return p;
+	}
 	class top_check{
         lua_State *L;
         int d;
@@ -73,9 +87,9 @@ namespace spaces{
 			lua_pop(L,1);
 			lua_newtable(L); // new_table={}
 			lua_newtable(L); // metatable={}
-			lua_pushliteral(L, "__mode");
-			lua_pushliteral(L, "k");
-			lua_rawset(L, -3); // metatable.__mode='kv'
+			//lua_pushliteral(L, "__mode");
+			//lua_pushliteral(L, "k");
+			//lua_rawset(L, -3); // metatable.__mode='kv'
 			lua_setmetatable(L, -2); // setmetatable(new_table,metatable)
 			lua_setglobal(L,name);
 			lua_getglobal(L,name);
@@ -83,22 +97,8 @@ namespace spaces{
 		}
 		return lua_gettop(L);
 	}
-	template<typename _Space>
-	static int register_space_(lua_State *L,_Space* s,int _at = 1){
-		top_check tc(L,0);
-		int at = _at;
-		if(_at < 0){
-			at = lua_gettop(L) + (1 + at);//translate to absolute position
-		}
-		i4 tg = create_weak_globals_(L,SPACES_TABLE);
-		nst::lld pt = reinterpret_cast<nst::lld>(s);
-		lua_pushvalue(L, at);
-		lua_pushinteger(L, pt);
-		lua_settable(L, -3);
-		lua_pop(L,1);
-		return 0;
 
-	}
+
 	template<typename _Space>
 	_Space * is_space_(lua_State *L,int _at = 1) {
 		top_check tc(L,0);
@@ -106,22 +106,12 @@ namespace spaces{
 		if(_at < 0){
 			at = lua_gettop(L) + (1 + at);//translate to absolute position
 		}
-		if (lua_istable(L, at)) {
 
-			i4 tg = create_weak_globals_(L,SPACES_TABLE);
-			lua_pushvalue(L, at); // the table at at is the key
-			lua_gettable(L, -2);
-			if(lua_isnil(L,-1)){
-				lua_pop(L,2);
-				return nullptr;
-			}
-			_Space * s = reinterpret_cast<_Space*>(lua_tointeger(L,-1));
+		auto ud = luaL_testudata(L, at, SPACES_LUA_TYPE_NAME);
 
-			lua_pop(L,2);
-			return s;
-		}
+		return reinterpret_cast<_Space*>(ud);
 
-		return nullptr;
+
 	}
 	static size_t lua_tostdstring(lua_State *L,std::string& ss, int at){
 		size_t l = 0;
@@ -380,9 +370,6 @@ namespace spaces{
 			return rv;
 		}
 
-		int register_space(space* s,int _at = 1){
-			return register_space_<space>(L,s,_at);
-		}
 
 		int create_weak_globals(const std::string& _name) const{
 			return create_weak_globals_(L,_name.c_str());
@@ -411,9 +398,9 @@ namespace spaces{
 
 					auto space = is_space(at);
 					if(space!=nullptr){
-						check_cc();
+
 						if (this->link(r,space)){
-							check_cc();
+
 						    break;
                         }
 					}
@@ -441,10 +428,9 @@ namespace spaces{
 				}break;
 				case LUA_TUSERDATA: {
 					/// add the link here
-					space * l = err_checkudata<space>(L, SPACES_LUA_TYPE_NAME, at);
-					if (l == nullptr) break;
-					if (l->second.get_identity()) {
-						r.set_identity(l->second.get_identity()); // a link has no identity of its own ???
+					auto space = is_space(at);
+					if(space!=nullptr) {
+						this->link(r, space);
 					}
 
 				}break;
@@ -486,9 +472,6 @@ namespace spaces{
 			space* r = this->is_space(-1);
 			if (r==nullptr) {
 				dbg_print("open space: %lld on storage %s",(nst::lld)id,session->get_name().c_str());
-
-
-
 				//lua_pushnumber(L,id);
 				//lua_gettable(L,tg);
 
@@ -506,28 +489,20 @@ namespace spaces{
 					}
 				}
 				//lua_pop(L,1);
-
-				lua_newtable(L);
-
+				r = new (lua_newuserdata(L,sizeof(space))) space();
 				//lua_pushnumber(L,id);
 				//lua_pushvalue(L,-2);
 				//lua_settable(L,tg);
 
-				r = new space(); // spaces::create_key_from_nothing(L);
+
 				// set its metatable
 				luaL_getmetatable(L, SPACES_LUA_TYPE_NAME);
 				if (lua_isnil(L, -1)) {
 					luaL_error(L, "no meta table of type %s", SPACES_LUA_TYPE_NAME);
 				}
 				lua_setmetatable(L, -2);
-				nst::lld pt = reinterpret_cast<nst::lld>(lua_topointer(L, -1));
-				dbg_print("register space as %lld",pt);
 				r->set_session(session);
-				register_space(r,-1);
-				//lua_remove(L,tg);
-				if(is_space(-1)==nullptr){
-					luaL_error(L,"not a space");
-				}
+
 				dbg_space("open space: new:",r->first,r->second);
 
 				return r;

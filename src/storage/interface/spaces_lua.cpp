@@ -71,8 +71,12 @@ namespace spaces{
 		states.remove_session(L,storage);
 
 	}
-	void close_space(lua_State *L, ptrdiff_t pt) {
-		//states.close_space(L,pt);
+	/**
+	 * destroy a space potentialy cleaning up other resources
+	 * @param L
+	 */
+	void close_space(lua_State *L, space* p) {
+		p->~space();
 	}
 	session_t::lua_iterator*  get_iterator(lua_State *L, int at = 1) {
 		auto * i = err_checkudata<session_t::lua_iterator>(L, SPACES_ITERATOR_LUA_TYPE_NAME, at);
@@ -273,9 +277,7 @@ static const struct luaL_Reg spaces_f[] = {
 static int spaces_close(lua_State *L) {
 	debug_break();
 	spaces::space * p = spaces::get_space(L);
-	nst::lld pt = reinterpret_cast<nst::lld>(lua_topointer(L, 1));
-	dbg_print("closing space as %lld",pt);
-	spaces::close_space(L,pt);
+	spaces::close_space(L,p);
 	return 0;
 }
 static int spaces_len(lua_State *L) {
@@ -621,14 +623,9 @@ static int spaces_call(lua_State *L) {
     s->begin(true); /// will start a transaction
 	spaces::data lower;
 	spaces::data upper = make_inf();
-
-
 	if(t <= 2){
 		return push_iterator(L, s, p, lower, upper);
     }
-
-	//const char * tnl = lua_typename(L,o+2);
-	//const char * tnu = lua_typename(L,o+3);
 	if(t >= o + 2)
 		s->to_space_data(lower, o + 2);
 	if(t >= o + 3)
@@ -832,7 +829,7 @@ static const struct luaL_Reg spaces_iter_m[] = {
 	{ "key",l_pairs_iter_key },
 	{ "firstKey",l_pairs_iter_first_key },
 	{ "lastKey",l_pairs_iter_last_key },
-	{ "count",l_pairs_iter_count },
+	{ "length",l_pairs_iter_count },
 	{ "value",l_pairs_iter_value },
 	{ "pair",l_pairs_iter_pair },
 	{ "next",l_pairs_iter_next },

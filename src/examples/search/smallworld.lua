@@ -5,11 +5,6 @@
 -- NB: requires caller/user to seed lua internal pseudo random generator for sufficient randomness
 ----------------------------------------------------------------------------------------------------
 --local inspect = require "inspect_meta"
-__inst_seed = 0
-local function get_seed()
-    __inst_seed = __inst_seed + 1
-    return __inst_seed
-end
 --local spaces =
 --require "spaces"
 ----------------------------------------------------------------------------------------------------
@@ -132,7 +127,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         if set == nil then
             return 0
         end
-        return set():key(math.min(k,set():count()))
+        return set():key(math.min(k,#set))
     end
 
     ------------------------------------------------------------------------------------------------
@@ -151,27 +146,16 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         visitedUnordered[entry.name] = candidate
         candidates[distance] = candidate --- the random starting point
         viewed[distance] = candidate
-        local v = viewed()
-        local dt = os.clock()
-        local dtt = 0
-        local ft = 0
-        local ftt = 0
-        local tf = 0
-        local lq = #query
-        local iters = 0
 
         while not candidates():empty() do
             local current = candidates():firstValue()
             --- find the k lower bound of the current ordered viewed set
             lowerBound = kDistance(viewed, worldSize);
-
             candidates[candidates():firstKey()] = nil
 
             if current.distance > lowerBound then
                 break
             end
-
-
             --- remember which have been visited for this instance of the k search
             visitedUnordered[current.name] = current
             --- look at the friends of the current candidate
@@ -179,21 +163,17 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
 
             ft = os.clock()
             local fx = 1
-            local tf = worldSize*1.5
-            local skips = 0
+            local tf = worldSize + math.log(Stats().count) --worldSize*1.5
             local tfdist,tdist = 0,0
             for fdist,node in pairs(current.friends) do
                 local name = node.name
                 --- do not visit the node again
                 if globalUnordered[name] == nil then
-
                     local value = node.value
                     dt = os.clock()
                     local dist = metric(query,value)
                     tfdist = tfdist + fdist
                     tdist = tdist + dist
-                    --print(fx, dist-fdist)
-                    dtt = dtt + (os.clock()-dt)
                     local candidate = { name=name, value=value, friends=node.friends,distance = dist }
                     --- remember the closest nodes for all k instances of k search
                     globalUnordered[name] = dist
@@ -203,8 +183,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
                     viewed[dist] = candidate
                     fx = fx + 1
                     iters = iters + 1
-                else
-                    skips = skips + 1
                 end
                 if fx > tf then
                    -- if math.abs(tfdist-tdist) > tdist*0.2 then
@@ -214,11 +192,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
                 end
             end
             ftt = ftt + (os.clock()-ft)
-
-
-        end
-        if tf > 0 then
-            --print("dist calcs/ps",tf,1/dtt,1/(ftt-dtt))
         end
 
         for k,v in pairs(visitedUnordered) do
@@ -235,10 +208,8 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         collectgarbage("collect") -- or we will get an invalid reference count error
         temp:rollback()
         temp:write()
-        --print("rb+gc",os.clock()-gcs)
         local nodes = Nodes()
         local stats = Stats()
-        --print("total nodes",#nodes)
         local globalUnordered,global = GlobalUnorderedViewSet(),GlobalViewed()
         local gs = 0
         local totalViewed = 0
@@ -246,24 +217,16 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
         for i=1,sampleSize do
 
             local rn = getRandomNode(nodes)
-            ts = os.clock()
             local viewed = searchNodes(query,rn,globalUnordered)
-            gs = gs + (os.clock()-ts)
-            --print("result ",i,"size",#viewed,os.clock()-ts)
 
             for k,v in pairs(viewed) do
                 global[k] = v
                 totalViewed = totalViewed + 1
             end
-            --print("searching K",i,"copied",viewed():count())
-
         end
 
-        if stats.count % 300 == 0 then
-            --
-        end --
         --print(totalViewed,"result ratio",(totalViewed/sampleSize)/stats.count,1/gs,"qps")
-        --print("total",os.clock()-gcs)
+
         return global
     end
 
@@ -358,7 +321,7 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
     -- returns a world index (referred to as which) based on x
     ------------------------------------------------------------------------------------------------
     local function Select(x)
-        return math.floor(x / 1000) + 1
+        return math.floor(x / 550000) + 1
     end
     ------------------------------------------------------------------------------------------------
     -- returns a world instance based on which256 --

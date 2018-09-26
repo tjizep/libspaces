@@ -41,6 +41,15 @@ local function split(inputstr, sep)
     end
     return w,t
 end
+-----------------------------------------------------------------------------------------------
+-- cosine similarity distance function considering vector
+-----------------------------------------------------------------------------------------------
+local function IndexedCosim(a,b)
+    return Cosim(a.vector,b.vector)
+end
+-----------------------------------------------------------------------------------------------
+-- intialize and load
+-----------------------------------------------------------------------------------------------
 local swl
 local swg
 if s.leventy == nil then
@@ -58,7 +67,7 @@ if s.leventy == nil then
     -- the values measured is high like thought vectors, documents, dna samples etc
     -----------------------------------------------------------------------------------------------
     swl = createNSW(sl,Levenshtein)
-    swg = createNSW(sg,Cosim)
+    swg = createNSW(sg,IndexedCosim)
     local cnt = 1
     local t = os.clock()
     for line in io.lines(gdn) do
@@ -66,9 +75,7 @@ if s.leventy == nil then
 
         --print(cnt..".",word)
         words[word] = {word=word,vector=v }
-
-        --
-        swg:add(v)
+        swg:add(words[word])
         swl:add(word)
 
         cnt = cnt + 1
@@ -95,7 +102,7 @@ if s.leventy == nil then
     storage:commit()
 else
     swl = createNSW(s.leventy,Levenshtein)
-    swg = createNSW(s.glove,Cosim)
+    swg = createNSW(s.glove,IndexedCosim)
 end
 
 local searches = {"jear","year","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","taiwan","china","south"}
