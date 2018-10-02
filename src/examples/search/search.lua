@@ -10,20 +10,43 @@ local Cosim = require('cosinesimilarity')
 
 local storage = spaces.open("gloves")
 local s = storage:open()
-
+-----------------------------------------------------------------------------------------------
+-- specify a glove text file which can be downloaded from here
+-- http://nlp.stanford.edu/data/glove.6B.zip
+-----------------------------------------------------------------------------------------------
 local gdn = "../../glove/glove.6B.50d.txt"
 local cnt = 1
 
 
 spaces.setMaxMb(8000)
 -----------------------------------------------------------------------------------------------
--- create a navigable small world index
+-- create a navigable small world index with faster parameters for building
 -----------------------------------------------------------------------------------------------
 local function createNSWBuild(container,dist)
     return SmallWorld(container,7,3,dist)
 end
+-----------------------------------------------------------------------------------------------
+-- create a navigable small world index with more acurate parameters querying
+-----------------------------------------------------------------------------------------------
 local function createNSWSearch(container,dist)
-    return SmallWorld(container,16,5,dist)
+    return SmallWorld(container,10,4,dist)
+end
+-----------------------------------------------------------------------------------------------
+-- print a result
+-----------------------------------------------------------------------------------------------
+local function printResult(result,max,f)
+    local r = 1
+    for k,v in pairs(result) do
+
+        if f then
+            f(r,k,v)
+        end
+        r = r + 1
+        if r > max then
+            break
+        end
+
+    end
 end
 -----------------------------------------------------------------------------------------------
 -- splits glove lines tokenized by sep into 50d vectors
@@ -83,29 +106,8 @@ if s.leventy == nil then
 
         cnt = cnt + 1
         if cnt % 100 == 0 then
-
             local result = swl:search(word)
-            local r = 0
-
-            for k,v in pairs(result) do
-                r = r + 1
-                print("glove lines",cnt,os.clock()-t,word,r,k,v.value)
-                if r == 1 then
-                    local j = 0
-                    for ks,vs in pairs(swg:search(words[v.value])) do
-                        j = j + 1
-                        print("semantic",ks,vs.value.w)
-                        if j > 3 then
-                            break
-                        end
-
-                    end
-                end
-                if r > 0 then
-                    break
-                end
-
-            end
+            printResult(result,4)
         end
 
     end
@@ -118,31 +120,19 @@ else
 
 end
 local words = s.words
---{"jear","year","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","taiwan","china","south","woman","female","laughter"}
-local searches = {"men"}
+
+local searches = {"jear","yeer","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","taiwan","china","south","woman","female","laughter"}
 for i,query in ipairs(searches) do
     print("search",query)
     local result = swl:search(query)
-
-    local r = 0
-    for k,v in pairs(result) do
-        r = r + 1
-        print(r,k,v.value)
-        local j = 0
-        if r == 1 then
-            for ks,vs in pairs(swg:search(words[v.value])) do
-                j = j + 1
-                print("semantic",ks,vs.value.w)
-                if j > 30 then
-                    break
-                end
-
-            end
-        end
-
-        if r > 4 then
-            break
-        end
-
+    local function semantic(i,k,v)
+        print("semantic",i,k,v.value.w)
     end
+    local function searched(i,k,v)
+        print("spelling",v.value)
+        if i == 1 then
+            printResult(swg:search(words[v.value]),5,semantic)
+        end
+    end
+    printResult(result,4,searched)
 end
