@@ -14,6 +14,11 @@
 -- sample size is BF over priority queue searches that will be done to approach
 -- the closest node to the query parameter
 ----------------------------------------------------------------------------------------------------
+__seed = 1
+local function get_seed()
+    __seed = __seed + 1
+    return __seed
+end
 local function Create(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
     -- f.y.i.: 'groot' is the afrikaans word for large and not the character in that movie
@@ -34,7 +39,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     local function metricSeed()
         -- function used for emulating a priority queue - because spaces are unique ordered sets
         seed = seed + 1
-        return seed /1e12
+        return seed /1e14
     end
     local function metric(a,b)
         return metricFunction(a,b) + metricSeed()
@@ -163,7 +168,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
 
             ft = os.clock()
             local fx = 1
-            local tf = worldSize + math.log(Stats().count) --worldSize*1.5
+            local tf = worldSize*1.5 + math.log(Stats().count)--worldSize*1.5
             local tfdist,tdist = 0,0
             for fdist,node in pairs(current.friends) do
                 local name = node.name
@@ -182,7 +187,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
                     --- add viewed set in order of closeness
                     viewed[dist] = candidate
                     fx = fx + 1
-                    iters = iters + 1
                 end
                 if fx > tf then
                    -- if math.abs(tfdist-tdist) > tdist*0.2 then
@@ -191,7 +195,6 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
                    -- end
                 end
             end
-            ftt = ftt + (os.clock()-ft)
         end
 
         for k,v in pairs(visitedUnordered) do
@@ -321,7 +324,7 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
     -- returns a world index (referred to as which) based on x
     ------------------------------------------------------------------------------------------------
     local function Select(x)
-        return math.floor(x / 550000) + 1
+        return math.floor(x / 500000) + 1
     end
     ------------------------------------------------------------------------------------------------
     -- returns a world instance based on which256 --
@@ -342,11 +345,13 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
         temp:rollback()
         temp:write()
         local results = Results()
+        local id = 1
         for which,world in pairs(worlds) do
 
             local found = Instance(which).search(query)
             for k,v in pairs(found) do
-                results[k+metricSeed()] = v
+                results[k+id/1e12] = v
+                id = id + 1
             end
 
         end

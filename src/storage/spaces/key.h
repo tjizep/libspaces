@@ -143,17 +143,19 @@ namespace spaces {
 		}
 		
 		i4 compare(const astring& right) const {
-			i4 r = 0;
+
 			if (right.l != SS && l != SS) {
-				r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));
+                i4 r = memcmp(sequence, right.sequence, std::min<i4>(l, right.l));
+                if (r == 0) {
+                    return l - right.l;
+                }
+                return r;
 			}
 			else {
-				r = compare_data_long(right);
+				return compare_data_long(right);
 			}
-			if (r == 0) {
-				return l - right.l;
-			}
-			return r;
+
+
 		}
 		astring() : l(0){
             *((nst::u64*)sequence) = 0ull;

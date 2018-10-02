@@ -1472,9 +1472,10 @@ namespace stx
                 if (o == 0)
                     return o;
                 /// optimization specifically for 'spaces' because of hierarchical ordering
-               //if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
-               //    return last_found;
-               //}
+               if (last_found > 0 && last_found < o && (!key_less(node->get_key(last_found), key)) && key_less(node->get_key(last_found - 1), key)) {
+                   dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),last_found,(int)this->get_occupants());
+                   return last_found;
+               }
 
                 int l = 0, h = o;
 
@@ -1489,7 +1490,7 @@ namespace stx
                     }
                 }
                 dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),l,(int)this->get_occupants());
-               // this->last_found = (storage::u16)l;
+                this->last_found = (storage::u16)l;
                 return l;
             }
 
@@ -1626,8 +1627,8 @@ namespace stx
                 //node::check_deleted();
                 (*this).address = address;
                 nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
-                if( occupants <= 0 || occupants  > interiorslotmax){
-                    err_print("bad format: invalid interior node size");
+                if( occupants <= 0 || occupants  > interiorslotmax + 1){
+                    err_print("bad format: invalid interior node size (%d)", (int)occupants);
                     throw bad_format();
                 }
                 (*this).set_occupants(occupants);
@@ -1666,8 +1667,8 @@ namespace stx
 
             void save(storage_type &storage, buffer_type& buffer) const {
                 this->check_node();
-                if( this->get_occupants() <= 0 || this->get_occupants()  > interiorslotmax){
-                    err_print("bad format: invalid interior node size");
+                if( this->get_occupants() <= 0 || this->get_occupants()  > interiorslotmax + 1){
+                    err_print("bad format: invalid interior node size (%d)",(int)this->get_occupants());
                     throw bad_format();
                 }
                 if((*this).level  <= 0 || (*this).level  > 128){
@@ -1938,6 +1939,7 @@ namespace stx
                 permutations[at] = t;
                 get_key(at) = key;
                 get_value(at) = value;
+                dbg_print("insert key at %d on page %lld",at,(nst::lld)this->get_address());
                 //this->context->add_hash(this,at);
                 ++hashed;
                 (*this).inc_occupants();
@@ -5086,14 +5088,16 @@ namespace stx
                ? (&surface->get_value(slot)) : nullptr;
     }
     data_type * direct(const key_type& key) {
-
-        size_t h = hash_val(key);
-        if (h && !key_lookup.empty()) {
-            auto &r = key_lookup[h];
-            if (r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)) {
-                return r.value;
+        if(!key_lookup.empty()){
+            size_t h = hash_val(key);
+            if (h) {
+                auto &r = key_lookup[h];
+                if (r.key != nullptr && key_equal(key, *r.key) && is_valid(r.node)) {
+                    return r.value;
+                }
             }
         }
+
 
         check_low_memory_state();
         data_type * result = nullptr;
@@ -5557,10 +5561,10 @@ namespace stx
 
 #ifdef BTREE_DEBUG
                     if (debug)
-						{
-							print_node(std::cout, interior);
-							print_node(std::cout, splitnode);
-						}
+                    {
+                        print_node(std::cout, interior);
+                        print_node(std::cout, splitnode);
+                    }
 #endif
 
                     // check if insert at is in the split sibling node
@@ -5639,7 +5643,6 @@ namespace stx
                 surface.change();
                 return std::pair<iterator, bool>(iterator(this,surface, at), false);
             }
-            nst::i64 added = 0;
             if (surface->isfull())
             {
 
@@ -5652,10 +5655,7 @@ namespace stx
                     surface = splitnode;
 
                 }
-                added = 4;
 
-            }else{
-                added = 1;
             }
             // mark node as going to change
 
@@ -5667,10 +5667,11 @@ namespace stx
 
             surface_node * surfactant = surface.rget();
             surfactant->insert_(at, key, value);
-            i = at - 1;
+            BTREE_ASSERT(at > 0);
+
+            //i = at - 1;///
             typename surface_node::ptr splitsurface = splitnode;
-            ++added;
-            //surface->insert(at, key, value);
+
             surface.next_check();
 
             if (splitsurface != NULL_REF && surface != splitsurface && at == surface->get_occupants() - 1)
@@ -5681,7 +5682,7 @@ namespace stx
                 *splitkey = key;
             }
 
-            return std::pair<iterator, bool>(iterator(this,surface, i + 1), true);
+            return std::pair<iterator, bool>(iterator(this,surface, at), true);
 
         }
     }
@@ -5725,6 +5726,11 @@ namespace stx
         surface->set_next(newsurface);
 
         newsurface->preceding = surface;
+        dbg_print("split surface node %lld size %d into %lld size %d",
+                  (nst::lld)surface->get_address(),
+                  surface->get_occupants(),
+                  (nst::lld)newsurface->get_address(),
+                  newsurface->get_occupants());
         surface.next_check();
         newsurface.next_check();
         *_newkey = surface->get_key(surface->get_occupants() - 1);

@@ -233,7 +233,7 @@ static int l_space_quiet(lua_State* L) {
 	if(lua_type(L, 1) == LUA_TSTRING){
 		dbg_print("---------------SPACES DEBUG END [%s]--------------------------------------------",lua_tostring(L,1));
 	}else{
-		dbg_print("---------------------------- SPACES DEBUG START ------------------------------------------");
+		dbg_print("---------------------------- SPACES DEBUG END ------------------------------------------");
 	}
 
 	nst::storage_debugging = false;
@@ -416,7 +416,7 @@ static int spaces_index(lua_State *L) {
 		spaces::dbg_space("index from:",p->first,p->second);
 		s->to_space_data(k.first.get_name(), 2);
 		k.first.set_context(p->second.get_identity());
-
+        spaces::dbg_space("looking for:",k.first,spaces::record());
 		//session_t::_Set::iterator i = s->get_set().find(k.first); /// a non hash optimized lookup
 		const auto value = s->get_set().direct(k.first);/// a hash optimized lookup
 

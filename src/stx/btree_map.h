@@ -539,9 +539,7 @@ public:
     {
 
 
-        data_type* dp = tree.direct(key);
-        if(dp!= nullptr)
-            return *dp;
+
         iterator i = insert( value_type(key, data_type()) ).first;
 
         return i.data();
