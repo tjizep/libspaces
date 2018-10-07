@@ -126,16 +126,17 @@ for i,query in ipairs(searches) do
     print("search",query)
     local result = swl:search(query)
     local function semantic(i,k,v)
-        --print("semantic","",i,k,v.value.w)
+        print("semantic","",i,k,v.value.w)
     end
     local function searched(i,k,v)
-        --print("spelling",i,v.value)
+        print("spelling",i,v.value)
         if i == 1 then
             printResult(swg:search(words[v.value]),5,semantic)
         end
     end
     printResult(result,4,searched)
-    local t = os.clock()
-    printResult(result,4,searched)
-    print("hot",os.clock()-t)
+    -- used for some speed testing
+    --local t = os.clock()
+    --printResult(result,4,searched)
+    --print("hot",os.clock()-t)
 end
