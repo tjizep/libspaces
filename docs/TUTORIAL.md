@@ -8,20 +8,29 @@ cpath variable configured to see lib spaces.
 
 **Opening a database**
 
-    require("spaces")
+    require('spaces')
+    
+or in lua 5.2 and above
 
+    local spaces = require('spaces')
+    
 This will create the spaces user data type in lua
 
 Optionally we can assign a storage directory to store all the data files in. If this is not assigned then the current directory will be used
     
     spaces.storage("tutorial")
 
-From here we can open the root node
+From here we can open a session which allows us to control transactions
 
-    local s = spaces.open() 
+    local session = spaces.open() 
+    
+We can use the session to open the root node
+
+    local s = session:open()
+    
 
 This will create the object 's' which is the the root of the database.
-
+A read locked transaction will be started.
 Now it's possible to create some data with a simple statement
 
     s.cities =  {
@@ -37,7 +46,7 @@ Now it's possible to create some data with a simple statement
      
 This data is not saved yet...
 
-    spaces.commit()
+    session:commit()
  
  Will save it to disk, tcp packets, pigeons etc.
  

@@ -15,6 +15,11 @@ Running a [server](../src/examples/server/server.lua) and its storage -less [cli
 
 See the [jason path](../src/examples/cities/cities.lua) example for querying a simple graph of a bookstore
 
+**NAVIGABLE SMALL WORLDS SEMANTIC SEARCH**
+
+A graph with the small world property is created to index multi dimensional data (glove vectors) and use it
+to perform a semantic and levenshtein [search](../src/examples/search/search.lua).
+
 **BENCHMARK**
 
 A simple [benchmark](../src/examples/benchmark/benchmark.lua) showing random reads and writes using spaces as a key/value store emulation. Its still quite a bit faster than most real key value stores.
