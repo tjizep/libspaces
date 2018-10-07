@@ -1,4 +1,4 @@
-****LIB SPACES**** v0.4.0 (alpha)
+****LIB SPACES**** v0.4.0b (beta)
 --
 
     So, What is it ?
