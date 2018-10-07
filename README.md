@@ -29,7 +29,7 @@ You can also check out the performances at
 [benchmarks](docs/BENCHMARKS.md) 
 
     Ok thats great how can I install it
-Install via luarocks (npm will be available soon) [luarocks](https://luarocks.org/)
+Install via luarocks [luarocks](https://luarocks.org/)
     
     > luarocks install --server=http://luarocks.org/manifests/tjizep spaces
   

@@ -3,13 +3,15 @@
 -- lua/spaces/persisted version by Christiaan Pretorius chrisep2@gmail.com
 -- based on java code by Alexander Ponomarenko aponom84@gmail.com
 -- NB: requires caller/user to seed lua internal pseudo random generator for sufficient randomness
+-- This version uses ordred subgraphs of friends which allows the accelerated convergence to a
+-- minimum which can improve k-nn search times
 ----------------------------------------------------------------------------------------------------
 --local inspect = require "inspect_meta"
 --local spaces =
 --require "spaces"
 ----------------------------------------------------------------------------------------------------
 -- creates a new sw object for use
--- worldSize is the maximum friends a that will be added to each node at a time
+-- worldSize is the maximum friends that will be added to each node at a time
 -- the friends list size can definitely grow larger
 -- sample size is BF over priority queue searches that will be done to approach
 -- the closest node to the query parameter
@@ -168,9 +170,16 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
 
             ft = os.clock()
             local fx = 1
+            --- NB
+            --- this is a modification on the original algorithm
+            --- only the first K + log(N) friends are used since
+            --- each friends node is also a priority queue
+            --- which means the closest friends are viewed first
+            --- this seems to converge to a minimum quicker
+            --- than the original algorithm for spaces anyway
             local tf = worldSize*1.5 + math.log(Stats().count)--worldSize*1.5
             local tfdist,tdist = 0,0
-            for fdist,node in pairs(current.friends) do
+            for fdist,node in pairs(current.friends) do --- visit nodes in order of closeness
                 local name = node.name
                 --- do not visit the node again
                 if globalUnordered[name] == nil then
@@ -265,6 +274,9 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
             i = i + 1
             -- two way friends
             local pvalue = nodes[value.name] -- reaquire from storage
+            -- the original smallworld algorithm did not add friends
+            -- in a priority queue - its possible with spaces
+            -- since the sub graphs are ordered by name
             toadd.friends[dist] = pvalue
             pvalue.friends[dist] = toadd
         end
@@ -324,10 +336,11 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
     -- returns a world index (referred to as which) based on x
     ------------------------------------------------------------------------------------------------
     local function Select(x)
+        -- you may modify this parameter to create multithreaded searches
         return math.floor(x / 500000) + 1
     end
     ------------------------------------------------------------------------------------------------
-    -- returns a world instance based on which256 --
+    -- returns a world instance based on which
     ------------------------------------------------------------------------------------------------
 
     local function Instance(which)

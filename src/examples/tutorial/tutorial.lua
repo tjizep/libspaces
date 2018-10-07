@@ -1,4 +1,5 @@
 require("spaces")
+-- set the storage to data in the current directory
 spaces.storage("data")
 local session = spaces.open("tutorial")
 local s = session:open()
