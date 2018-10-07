@@ -2107,13 +2107,13 @@ namespace stx
                     err_print("cannot decode encoded pages or invalid format");
                     throw bad_format();
                 }
-                bool add_hash = 0; //(storage.is_readonly() && !(::stx::memory_low_state)) ;
+                bool add_hash = (storage.is_readonly() && !(::stx::memory_low_state)) ;
                 for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                     storage.retrieve(buffer, reader, get_value(k));
-                    //if(add_hash){
-                    //++((*this).hashed);/// only add hash cache when readonly
-                    //loading_context->add_hash(self, k);
-                    //}
+                    if(add_hash){
+                        ++((*this).hashed);/// only add hash cache when readonly
+                        loading_context->add_hash(self, k);
+                    }
                 }
 
                 size_t d = reader - buffer.begin();
@@ -4712,12 +4712,10 @@ namespace stx
                 if (do_reload) {
                     ++reloads;
                     if
-                            (get_storage()->get_boot_value((nst::i64&)b)
-                             && get_storage()->is_readonly()
-                        //&&	surfaces_loaded.size() < 12000000
-                        ///&&	(reloads % 4000) != 0
-                        ///&&	(	get_storage()->is_readonly()||	)
-                            ) { ///&& surfaces_loaded.size() < 300
+                    (get_storage()->get_boot_value((nst::i64&)b)
+                     && get_storage()->is_readonly()
+
+                    ) {
 
                         if (b == root.get_where()) {
                             get_storage()->get_boot_value(stats.tree_size, 2);

@@ -13,9 +13,7 @@ local function cosim(a,b)
         A = A + ai*ai
         B = B + bi*bi
     end
-    A = math.sqrt(A)
-    B = math.sqrt(B)
-    return top/(A*B)
+    return top/math.sqrt(A*B)
 end
 
 return cosim
