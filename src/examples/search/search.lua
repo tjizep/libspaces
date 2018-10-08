@@ -26,7 +26,7 @@ local function createNSWBuild(container,dist)
     return SmallWorld(container,7,3,dist)
 end
 -----------------------------------------------------------------------------------------------
--- create a navigable small world index with more acurate parameters querying
+-- create a navigable small world index with more accurate parameters for querying
 -----------------------------------------------------------------------------------------------
 local function createNSWSearch(container,dist)
     return SmallWorld(container,10,4,dist)
@@ -87,7 +87,7 @@ if s.leventy == nil then
     local words = s.words
 
     -----------------------------------------------------------------------------------------------
-    -- create smallworld index called 'leventy' with world size x and sample size y
+    -- create a smallworld index called 'leventy' with world size x and sample size y
     -- use larger values with bigger datasets or where the dimensionality or entropy of
     -- the values measured is high like thought vectors, documents, dna samples etc
     -----------------------------------------------------------------------------------------------
