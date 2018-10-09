@@ -1,24 +1,29 @@
-local exdir = '../src/examples/search/'
-package.path = package.path .. ";"..exdir.."?.lua"
---local spaces =
-require('spaces')
+
+-- local exdir = '../src/examples/search/'
+-- package.path = package.path .. ";"..exdir.."?.lua"
+if _ENV then
+    local spaces = require('spaces')
+else
+    require('spaces')
+end
 spaces.storage('sw')
---spaces.debug()
+
 local Levenshtein = require('levenshtein')
 local SmallWorld = require('smallworld')
 local Cosim = require('cosinesimilarity')
 
-local storage = spaces.open("gloves")
-local s = storage:open()
+local session = spaces.open("gloves")
+local s = session:open()
 -----------------------------------------------------------------------------------------------
 -- specify a glove text file which can be downloaded from here
 -- http://nlp.stanford.edu/data/glove.6B.zip
 -----------------------------------------------------------------------------------------------
-local gdn = "../../glove/glove.6B.50d.txt"
+local gdn = arg[1] -- "../../glove/glove.6B.50d.txt"
 local cnt = 1
 
-
+--- set the max memory use for spaces
 spaces.setMaxMb(8000)
+
 -----------------------------------------------------------------------------------------------
 -- create a navigable small world index with faster parameters for building
 -----------------------------------------------------------------------------------------------
@@ -77,6 +82,23 @@ end
 -----------------------------------------------------------------------------------------------
 local swl
 local swg
+local words
+-----------------------------------------------------------------------------------------------
+-- ouput print functions to monitor progress
+-----------------------------------------------------------------------------------------------
+local function semantic(i,k,v)
+    print("semantic","",i,k,v.value.w)
+end
+-----------------------------------------------------------------------------------------------
+-- ouput print functions to monitor progress
+-----------------------------------------------------------------------------------------------
+local function searched(i,k,v)
+    print("spelling",i,v.value)
+    if i == 1 then
+        printResult(swg:search(words[v.value]),5,semantic)
+    end
+end
+
 if s.leventy == nil then
     s.leventy = {} -- container for the levenshtein small world index
     s.glove = {}
@@ -84,7 +106,7 @@ if s.leventy == nil then
 
     local sl = s.leventy
     local sg = s.glove
-    local words = s.words
+    words = s.words
 
     -----------------------------------------------------------------------------------------------
     -- create a smallworld index called 'leventy' with world size x and sample size y
@@ -107,36 +129,25 @@ if s.leventy == nil then
         cnt = cnt + 1
         if cnt % 100 == 0 then
             local result = swl:search(word)
-            printResult(result,4)
+            printResult(result,4,searched)
         end
 
     end
 
-    storage:commit()
+    session:commit()
 else
 
     swl = createNSWSearch(s.leventy,Levenshtein)
     swg = createNSWSearch(s.glove,IndexedCosim)
 
 end
-local words = s.words
+words = s.words
 
 local searches = {"jear","yeer","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","taiwan","china","south","woman","female","laughter"}
 for i,query in ipairs(searches) do
     print("search",query)
     local result = swl:search(query)
-    local function semantic(i,k,v)
-        print("semantic","",i,k,v.value.w)
-    end
-    local function searched(i,k,v)
-        print("spelling",i,v.value)
-        if i == 1 then
-            printResult(swg:search(words[v.value]),5,semantic)
-        end
-    end
+
     printResult(result,4,searched)
-    -- used for some speed testing
-    --local t = os.clock()
-    --printResult(result,4,searched)
-    --print("hot",os.clock()-t)
+
 end
