@@ -1,8 +1,17 @@
-
+-----------------------------------------------------------------------------------------------
+-- search example to import and query glove vectors
+-- usage example: lua search.lua ~/[Path to]/glove.6B.50d.txt
+-- specify a glove text file which can be downloaded from here
+-- http://nlp.stanford.edu/data/glove.6B.zip
+-----------------------------------------------------------------------------------------------
 -- local exdir = '../src/examples/search/'
 -- package.path = package.path .. ";"..exdir.."?.lua"
+if arg[1] == nil then
+    print("usage example: lua search.lua ~/[Path to]/glove.6B.50d.txt")
+    return -1
+end
 if _ENV then
-    local spaces = require('spaces')
+    spaces = require('spaces')
 else
     require('spaces')
 end
