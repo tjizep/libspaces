@@ -24,7 +24,7 @@ end
 local function Create(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
     -- f.y.i.: 'groot' is the afrikaans word for large and not the character in that movie
-    --
+    -- although a sentient tree would be a cute analogy
     -- spaces.storage(storage) should be called before this function
     ------------------------------------------------------------------------------------------------
     ---
