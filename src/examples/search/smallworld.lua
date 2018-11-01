@@ -217,7 +217,7 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- finds nodes closest to query parameter according to distance function
     local function search (query)
         local gcs = os.clock()
-        collectgarbage("collect") -- or we will get an invalid reference count error
+
         temp:rollback()
         temp:write()
         local nodes = Nodes()
@@ -286,9 +286,9 @@ local function Create(groot,worldSize,sampleSize,metricFunction)
     -- the exposed library object
     ------------------------------------------------------------------------------------------------
     local smallWorld =
-    {   -- called as sw:search
+    {   -- called as sw.search
         search = search
-        -- called as sw:add
+        -- called as sw.add
     ,   add = add
     }
 
@@ -353,7 +353,7 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
     -- find values based on suplied metric
     ------------------------------------------------------------------------------------------------
-    local function search(self,query)
+    local function search(query)
         collectgarbage("collect") -- or we will get an invalid reference count error
         temp:rollback()
         temp:write()
@@ -374,7 +374,7 @@ local function CreateSegmented(groot,worldSize,sampleSize,metricFunction)
     ------------------------------------------------------------------------------------------------
     -- add a value using supplied metric
     ------------------------------------------------------------------------------------------------
-    local function add(self,value)
+    local function add(value)
         Instance(Select(stats.count)).add(value)
         stats.count = stats.count + 1
 

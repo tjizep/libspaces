@@ -4,8 +4,8 @@
 -- specify a glove text file which can be downloaded from here
 -- http://nlp.stanford.edu/data/glove.6B.zip
 -----------------------------------------------------------------------------------------------
--- local exdir = '../src/examples/search/'
--- package.path = package.path .. ";"..exdir.."?.lua"
+local exdir = '../src/examples/search/'
+package.path = package.path .. ";"..exdir.."?.lua"
 if arg[1] == nil then
     print("usage example: lua search.lua ~/[Path to]/glove.6B.50d.txt")
     return -1
@@ -31,7 +31,7 @@ local gdn = arg[1] -- "../../glove/glove.6B.50d.txt"
 local cnt = 1
 
 --- set the max memory use for spaces
-spaces.setMaxMb(8000)
+spaces.setMaxMb(1500)
 
 -----------------------------------------------------------------------------------------------
 -- create a navigable small world index with faster parameters for building
@@ -43,7 +43,7 @@ end
 -- create a navigable small world index with more accurate parameters for querying
 -----------------------------------------------------------------------------------------------
 local function createNSWSearch(container,dist)
-    return SmallWorld(container,10,4,dist)
+    return SmallWorld(container,7,4,dist)
 end
 -----------------------------------------------------------------------------------------------
 -- print a result
@@ -104,7 +104,7 @@ end
 local function searched(i,k,v)
     print("spelling",i,v.value)
     if i == 1 then
-        printResult(swg:search(words[v.value]),5,semantic)
+        printResult(swg.search(words[v.value]),6,semantic)
     end
 end
 
@@ -132,17 +132,19 @@ if s.leventy == nil then
         --print(cnt..".",word)
 
         words[word] = {v=v,w=word}
-        swg:add(words[word])
-        swl:add(word)
-
+        swg.add(words[word])
+        swl.add(word)
+        --
         cnt = cnt + 1
         if cnt % 100 == 0 then
-            local result = swl:search(word)
-            printResult(result,4,searched)
+            print("lines added",cnt)
+
+            --local result = swl.search(word)
+            --printResult(result,4,searched)
         end
 
     end
-
+    print("saving...")
     session:commit()
 else
 
@@ -152,11 +154,13 @@ else
 end
 words = s.words
 
-local searches = {"jear","yeer","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","taiwan","china","south","woman","female","laughter"}
+local searches = {"taiwan","china", "formosa","synonym","colloquially","jear","yeer","japan","made", "coost","coast","noan","noun","moanin","moaning",",","taipan","south","woman","female","laughter"}
 for i,query in ipairs(searches) do
     print("search",query)
-    local result = swl:search(query)
 
+    local result = swl.search(query)
     printResult(result,4,searched)
+
+
 
 end

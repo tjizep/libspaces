@@ -192,7 +192,7 @@ namespace spaces{
 				::stx::memory_low_state = true;
 				nst::f64 alloc_before = allocation_pool.get_total_allocated();
 				while(allocation_pool.is_near_factor(0.65)){
-					std::this_thread::sleep_for (std::chrono::milliseconds(100));
+					std::this_thread::sleep_for (std::chrono::milliseconds(10));
 
 					for (auto a = active.begin(); a != active.end(); ++a) {
 						spaces::dbms::ptr dbms = a->second;
