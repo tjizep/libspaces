@@ -203,7 +203,7 @@ namespace spaces{
 				}
 				nst::f64 alloc_after = allocation_pool.get_total_allocated();
 
-				std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB" << "max pool size "  << mps << " MB" << std::endl;
+				//std::cout << "released " <<  (alloc_before - alloc_after)/(1024.0f*1024.0f) << " MB " << "max pool size "  << mps << " MB" << std::endl;
 				dbg_print("released %.4g MB",(alloc_before - alloc_after)/(1024.0f*1024.0f));
 
 				::stx::memory_low_state = false;
