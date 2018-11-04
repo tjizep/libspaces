@@ -15,6 +15,7 @@ if _ENV then
 else
     require('spaces')
 end
+
 spaces.storage('sw')
 
 local Levenshtein = require('levenshtein')
@@ -27,23 +28,23 @@ local s = session:open()
 -- specify a glove text file which can be downloaded from here
 -- http://nlp.stanford.edu/data/glove.6B.zip
 -----------------------------------------------------------------------------------------------
-local gdn = arg[1] -- "../../glove/glove.6B.50d.txt"
+local gdn = arg[1] --"../../glove/glove.6B.50d.txt"
 local cnt = 1
 
 --- set the max memory use for spaces
-spaces.setMaxMb(1500)
+spaces.setMaxMb(3200)
 
 -----------------------------------------------------------------------------------------------
 -- create a navigable small world index with faster parameters for building
 -----------------------------------------------------------------------------------------------
 local function createNSWBuild(container,dist)
-    return SmallWorld(container,7,3,dist)
+    return SmallWorld(container,8,3,dist)
 end
 -----------------------------------------------------------------------------------------------
 -- create a navigable small world index with more accurate parameters for querying
 -----------------------------------------------------------------------------------------------
 local function createNSWSearch(container,dist)
-    return SmallWorld(container,7,4,dist)
+    return SmallWorld(container,10,5,dist)
 end
 -----------------------------------------------------------------------------------------------
 -- print a result
@@ -136,6 +137,8 @@ if s.leventy == nil then
         swl.add(word)
         --
         cnt = cnt + 1
+
+
         if cnt % 100 == 0 then
             print("lines added",cnt)
 

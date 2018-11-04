@@ -1517,7 +1517,7 @@ namespace stx
                         l = m + 1;
                     }
                 }
-                dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),l,(int)this->get_occupants());
+                //dbg_print("lower bound on page %lld = %d of %d keys",(nst::lld)this->get_address(),l,(int)this->get_occupants());
                 this->last_found = (storage::u16)l;
                 return l;
             }
@@ -1655,7 +1655,7 @@ namespace stx
                 //node::check_deleted();
                 (*this).address = address;
                 nst::i16 occupants = (nst::i16)leb128::read_signed(reader);
-                if( occupants < 0 || occupants  > interiorslotmax + 1){
+                if( occupants <= 0 || occupants  > interiorslotmax + 1){
                     err_print("bad format: loading invalid interior node size (%d)", (int)occupants);
                     throw bad_format();
                 }
@@ -2160,8 +2160,8 @@ namespace stx
                 for (u16 k = 0; k < (*this).get_occupants(); ++k) {
                     storage.retrieve(buffer, reader, get_value(k));
                     if(add_hash){
-                        ++((*this).hashed);/// only add hash cache when readonly
-                        loading_context->add_hash(self, k);
+                        //++((*this).hashed);/// only add hash cache when readonly
+                        //loading_context->add_hash(self, k);
                     }
                 }
 
@@ -4567,6 +4567,14 @@ namespace stx
             typename interior_node::alloc_type interior_allocator;
             for(auto n = interiors_loaded.begin(); n != interiors_loaded.end(); ++n){
                 nodes_loaded.erase(n->first);
+#ifdef _SAVE_ALL_INTERIORS_
+                if (!get_storage()->is_readonly()) {
+                    if ((*n).second->get_occupants() > 0) {
+                        dbg_print("save interior anyway");
+                        this->save((*n).second, (*n).first);
+                    }
+                }
+#endif
                 interior_allocator.destroy(n->second);
                 interior_allocator.deallocate(n->second, 1);
             }
