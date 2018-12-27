@@ -18,9 +18,22 @@ INCLUDE_SESSION_KEY(SPACES_MAP_ITEM);
 #define SPACES_TABLE "__spas"
 #define SPACES_WEAK_NAME "__spaces_weak__"
 #define SPACES_WRAP_KEY "__$"
-
+#if LUA_VERSION_NUM >= 502
+#define spaces_lua_dump(l,x,y) lua_dump(l,x,y,0)
+#else
+#define spaces_lua_dump(l,x,y) lua_dump(l,x,y)
+#endif
 namespace spaces{
 
+	class InvalidLuaTypeException : public std::exception{
+	public:
+		InvalidLuaTypeException() noexcept {
+
+		}
+		explicit InvalidLuaTypeException(const char*) noexcept{
+			
+		}
+	};
 	static int luaopen_plib_any(lua_State *L, const luaL_Reg *m,
 					 const char *object_name, 
 					 const luaL_Reg *f,
@@ -107,7 +120,7 @@ namespace spaces{
 			at = lua_gettop(L) + (1 + at);//translate to absolute position
 		}
 
-		auto ud = luaL_testudata(L, at, SPACES_LUA_TYPE_NAME);
+		auto ud = spaces::luaL_testudata(L, at, SPACES_LUA_TYPE_NAME);
 
 		return reinterpret_cast<_Space*>(ud);
 
@@ -132,7 +145,7 @@ namespace spaces{
 
 		luaL_error(L, "Type %s expected",tname);  /* else error */
 
-		throw std::exception("invalid lua type");
+		throw std::exception();
 	}
 	template<typename _TypeName>
 	static _TypeName* err_checkudata(lua_State *L, const char* tname, int ud = 1) {
@@ -351,7 +364,7 @@ namespace spaces{
 		template<typename _VectorType>
 		struct vector_reader_state {
 			vector_reader_state() :state(0) {};
-			~vector_reader_state() {};
+			~vector_reader_state() noexcept {};
 			i4 state;
 			_VectorType v;
 		};
@@ -439,7 +452,7 @@ namespace spaces{
 					typename _Self::_DumpVector dv;
 
 					lua_pushvalue(L, at);
-					if (0 != lua_dump(L, vector_writer<_Self::_DumpVector>, &dv)) {
+					if (0 != spaces_lua_dump(L, vector_writer<_Self::_DumpVector>, &dv)) {
 						lua_error(L);
 					}
 					lua_pop(L, 1);
@@ -571,7 +584,8 @@ namespace spaces{
 				typename _Self::_DumpVector dv;
 
 				lua_pushvalue(L, at);
-				if (0 != lua_dump(L, vector_writer<typename _Self::_DumpVector>, &dv)) {
+
+				if (0 != spaces_lua_dump(L, vector_writer<typename _Self::_DumpVector>, &dv)) {
 					lua_error(L);
 				}
 				lua_pop(L, 1);

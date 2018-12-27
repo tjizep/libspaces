@@ -8,8 +8,12 @@ if (!LUA_FOUND)
     message("ERROR LUA NOT FOUND")
 else()
     message("LUA FOUND OK")
-    message(${LUA_LIBRARIES})
-    message(${LUA_VERSION_STRING})
+    message(${LUA_INCLUDE_DIR})
+    #message(${LUA_INCLUDE})
+
+    #message(${LUA_LIBRARIES})
+
+    #message(${LUA_VERSION_STRING})
 endif()
 set(INST_LIBDIR ${LUA_LIBDIR} CACHE PATH "path where installation will occur")
 if (WIN32)
@@ -135,7 +139,7 @@ file(GLOB POCO_DATA_SQLITE
 file(GLOB_RECURSE POCO_DATA_SQLITE_H
 "src/poco-1.4.6p1-all/Data/SQLite/include/*.h")
 
-file(GLOB LUA_H_FILES ${LUA_INCLUDE}/*.h)
+file(GLOB LUA_H_FILES ${LUA_INCLUDE_DIR}/*.h)
 if (WIN32)
     add_definitions(-MP -DLUA_BUILD_AS_DLL -DPOCO_STATIC -DRPCLIB_FMT=clmdep_fmt -DRPCLIB_MSGPACK=clmdep_msgpack -DRPCLIB_ASIO=boost::asio)
 else()

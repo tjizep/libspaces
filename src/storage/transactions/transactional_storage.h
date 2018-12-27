@@ -201,27 +201,27 @@ namespace storage{
 	/// a file io exception
 	class FileIOException : public std::exception{
 	public:
-		FileIOException() throw() {
+		FileIOException() noexcept {
 			err_print("file io exception");
 		}
 	};
 	/// Exceptions that may be thrown in various circumstances
 	class InvalidAddressException : public std::exception{
 	public: /// The address required cannot exist
-		InvalidAddressException() throw() {
+		InvalidAddressException() noexcept {
 			err_print("invalid address");
 		}
 	};
 
 	class InvalidStorageException : public std::exception{
 	public: /// The storage has invalid meta data
-		InvalidStorageException() throw() {
+		InvalidStorageException() noexcept {
 			err_print("invalid storage");
 		}
 	};
 	class NonExistentAddressException : public std::exception{
 	public: /// The address required does not exist
-		NonExistentAddressException() throw() {
+		NonExistentAddressException() noexcept {
 			err_print("address not found");
 		}
 	};
@@ -229,35 +229,35 @@ namespace storage{
 
 	class InvalidStorageAction : public std::exception{
 		public: /// The storage action supplied is inconsistent with the address provided (according to contract)
-		InvalidStorageAction() throw() {
+		InvalidStorageAction() noexcept {
 			err_print("invalid storage action");
 		}
 	};
 
 	class WriterConsistencyViolation : public std::exception{
 		public: /// The writing version has uncommitted dependencies
-		WriterConsistencyViolation() throw() {
+		WriterConsistencyViolation() noexcept {
 			err_print("writer consistency violation");
 		}
 	};
 
 	class ConcurrentWriterError : public std::exception{
 	public: /// There was more than one transaction writing simultaneously
-		ConcurrentWriterError() throw() {
+		ConcurrentWriterError() noexcept {
 			err_print("concurrent writer error");
 		}
 	};
 
 	class InvalidReaderDependencies : public std::exception{
 		public: /// The reader has no locks
-		InvalidReaderDependencies() throw() {
+		InvalidReaderDependencies() noexcept {
 			err_print("invalid reader dependencies");
 		}
 	};
 
 	class InvalidVersion : public std::exception{
 		public: /// The writing version has uncommitted dependencies
-		InvalidVersion() throw() {
+		InvalidVersion() noexcept {
 			err_print("invalid version");
 
 		}
@@ -266,33 +266,33 @@ namespace storage{
 	/// this is an exception thrown to enforce the single writer policy - if the single writer lock isn't used
 	class InvalidWriterOrder : public std::exception{
 		public: /// The writing transaction has committed to late, another writer already committed
-		InvalidWriterOrder() throw() {
+		InvalidWriterOrder() noexcept {
 			err_print("invalid writer order");
 		}
 	};
 	// this is an exception thrown when a non writing transaction is trying to commit
 	class InvalidTransactionType : public std::exception{
 		public: /// The reading transaction should not commit
-		InvalidTransactionType() throw() {
+		InvalidTransactionType() noexcept {
 			err_print("invalid transaction type");
 		}
 	};
 
 	class InvalidReaderCount : public std::exception{
 		public: /// version released != engaged
-		InvalidReaderCount() throw() {
+		InvalidReaderCount() noexcept {
 			err_print("invalid reader count");
 		}
 	};
 	class ReplicationFailure : public std::exception{
 	public: /// Replication Failed
-		ReplicationFailure() throw() {
+		ReplicationFailure() noexcept {
 			err_print("replication failure");
 		}
 	};
 	class InvalidReplicationController : public std::exception{
 	public: /// Replication controller not available
-		InvalidReplicationController() throw() {
+		InvalidReplicationController() noexcept {
 			err_print("invalid replication controller");
 		}
 	};
@@ -2426,7 +2426,8 @@ namespace storage{
 
 		u32 writing_transactions;			/// writing transactions not committed or rolled back
 
-		u32 writing_transaction_thread;		/// thread which started the writing transaction
+		Poco::Thread::TID writing_transaction_thread;
+											/// thread which started the writing transaction
 
 		version_type last_comitted_version;	/// last comitted version
 
@@ -2464,7 +2465,7 @@ namespace storage{
 
 
 	private:
-
+		version_type latest;				/// temp var
 	public:
 
 		/// merge idle transactions from latest to oldest
@@ -2760,7 +2761,7 @@ namespace storage{
 
 		}
 		const version_type& get_latest_version(const address_type& w){
-			version_type latest;
+			latest = version_type();
 			for(typename storage_container::iterator c = storages.begin(); c != storages.end(); ++c)
 			{
 				version_type current = (*c)->get_latest_version(w);

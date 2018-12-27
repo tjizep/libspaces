@@ -664,7 +664,6 @@ namespace stx
 
             }
 
-
             /// load the persist proxy and set its state to changed
             void change_before() {
                 dbg_print("changing %lld",(nst::lld)this->w);
@@ -713,35 +712,11 @@ namespace stx
 
             }
 
-            /// update the linked list when pages/nodes are evicted so that the
-            /// the current ptr next and preceding members are unloaded
-            /// removing any extra refrences to ptr
 
-            void update_links(typename btree::node* l) {
-                BTREE_ASSERT(l != NULL_REF);
-                if (l->issurfacenode()) {
-                    update_links(static_cast<surface_node*>(l));
-                }
-                else {
-                    update_links(static_cast<interior_node*>(l));
-                }
-
-            }
-
-
-            void update_links(typename btree::interior_node* n) {
-                BTREE_ASSERT(n != NULL_REF);
-                btree* context = (*this).get_context();
-                nst::u32 o = n->get_occupants() + 1;
-                for (nst::u32 p = 0; p < o; ++p) {
-                    n->get_childid(p).discard(*context);
-                }
-
-            }
             void unlink() {
                 node* n = (*this).rget();
                 if (n != NULL_REF)
-                    update_links(n);
+                    n->update_links();
             }
 
             /// if the state is set to loaded and a valid wHere is set the proxy will change state to unloaded
@@ -782,73 +757,10 @@ namespace stx
                 this->set_state(initial);
                 this->set_where(0);
             }
+
         private:
-            void update_links(typename btree::surface_node* l) {
-                if (l->issurfacenode()) {
-                    if (l->preceding.is_loaded()) {
-                        l->preceding.rget()->unload_next();
-                        l->preceding.unload(true, false);
-                    }
-                    if (l->get_next().is_loaded()) {const
-                        surface_node * n = const_cast<typename btree::surface_node*>(l->get_next().rget_surface());
-                        const_cast<typename btree::surface_node*>(n)->preceding.unload(true, false);
-                        const_cast<typename btree::surface_node*>(n)->unload_next();
-                    }
-                }
-                else {
-                    err_print("surface node reports its not a surface node");
-                    throw bad_access();
-                }
-
-            }
-
-            bool next_check(const typename btree::surface_node* s) const {
-                if (selfverify) {
-                    if
-                            (s != nullptr
-                             &&	s->get_address()  > 0
-                             && (*this).get_where() > 0
-                            ) {
-                        if
-                                (s->get_address() == s->get_next().get_where()
-                                ) {
-                            err_print("next check failed");
-                            throw bad_access();
-
-                        }
-                        if
-                                (s == (*this).ptr && s->get_address() != (*this).get_where()
-                                ) {
-                            err_print("self address check failed");
-                            throw bad_access();
-                        }
-                    }
-                }
-                return true;
-            }
-            bool next_check(const typename btree::interior_node*) const {
-                return false;
-            }
-
-            bool next_check(const typename btree::node* n) const {
-
-                if (n != nullptr) {
-                    if (n->level == 0) {
-                        return next_check(static_cast<const surface_node*>(n));
-                    }
-                }
-
-                return false;
-            }
 
         public:
-            const typename btree::surface_node* rget_surface() const {
-                return reinterpret_cast<const typename btree::surface_node*>(rget());
-            }
-            typename btree::surface_node* rget_surface() {
-                return reinterpret_cast<typename btree::surface_node*>(rget());
-            }
-
 
             void refresh()
             {
@@ -860,7 +772,7 @@ namespace stx
                 (*this).context = &b;
                 if ((*this).ptr != NULL_REF && (*this).get_state() == loaded) {
 
-                    update_links(static_cast<_Loaded*>(rget()));
+                    rget()->update_links();
 
                     unload_only();
 
@@ -935,33 +847,11 @@ namespace stx
 
             bool next_check() const {
 
-                return next_check(rget());
+                return true;
             }
 
 
-            void validate_surface_links() {
-                null_check();
-                if (selfverify) {
-                    if ((*this).ptr != NULL && (*this).rget()->issurfacenode()) {
-                        surface_node * c = rget_surface();
-                        if (c->get_next().ptr != NULL_REF) {
 
-                            const surface_node * n = c->get_next().rget_surface();
-                            if (n->preceding.get_where() != (*this).get_where()) {
-                                err_print("The node has invalid preceding pointer");
-                                throw bad_access();
-                            }
-                        }
-                        if (c->preceding.ptr != NULL_REF) {
-                            surface_node * p = c->preceding.rget_surface();
-                            if (p->get_next().get_where() != (*this).get_where()) {
-                                err_print("The node hasconst  invalid next pointer");
-                                throw bad_access();
-                            }
-                        }
-                    }
-                }
-            }
             void null_check() const {
                 if (selfverify) {
                     if (this->get_where() == 0 && (*this).ptr != NULL_REF) {
@@ -1347,6 +1237,7 @@ namespace stx
                 refs--;
                 this->context->stats.iterators_away--;
             }
+
             bool is_ref()const {
                 return refs!=0;
             }
@@ -1543,6 +1434,36 @@ namespace stx
 
                 return l;
             }
+            void destroy_orphan(){
+                if (this->level == 0) {
+                    return static_cast<surface_node*>(this)->destroy_orphan();
+                }
+            }
+            void update_links() {
+                if (this->level == 0) {
+                    return static_cast<surface_node*>(this)->update_links();
+                }
+            }
+
+            void validate_surface_links() {
+                if (selfverify && this != nullptr) {
+                    if (this->level == 0) {
+                        return static_cast<const surface_node*>(this)->validate_surface_links();
+                    }
+                }
+            }
+
+            bool next_check() const {
+
+                if (selfverify && this != nullptr) {
+                    if (this->level == 0) {
+                        return static_cast<const surface_node*>(this)->next_check();
+                    }
+                }
+
+                return false;
+            }
+
         };
 
         /// a decoded interior node in-memory. Contains keys and
@@ -1750,6 +1671,11 @@ namespace stx
             void set_address(stream_address address) {
                 node_ref::set_address_(address);
             }
+            bool next_check() const {
+                return false;
+            }
+
+
 
         };
 
@@ -1868,6 +1794,71 @@ namespace stx
                     err_print("set bad next");
                     throw bad_access();
                 }
+            }
+            void validate_surface_links() {
+                if (selfverify) {
+                    if (this != nullptr && (*this).issurfacenode()) {
+                        surface_node * c = this;
+                        if (c->get_next().ptr != NULL_REF) {
+
+                            const surface_node * n = c->get_next().rget_surface();
+                            if (n->preceding.get_where() != (*this).get_where()) {
+                                err_print("The node has invalid preceding pointer");
+                                throw bad_access();
+                            }
+                        }
+                        if (c->preceding.ptr != NULL_REF) {
+                            surface_node * p = static_cast<surface_node*>(c->preceding.rget());
+                            if (p->get_next().get_where() != (*this).get_where()) {
+                                err_print("The node hasconst  invalid next pointer");
+                                throw bad_access();
+                            }
+                        }
+                    }
+                }
+            }
+            void update_links() {
+                if (this->issurfacenode()) {
+                    if (preceding.is_loaded()) {
+                        preceding.rget()->unload_next();
+                        preceding.unload(true, false);
+                    }
+                    if (get_next().is_loaded()) {const
+                        surface_node * n = const_cast<typename btree::surface_node*>(get_next().rget());
+                        const_cast<typename btree::surface_node*>(n)->preceding.unload(true, false);
+                        const_cast<typename btree::surface_node*>(n)->unload_next();
+                    }
+                }
+                else {
+                    err_print("surface node reports its not a surface node");
+                    throw bad_access();
+                }
+
+            }
+
+            bool next_check() const {
+                if (selfverify) {
+                    if
+                            (this != nullptr
+                             &&	this->get_address()  > 0
+                             && (*this).get_where() > 0
+                            ) {
+                        if
+                                (this->get_address() == this->get_next().get_where()
+                                ) {
+                            err_print("next check failed");
+                            throw bad_access();
+
+                        }
+                        if
+                                (this == (*this).ptr && this->get_address() != (*this).get_where()
+                                ) {
+                            err_print("self address check failed");
+                            throw bad_access();
+                        }
+                    }
+                }
+                return true;
             }
 
             buffer_type	&get_attached() {
@@ -2815,16 +2806,14 @@ namespace stx
                 _retreat(count,start);
             }
             void ref(){
-
                 if(current_ptr.is_loaded()){
-                    auto surface = current_ptr.rget_surface();
-                    surface->ref();
+                    current_ptr.rget()->ref();
                 }
-
             }
+
             void unref(){
                 if(current_ptr.is_loaded()){
-                    auto surface = current_ptr.rget_surface();
+                    auto surface = current_ptr.rget();
                     surface->unref();
                     surface->destroy_orphan();
                     current_ptr = NULL_REF;
@@ -4472,7 +4461,7 @@ namespace stx
                 /// avoid letting those pigeons out
                 if(stats.start_root != root.get_where()){
                     get_storage()->set_boot_value(root.get_where());
-                    stats.start_head == root.get_where();
+                    stats.start_head = root.get_where();
                 }
 
                 if(stats.start_tree_size != stats.tree_size){
@@ -4977,13 +4966,13 @@ namespace stx
             template <typename node_type>
             inline int find_lower(const node_type* n, const key_type& key) const
             {   dbg_print("find lower tree size: %lld, storage name: %s",(nst::lld)stats.tree_size,get_storage()->get_name().c_str());
-                return n->find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
+                return n-> template find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
             }
 
             template <typename node_ptr_type>
             inline int find_lower(const node_ptr_type& n, const key_type& key) const
             {   dbg_print("find lower tree size: %lld, storage name: %s",(nst::lld)stats.tree_size,get_storage()->get_name().c_str());
-                return n->find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
+                return n-> template find_lower<key_compare, key_interpolator>(key_less, key_terp, key);
 
 #ifdef _BT_CHECK
                 BTREE_PRINT("btree::find_lower: on " << n << " key " << key << " -> (" << lo << ") " << hi << ", ");
