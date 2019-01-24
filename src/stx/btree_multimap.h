@@ -582,14 +582,13 @@ public:
 	/// shared pages
 
 	void share(std::string name){
-		tree.share(name);
-		printf("shared pages in %s\n",name.c_str());
+		ß
 	}
 
 	/// unshare all surfaces
 
 	void unshare(){
-		tree.unshare();
+
 	}
 
 	stx::storage::stream_address get_root_address() const {

@@ -74,7 +74,7 @@ public:
     // The macro BTREE_FRIENDS can be used by outside class to access the B+
     // tree internals. This was added for wxBTreeDemo to be able to draw the
     // tree.
-    BTREE_FRIENDS
+    //BTREE_FRIENDS
 
 private:
     // *** The Data_Type
@@ -112,21 +112,21 @@ public:
     // *** Static Constant Options and Values of the B+ Tree
 
     /// Base B+ tree parameter: The number of key/data slots in each leaf
-    static const unsigned short         leafslotmax =  btree_impl::leafslotmax;
+    static const unsigned short         leafslotmax =  btree_impl::surfaceslotmax;
 
     /// Base B+ tree parameter: The number of key slots in each inner node,
     /// this can differ from slots in each leaf.
-    static const unsigned short         innerslotmax =  btree_impl::innerslotmax;
+    static const unsigned short         innerslotmax =  btree_impl::interiorslotmax;
 
     /// Computed B+ tree parameter: The minimum number of key slots used in a
     /// leaf. If fewer slots are used, the leaf will be merged or slots shifted
     /// from it's siblings.
-    static const unsigned short         minleafslots = btree_impl::minleafslots;
+    static const unsigned short         minleafslots = btree_impl::minsurfaces;
 
     /// Computed B+ tree parameter: The minimum number of key slots used
     /// in an inner node. If fewer slots are used, the inner node will be
     /// merged or slots shifted from it's siblings.
-    static const unsigned short         mininnerslots = btree_impl::mininnerslots;
+    static const unsigned short         mininnerslots = btree_impl::mininteriorslots;
 
     /// Debug parameter: Enables expensive and thorough checking of the B+ tree
     /// invariants after each insert/erase operation.
@@ -564,7 +564,7 @@ public:
     /// type and contain no pointers or references.
     void dump(std::ostream &os) const
     {
-        tree.dump(os);
+        //tree.dump(os);
     }
 
     /// Restore a binary image of a dumped B+ tree from an istream. The B+ tree

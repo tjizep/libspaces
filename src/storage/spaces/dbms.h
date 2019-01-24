@@ -156,7 +156,10 @@ namespace spaces{
         typedef dbms* ref;
 	};
 	
-
+	/**
+	 * the task of this class is to launch the memory management thread
+	 * this thread is there to flush unused database management objects
+	 */
 	class dbms_memmanager{
 	private:
 		typedef rabbit::unordered_map<ptrdiff_t, spaces::dbms::ptr> _Active;
@@ -213,7 +216,9 @@ namespace spaces{
 
         }
 	public:
-
+		/**
+		 * constructs the memory management object and wait for thread to start
+		 */
 		dbms_memmanager()
 		:   canceling(false)
 		,	started(false)
@@ -227,6 +232,12 @@ namespace spaces{
 
 
 		}
+		/**
+		 * add a new reader/writer dbms to the pool
+		 * @param name named storage the result will manage
+		 * @param reader true if a readonly dbms is required
+		 * @return the dbms object
+		 */
 		spaces::dbms::ptr add(const std::string& name, bool reader){
         	
             std::lock_guard<std::recursive_mutex> lock(manage_x);
@@ -234,7 +245,9 @@ namespace spaces{
 			active[(ptrdiff_t)(void *)dbms_ptr.get()] = dbms_ptr;
 			return dbms_ptr;
 		}
-
+		/**
+		 * called by mananagement thread to check memory use and take appropriate action
+		 */
 		void check_dbms(){
 			dbg_print("start dbms checker");
 			started = true;
@@ -254,6 +267,9 @@ namespace spaces{
 			dbg_print("finish dbms checker");
 			started = false;
 		}
+		/**
+		 * destroys the memmanager and waits for thread to stop
+		 */
 		~dbms_memmanager(){
         	dbg_print("~dbms_memmanager");
 			canceling = true;
@@ -277,8 +293,17 @@ namespace spaces{
 		}
 
 	};
-
+	/**
+	 * function to get single writer for specific named storage
+	 * @param name
+	 * @return
+	 */
 	extern dbms::ptr get_writer(const std::string& name);
+	/**
+	 * creates a new readonly object to named storage
+	 * @param name
+	 * @return
+	 */
 	extern dbms::ptr create_reader(const std::string& name);
 }
 #undef __LOG_NAME__

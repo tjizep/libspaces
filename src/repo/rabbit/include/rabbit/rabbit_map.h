@@ -1047,6 +1047,7 @@ namespace rabbit{
 			typedef hash_kernel* kernel_ptr;
 			const basic_unordered_map* h;
 			size_type pos;
+		public:
 			friend struct const_iterator;
 		protected:
 			_Bt index;

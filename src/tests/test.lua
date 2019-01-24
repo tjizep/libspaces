@@ -1,5 +1,5 @@
 
-require "spaces"
+local spaces = require "spaces"
 --spaces.debug()
 spaces.storage("test")
 spaces.setMaxMb(1080)

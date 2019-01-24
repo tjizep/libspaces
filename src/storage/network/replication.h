@@ -51,7 +51,7 @@ namespace spaces{
         void rollback();
         /// open a connection whilst performing version control handshake
         /// the handshake will transamit and receive versions of all
-        /// late resources as will as a time check as in the is_open method
+        /// late resources as wll as a time check as in the is_open method
         /// it also adds an optional observer ip and port combination
         void open(bool is_new,const std::string& name);
         /// set an observer

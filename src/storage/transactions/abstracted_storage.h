@@ -248,7 +248,7 @@ namespace stored{
 			(*this).writer = writer;
 			if(writer) get_allocations().write_lock();
 			get_transaction(writer,version,last_version);
-			order = get_allocations().get_order();
+			order = get_allocations().get_order();// order > 0
 
 		}
 		/// the order of the current transaction
@@ -266,8 +266,18 @@ namespace stored{
 			if(_transaction==nullptr) return true;
 			return (get_transaction().get_order() != get_allocations().get_order());
 		}
-		/// returns true when the transaction has its own order
+		/// returns true when the transaction does not have its own order
 		bool is_transacted() const {
+			if(this->writer && _transaction != nullptr ){
+				if(_allocations==nullptr){
+					err_print("there should be a allocation storage defined");
+					throw NullPointerException();
+				}
+				//TODO: NB the writer transaction does not actually know if its transacted or not
+				// currently it just always reports true which is not correct
+                auto alloc_order = get_allocations().get_order();
+				return (order == get_allocations().get_order());
+			}
 			return (_transaction!=nullptr);
 		}
 
@@ -299,9 +309,8 @@ namespace stored{
 				}else{
 					r = get_allocations().commit(_transaction);
 					_transaction = NULL;
-					(*this).order = 0;
 				}
-				
+				(*this).order = 0;
 			}else{
 				(*this).writer = false;
 			}

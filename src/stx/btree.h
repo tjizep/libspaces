@@ -53,7 +53,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <memory>
 #include <cstddef>
 #include <bitset>
-#include <assert.h>
+#include <cassert>
 #include <vector>
 #include <set>
 #include <map>
@@ -122,7 +122,11 @@ extern void add_btree_totl_used(ptrdiff_t added);
 extern void remove_btree_totl_used(ptrdiff_t added);
 class malformed_page_exception : public std::exception {
 public:
-    malformed_page_exception() throw() {};
+    malformed_page_exception() noexcept {};
+};
+class method_not_implemented_exception : public std::exception {
+public:
+    method_not_implemented_exception() noexcept {};
 };
 
 template <typename T>
@@ -1445,7 +1449,7 @@ namespace stx
                 }
             }
 
-            void validate_surface_links() {
+            void validate_surface_links() const {
                 if (selfverify && this != nullptr) {
                     if (this->level == 0) {
                         return static_cast<const surface_node*>(this)->validate_surface_links();
@@ -1801,8 +1805,8 @@ namespace stx
                         surface_node * c = this;
                         if (c->get_next().ptr != NULL_REF) {
 
-                            const surface_node * n = c->get_next().rget_surface();
-                            if (n->preceding.get_where() != (*this).get_where()) {
+                            const surface_node * n = static_cast<surface_node*>(c->get_next().rget());
+                            if (n->preceding.get_where() != n->get_where()) {
                                 err_print("The node has invalid preceding pointer");
                                 throw bad_access();
                             }
@@ -1810,7 +1814,7 @@ namespace stx
                         if (c->preceding.ptr != NULL_REF) {
                             surface_node * p = static_cast<surface_node*>(c->preceding.rget());
                             if (p->get_next().get_where() != (*this).get_where()) {
-                                err_print("The node hasconst  invalid next pointer");
+                                err_print("The node has invalid next pointer");
                                 throw bad_access();
                             }
                         }
@@ -2767,9 +2771,9 @@ namespace stx
                 ,   const _Iterator& boundary = _Iterator()
             ) {
                 if(count > 0)
-                    advance(*this,count,boundary);
+                    _advance(count,boundary);
                 else
-                    retreat(*this,-count,boundary);
+                    _retreat(-count,boundary);
             }
 
 
@@ -3568,9 +3572,9 @@ namespace stx
             */
             inline self& operator -= (const long long count){
                 if(count >= 0)
-                    iterator_base::retreat(*this,count);
+                    iterator_base::_retreat(count);
                 else
-                    iterator_base::advance(*this,-count);
+                    iterator_base::_advance(-count);
                 return *this;
             }
             /**
@@ -3581,9 +3585,9 @@ namespace stx
              */
             inline self& operator += (const long long count) {
                 if(count >= 0)
-                    iterator_base::advance(*this,count);
+                    iterator_base::_advance(count);
                 else
-                    iterator_base::retreat(*this,-count);
+                    iterator_base::_retreat(-count);
                 return *this;
             }
             /// Prefix++ advance the iterator to the next slot
@@ -3780,6 +3784,7 @@ namespace stx
                 iterator_base::assign(other) ;
                 this->assign_current(other.get_current());
                 this->current_slot = other.current_slot;
+                return *this;
             }
             /// Dereference the iterator, this is not a value_type& because key and
             /// value are not stored together
@@ -4616,6 +4621,13 @@ namespace stx
             }
 
         }
+        void check_low_memory_state() const {
+            if (::stx::memory_low_state) {
+                err_print("cannot reduce memory");
+                //reduce_use();
+            }
+
+        }
 
         /// writes all modified pages to storage and frees all surface nodes
         void reduce_use() {
@@ -5307,7 +5319,7 @@ namespace stx
         {
 
             slot = find_lower(static_cast<interior_node*>(n. operator->()), key);
-            n = static_cast<interior_node*>(n. operator->())->childid[slot];
+            n = static_cast<interior_node*>(n. operator->())->get_childid(slot);
         }
 
         const typename surface_node::ptr surface = n;
@@ -5462,7 +5474,9 @@ namespace stx
             stats.leaves = stats.interiornodes = 0;
             if (other.root)
             {
-                root = copy_recursive(other.root);
+                err_print("[WARNING] b-tree copy constructor not implemented");
+                //throw method_not_implemented_exception();
+                //root = copy_recursive(other.root);
             }
             if (selfverify) verify();
         }
@@ -6319,14 +6333,14 @@ namespace stx
                 return btree_not_found;
             }
 
-            if (iter.current_slot >= surface->get_occupants())
+            if (iter.get_current() >= surface->get_occupants())
             {
                 BTREE_PRINT("Could not find iterator (" << iter.get_current() << "," << iter.current_slot << ") to erase. Invalid surface node?" << std::endl);
 
                 return btree_not_found;
             }
 
-            int slot = iter.current_slot;
+            int slot = iter.get_current();
 
             BTREE_PRINT("Found iterator in surface " << curr << " at slot " << slot << std::endl);
 

@@ -415,8 +415,8 @@ namespace stx{
 			i32 cp = from.empty() ? 0 : LZ4_compress((const encode_type_ref)&from[0], (encode_type_ref)&to_ref[sizeof(i32)], origin);
 			*((i32*)&to_ref[0]) = origin;
 			if(to.empty()){
-				to.~buffer_type();
-				new (&to) buffer_type((const u8*)to_ref,((const u8*)to_ref)+(cp+sizeof(i32)));
+				buffer_type temp((const u8*)to_ref,((const u8*)to_ref)+(cp+sizeof(i32)));
+				to.swap(temp);
 			}else{
 				to.resize(cp+sizeof(i32));
 				memcpy(&to[0], to_ref,to.size());

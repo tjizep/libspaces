@@ -161,7 +161,11 @@ ${STX_H}
 ${SPACES} 
 ${SPACES_H})
 
-set_target_properties(spaces PROPERTIES PREFIX "")
+if (WIN32)
+    set_target_properties(spaces PROPERTIES PREFIX "")
+else()
+    set_target_properties(spaces PROPERTIES PREFIX "" SUFFIX .so)
+endif()
 
 target_link_libraries(spaces PRIVATE ${LUA} ${Boost_LIBRARIES})
 

@@ -36,6 +36,7 @@ namespace spaces{
 
         }
         ~db_session(){
+            dbg_print("destroy db session %s",this->name.c_str());
 			--db_session_count;
         }
         const std::string& get_name() const {return this->name;}
@@ -105,7 +106,9 @@ namespace spaces{
 
         nst::i64 position;
         spaces_iterator(): position(0){++iterator_count;}
-        ~spaces_iterator(){--iterator_count;}
+        ~spaces_iterator(){
+            --iterator_count;
+        }
         void set_upper(_Set& s,const  key& upper){
             this->e = s.lower_bound(upper);
             this->upper = upper;
@@ -245,7 +248,7 @@ namespace spaces{
 
         }
         ~spaces_session() {
-
+            dbg_print("destroying spaces session");
         }
         /**
          *
