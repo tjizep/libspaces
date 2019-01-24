@@ -65,6 +65,12 @@ namespace stored{
 		_Allocations *_allocations;
 		_Transaction *_transaction;
 		nst::u64 order;
+		void check_transaction_started(){
+			if(order == 0 || _transaction==nullptr){
+				err_print("transaction not started");
+				throw TransactionNotStartedException();
+			}
+		}
 		bool has_allocations() const {
 			return (_allocations != NULL);
 		}
@@ -238,6 +244,7 @@ namespace stored{
 			if(writer) get_allocations().write_lock();
 			get_transaction(writer);
 			order = get_allocations().get_order();
+			check_transaction_started();
 
 		}
 		/// starts a transaction with version preconditions
@@ -249,6 +256,8 @@ namespace stored{
 			if(writer) get_allocations().write_lock();
 			get_transaction(writer,version,last_version);
 			order = get_allocations().get_order();// order > 0
+			check_transaction_started();
+
 
 		}
 		/// the order of the current transaction
@@ -268,17 +277,14 @@ namespace stored{
 		}
 		/// returns true when the transaction does not have its own order
 		bool is_transacted() const {
+
 			if(this->writer && _transaction != nullptr ){
-				if(_allocations==nullptr){
-					err_print("there should be a allocation storage defined");
+				if(_allocations==nullptr) {
+					err_print("there should be an allocation storage defined");
 					throw NullPointerException();
 				}
-				//TODO: NB the writer transaction does not actually know if its transacted or not
-				// currently it just always reports true which is not correct
-                auto alloc_order = get_allocations().get_order();
-				return (order == get_allocations().get_order());
 			}
-			return (_transaction!=nullptr);
+			return order!=0;
 		}
 
 		/// returns true if no writes are permitted
@@ -300,8 +306,10 @@ namespace stored{
 		/// a kind of auto commit - by starting the transaction immediately after initialization
 
 		bool commit(){
+
 			bool r = false;
 			if(_transaction != NULL){
+
 				if((*this).writer){
 					r = get_allocations().merge(_transaction);
 					(*this).order = get_allocations().get_order();
@@ -310,10 +318,11 @@ namespace stored{
 					r = get_allocations().commit(_transaction);
 					_transaction = NULL;
 				}
-				(*this).order = 0;
+
 			}else{
 				(*this).writer = false;
 			}
+			(*this).order = 0;
 			
 			return r;
 		}
@@ -338,13 +347,14 @@ namespace stored{
 		/// releases whatever version locks may be used
 
 		void rollback(){
-			if(_transaction != NULL){
+
+			if(_transaction != NULL && this->order != 0){
 				get_allocations().discard(_transaction);
 				_transaction = NULL;
 				if((*this).writer) get_allocations().write_unlock();
 				(*this).writer = false;
-				(*this).order = 0;
 			}
+			(*this).order = 0;
 		}
 
 		/// get versions
@@ -368,6 +378,7 @@ namespace stored{
 				get_allocations().release();
 				_allocations = NULL;
 			}
+			this->order = 0;
 			(*this).writer = false;
 		}
 
